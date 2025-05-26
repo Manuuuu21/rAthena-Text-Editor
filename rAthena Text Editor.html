@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>rAthena Text Editor</title>
+  <link rel="stylesheet" href="library/design.css">
+  <link rel="icon" href="library/rte-icon.png" type="image/x-icon">
+</head>
+<body>
+
+<div id="editor"></div>
+
+<!-- Theme Buttons -->
+<div class="theme-container">
+  <button class="theme-button" onclick="toggleTheme()">Toggle Theme</button>
+</div>
+<!-- FAB Buttons -->
+<div class="fab-container">
+  <div class="fab-options" id="fabOptions" style="display: none;">
+    <div class="fab-option" onclick="document.getElementById('fileInput').click()">Open File</div>
+    <div class="fab-option" onclick="downloadEditorContent()">Download</div>
+  </div>
+  <button class="fab" onclick="toggleFabOptions()">+</button>
+</div>
+<input type="file" id="fileInput" accept=".txt, .conf" />
+
+<!-- Required Ace scripts -->
+<script src="library/ace.js"></script>
+<script src="library/mode-html.min.js"></script>
+<script src="library/theme-github_light_default.min.js"></script>
+<script src="library/theme-monokai.min.js"></script>
+<script src="library/ext-searchbox.min.js"></script>
+<!-- Custom Highlighting Rules -->
+<script src="library/rathena-highlight.js"></script>
+
+<!-- Initialize the editor -->
+<script>
+  let currentTheme = "ace/theme/monokai";
+  const editor = ace.edit("editor");
+  editor.setTheme(currentTheme);
+  editor.session.setMode("ace/mode/rathena");
+  editor.setOptions({
+    enableBasicAutocompletion: true,
+    enableSnippets: true,
+    showPrintMargin: false
+  });
+
+  // Enable Find box (Ctrl-F)
+  editor.commands.addCommand({
+    name: "showSearch",
+    bindKey: { win: "Ctrl-F", mac: "Command-F" },
+    exec: function(editor) {
+      ace.require("ace/ext/searchbox").Search(editor);
+    }
+  });
+
+  function toggleTheme() {
+    currentTheme = currentTheme === "ace/theme/github_light_default" ? "ace/theme/monokai" : "ace/theme/github_light_default";
+    editor.setTheme(currentTheme);
+  }
+
+  function toggleFabOptions() {
+    const options = document.getElementById("fabOptions");
+    options.style.display = options.style.display === "none" ? "flex" : "none";
+  }
+
+  // DOWNLOAD button
+  function downloadEditorContent() {
+    const content = editor.getValue();
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rAthenaTxtScript.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  document.getElementById("fileInput").addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      editor.setValue(e.target.result, -1);
+    };
+    reader.readAsText(file);
+  });
+</script>
+
+</body>
+</html>
