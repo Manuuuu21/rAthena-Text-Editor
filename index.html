@@ -2,14 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>rAthena Text Editor</title>
   <link rel="stylesheet" href="library/design.css">
   <link rel="icon" href="library/rte-icon.png" type="image/x-icon">
 </head>
 <body>
+<div id="editor">
 
-<div id="editor"></div>
 
+
+
+</div>
 <!-- Theme Buttons -->
 <div class="theme-container">
   <button class="theme-button" onclick="toggleTheme()">Toggle Theme</button>
@@ -17,7 +21,8 @@
 <!-- FAB Buttons -->
 <div class="fab-container">
   <div class="fab-options" id="fabOptions" style="display: none;">
-    <div class="fab-option" onclick="document.getElementById('fileInput').click()">Open File</div>
+    <div id="saveBtn" class="fab-option">Save</div>
+    <div id="openBtn" class="fab-option">Open File</div>
     <div class="fab-option" onclick="downloadEditorContent()">Download</div>
   </div>
   <button class="fab" onclick="toggleFabOptions()">+</button>
@@ -26,7 +31,6 @@
 
 <!-- Required Ace scripts -->
 <script src="library/ace.js"></script>
-<script src="library/mode-html.min.js"></script>
 <script src="library/theme-github_light_default.min.js"></script>
 <script src="library/theme-monokai.min.js"></script>
 <script src="library/ext-searchbox.min.js"></script>
@@ -39,11 +43,7 @@
   const editor = ace.edit("editor");
   editor.setTheme(currentTheme);
   editor.session.setMode("ace/mode/rathena");
-  editor.setOptions({
-    enableBasicAutocompletion: true,
-    enableSnippets: true,
-    showPrintMargin: false
-  });
+
 
   // Enable Find box (Ctrl-F)
   editor.commands.addCommand({
@@ -78,15 +78,73 @@
     URL.revokeObjectURL(url);
   };
 
-  document.getElementById("fileInput").addEventListener("change", function (e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      editor.setValue(e.target.result, -1);
-    };
-    reader.readAsText(file);
-  });
+  let fileHandle = null; // We'll store this after opening
+
+// Open file using File System Access API (real file object)
+document.getElementById("openBtn").addEventListener("click", async () => {
+  try {
+    [fileHandle] = await window.showOpenFilePicker();
+    const file = await fileHandle.getFile();
+    const contents = await file.text();
+    editor.setValue(contents, -1);
+
+    // Set the <title> to the opened file's name
+    document.title = file.name + " - rAthena Text Editor";
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("Cancelled file open.");
+    } else {
+      console.error("Open failed:", err);
+    }
+  }
+});
+
+// Save file (overwrite original file, not download)
+async function saveToFile() {
+  try {
+    if (!fileHandle) {
+      // Trigger Save As dialog
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: "rAthenaTxtScript.txt",
+          types: [
+            {
+              description: "Text Files",
+              accept: { "text/plain": [".txt"] },
+            },
+          ],
+        });
+
+      // Update the <title> with the new file name
+      document.title = fileHandle.name + " - rAthena Text Editor";
+    }
+
+    const writable = await fileHandle.createWritable();
+    await writable.write(editor.getValue());
+    await writable.close();
+    console.log("Saved successfully.");
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("Saving was canceled.");
+    } else {
+      console.error("Failed to save:", err);
+    }
+  }
+}
+
+// Ctrl+S triggers save
+editor.commands.addCommand({
+  name: "saveToFileSystem",
+  bindKey: { win: "Ctrl-S", mac: "Command-S" },
+  exec: function () {
+    saveToFile();
+  },
+  readOnly: false
+});
+
+// Save button
+document.getElementById("saveBtn").addEventListener("click", () => {
+  saveToFile();
+});
 </script>
 
 </body>
