@@ -17,8 +17,9 @@ Designed with simplicity and convenience in mind, it includes essential features
 ## Try it here
 https://manuuuu21.github.io/rAthena-Text-Editor/
 
-## Screenshots
-# Darkmode
+---
+# Screenshots
+## Darkmode
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode.png)
-# Lightmode
+## Lightmode
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/lightmode.png)
