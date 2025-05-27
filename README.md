@@ -9,6 +9,7 @@ Designed with simplicity and convenience in mind, it includes essential features
 
 - 🖊️ **Edit your code** right in the browser
 - 💾 **Download your code** as a `.txt` file after you're done
+- 💾 **Save** the file
 - 📂 **Open existing .txt files** to continue editing
 - 🌓 **Toggle between Dark Mode and Light Mode** for better readability
 - ✅ No installation, no internet connection needed – works 100% offline
