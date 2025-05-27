@@ -14,6 +14,8 @@ Designed with simplicity and convenience in mind, it includes essential features
 - ✅ No installation, no internet connection needed – works 100% offline
 
 ---
+## Try it here
+https://manuuuu21.github.io/rAthena-Text-Editor/
 
 ## Screenshots
 # Darkmode
