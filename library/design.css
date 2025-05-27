@@ -12,8 +12,8 @@ width: 100%;
 
 .theme-container {
 position: fixed;
-top: 25px;
-right: 35px;
+bottom: 40px;
+right: 145px;
 z-index: 1000;
 }
 
