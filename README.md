@@ -7,12 +7,13 @@ Designed with simplicity and convenience in mind, it includes essential features
 
 ## ✨ Features
 
-- 🖊️ **Edit your code** right in the browser
+- 🖊️ **Edit your code** directly in the browser
 - 💾 **Download your code** as a `.txt` file after you're done
-- 💾 **Save** the file
-- 📂 **Open existing .txt files** to continue editing
+- 💾 **Save your work** with just a click
+- 📂 **Open existing** .txt files to continue where you left off
+- 📥 **Drag and drop** .txt files to open them instantly
 - 🌓 **Toggle between Dark Mode and Light Mode** for better readability
-- ✅ No installation, no internet connection needed – works 100% offline
+- ✅ **No installation or internet required** – works 100% offline
 
 ---
 ## Try it here
