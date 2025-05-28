@@ -3,25 +3,31 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
   const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
 
   const RathenaHighlightRules = function() {
-    const itemCommands = "getitem|getitem2|getitem3|getinventorylist|getitemname|clearitem|equip|autoequip|itemskill|getarraysize|rentitem|rentitem2|rentitem3|rentitem4|delitem|delitem2|delitem3|delitem4|countitem|countitem2|countitem3|countitem4|cartcountitem|getitembound|getitembound2|getitembound3";
-    const functionCommands = "callfunc|sleep|strcharinfo|input|select|rand|unitwarp|getfreecell|initnpctimer|getnpcid|duplicate|readparam";
+    const itemCommands = `getitem|getitem2|getitem3|getinventorylist|getitemname|clearitem|equip|autoequip|itemskill|getarraysize|rentitem|rentitem2|rentitem3|rentitem4|delitem|delitem2|delitem3|delitem4|countitem|countitem2|countitem3|countitem4|cartcountitem|getitembound|getitembound2|getitembound3
+                          |getequipid|getequipcardid|isequipped`;
+    const functionCommands = "callfunc|sleep|strcharinfo|input|select|rand|unitwarp|getfreecell|initnpctimer|getnpcid|duplicate|readparam|gettimetick|getgroupid|getcharid|getmapxy|getequipisequiped|getequipname";
     const variableCommands = "set|setarray|copyarray|cleararray|setrandomoption|bStr|bAgi|bVit|bInt|bDex|bLuk|Zeny";
-    const controlStructures = "if|else|switch|case|default|while|for|break|end|script|goto|function";
-    const dialogCommands = "mes|next|close|close2|npctalk|waitingroom|delwaitingroom|menu|announce|message";
-    const systemCommands = "recalculatestat|jobcanentermap|freeloop|get_revision|get_githash|getbattleflag";
-    const mapCommands = "pvpon|pvpoff|navigateto|mapflag|warpwaitingpc";
+    const controlStructures = "if|else|switch|case|default|while|for|break|end|script|goto|return";
+    const dialogCommands = "mes|next|close|close2|npctalk|waitingroom|delwaitingroom|menu|announce|message|emotion|showscript|cutin";
+    const systemCommands = "recalculatestat|jobcanentermap|freeloop|get_revision|get_githash|getbattleflag|function";
+    const mapCommands = "pvpon|pvpoff|navigateto|mapflag|warpwaitingpc|shop|itemshop|callshop|pcblockmove|sleep|sleep2|progressbar|warp|attachrid";
     const channelCommands = "channel_chat|channel_ban|channel_kick|channel_unban|channel_delete|channel_setgroup|channel_setgroup2";
     const petCommands = "petloot|petrecovery|petskillbonus|petskillsupport|petskillattack|petskillattack2";
     const scCommands = "sc_start|sc_start2|sc_start4|sc_end|sc_end_class";
-    const bonusCommands = "bonus|bonus2|bonus3|bonus4|bonus5|autobonus|autobonus2|autobonus3|statusup2";
+    const bonusCommands = "bonus|bonus2|bonus3|bonus4|bonus5|autobonus|autobonus2|autobonus3|statusup2|specialeffect2|specialeffect|percentheal";
     const atCommands = "atcommand|charcommand|bindatcmd|unbindatcmd|useatcmd";
-    const mapNames = "prontera|morocc|geffen|gef_fild10|payon|pay_arche|alberta|izlude|aldebaran|xmas|comodo|yuno|amatsu|gonryun|umbala|niflheim|louyang|ayothaya|jawaii|einbroch|lighthalzen|einbech|hugel|rachel|veins|moscovia|mid_camp|manuk|splendide|brasilis|dicastes01|mora|dewata|malangdo|malaya|eclage|lasagna|new_1-1|new_1-2|turbo_room"; // <-- Extend this list
+    const trueOrFalse = "true|false";
+    const operators = "\\+|-|\\*|\\/|%|=|==|!=|<=|>=|<|>|&&|\\|\\||!|\\^|&|\\||\\?";
+    const mapNames = `prontera|prt_in|morocc|geffen|gef_fild10|payon|pay_arche|alberta|izlude|aldebaran|xmas|comodo|yuno|amatsu|gonryun|umbala|niflheim|louyang|ayothaya|jawaii|einbroch|lighthalzen|einbech|hugel|rachel|veins|moscovia|mid_camp|manuk|splendide|brasilis|dicastes01|mora|dewata|malangdo|malaya|eclage|lasagna|new_1-1|new_1-2|turbo_room
+                      |moc_ruins|thor_camp|ecl_in01|kame_house`; // <-- Extend this list
+    const varParamNames = `EQI_COSTUME_HEAD_TOP|EQI_COSTUME_HEAD_MID|EQI_COSTUME_HEAD_LOW|EQI_COSTUME_GARMENT`;
 
     this.$rules = {
       "start": [
         { token: "keyword.control", regex: "\\b(?:" + controlStructures + ")\\b" },
         { token: "variable.language", regex: "\\b(?:" + variableCommands + ")\\b" },
-        { token: "support.function.dialog", regex: "\\b(?:" + dialogCommands + ")\\b" },
+        { token:"support.function.dialog",regex:"\\b(?:" + dialogCommands + ")\\b", onMatch:function(v,s,st,l){let i=l.indexOf(v);return i>0&&(/[.@\\w]/.test(l[i-1]))?"identifier":this.token;}},
+        // { token: "support.function.dialog", regex: "(?<![\\w\\.])(?:" + dialogCommands + ")\\b" },
         { token: "support.function.item", regex: "\\b(?:" + itemCommands + ")\\b" },
         { token: "support.function.map", regex: "\\b(?:" + mapCommands + ")\\b" },
         { token: "support.function.pet", regex: "\\b(?:" + petCommands + ")\\b" },
@@ -30,12 +36,15 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { token: "support.function.bonus", regex: "\\b(?:" + bonusCommands + ")\\b" },
         { token: "support.function.system", regex: "\\b(?:" + systemCommands + ")\\b" },
         { token: "support.function.atcmd", regex: "\\b(?:" + atCommands + ")\\b" },
-        { token: "support.function.rathena", regex: "\\b(?:" + functionCommands + ")\\b" },
-        { token: "support.function.mapNames", regex: "\\b(?:" + mapNames + ")\\b" },
+        { token: "support.function.rathena", regex: "(?<![@\\w\\.])\\b(?:" + functionCommands + ")\\b" },
+        { token: "variable.parameter", regex: "\\b(?:" + mapNames + ")\\b" },
+        { token: "variable.parameter", regex: "\\b(?:" + varParamNames + ")\\b" },
+        { token: "constant.numeric", regex: "\\b(?:" + trueOrFalse + ")\\b" },
         { token: "keyword.control", regex: "\\bOn\\w+:" },
         { token: "string", regex: '".*?"' },
         { token: "constant.numeric", regex: "\\b\\d+\\b" },
         { token: "comment.line", regex: "//.*$" },
+        { token: "keyword.operator", regex: "(?:" + operators + ")" },
         { token: "comment.block.start", regex: "/\\*", next: "comment" }
       ],
 
