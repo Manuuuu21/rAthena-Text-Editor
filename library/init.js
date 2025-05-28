@@ -100,7 +100,7 @@ return;
 }
 
 const file = files[0];
-const validExtensions = [".txt", ".conf"];
+const validExtensions = [".txt", ".conf", ".yml"];
 const fileName = file.name.toLowerCase();
 
 if (!validExtensions.some(ext => fileName.endsWith(ext))) {
