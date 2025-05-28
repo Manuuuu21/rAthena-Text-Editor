@@ -27,13 +27,15 @@
   </div>
   <button class="fab" onclick="toggleFabOptions()">+</button>
 </div>
-<input type="file" id="fileInput" accept=".txt, .conf" />
+<input type="file" id="fileInput" accept=".txt, .conf, .yml" />
 
 <!-- Required Ace scripts -->
 <script src="library/ace.js"></script>
 <script src="library/theme-github_light_default.min.js"></script>
 <script src="library/theme-monokai.min.js"></script>
+<script src="library/ext-language_tools.min.js"></script>
 <script src="library/ext-searchbox.min.js"></script>
+
 <!-- Custom Highlighting Rules -->
 <script src="library/rathena-highlight.js"></script>
 <script src="library/init.js"></script>
@@ -44,6 +46,14 @@
   const editor = ace.edit("editor");
   editor.setTheme(currentTheme);
   editor.session.setMode("ace/mode/rathena");
+
+  // Enable the language tools
+  ace.require("ace/ext/language_tools");
+  editor.setOptions({
+    enableBasicAutocompletion: true,    // Ctrl + Space or auto-triggered
+    enableLiveAutocompletion: true,     // Autocomplete as you type
+    enableSnippets: true                // Enable code snippets
+  });
 
   // Enable Find box (Ctrl-F)
   editor.commands.addCommand({
