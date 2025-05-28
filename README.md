@@ -8,7 +8,8 @@ Designed with simplicity and convenience in mind, it includes essential features
 ## ✨ Features
 
 - 🖊️ **Edit your code** directly in the browser
-- 💾 **Download your code** as a `.txt` file after you're done
+- ⚡ **Autocomplete suggestions** to speed up your coding
+- ⬇️ **Download your code** as a `.txt` file after you're done
 - 💾 **Save your work** with just a click
 - 📂 **Open existing** .txt files to continue where you left off
 - 📥 **Drag and drop** .txt files to get the data of txt file
