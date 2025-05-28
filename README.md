@@ -11,7 +11,7 @@ Designed with simplicity and convenience in mind, it includes essential features
 - 💾 **Download your code** as a `.txt` file after you're done
 - 💾 **Save your work** with just a click
 - 📂 **Open existing** .txt files to continue where you left off
-- 📥 **Drag and drop** .txt files to open them instantly
+- 📥 **Drag and drop** .txt files to get the data of txt file
 - 🌓 **Toggle between Dark Mode and Light Mode** for better readability
 - ✅ **No installation or internet required** – works 100% offline
 
