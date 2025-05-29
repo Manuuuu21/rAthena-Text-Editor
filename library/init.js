@@ -110,6 +110,8 @@ return;
 
 const contents = await file.text();
 editor.setValue(contents, -1);
+editor.scrollToLine(0, true, true, function () {});
+editor.gotoLine(1, 0, true);
 // document.title = "Untitled - rAthena Text Editor";
 });
 
