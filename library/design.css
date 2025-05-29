@@ -98,3 +98,51 @@ display: none;
 .ace_support.function.item { color: #50fa7b; }
 .ace_support.function.rathena { color: #ffb86c; }
 .ace_keyword.control { color: #ff79c6; font-weight: bold; }
+
+.action-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.action-panel button {
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.action-panel button {
+  background: blueviolet;
+  color: #fff;
+}
+
+.material-icons {
+  font-size: 24px;
+}
+
+.settings-panel {
+	display: none;
+	background: #fff;
+	padding: 10px;
+	border-radius: 20px;
+	color: black !important;
+	border: none;
+	box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+	position: fixed;
+	bottom: 23px;
+	right: 100px;
+	gap: 10px;
+	z-index: 1000;
+}

@@ -112,3 +112,8 @@ const contents = await file.text();
 editor.setValue(contents, -1);
 // document.title = "Untitled - rAthena Text Editor";
 });
+
+document.getElementById('Settings').addEventListener('click', function () {
+  const panel = document.getElementById('settingsPanel');
+  panel.style.display = panel.style.display === 'none' || panel.style.display === '' ? 'block' : 'none';
+});

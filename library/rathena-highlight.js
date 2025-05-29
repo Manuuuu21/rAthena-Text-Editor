@@ -92,6 +92,7 @@ const varParamNames = [
   "EQI_COSTUME_GARMENT",
   "bc_all",
   "bc_map",
+  "bc_self",
   "bc_area"
 ].join("|");
 
@@ -125,11 +126,11 @@ const keywords = [
   boundConstant, emotionConstants
 ].join("|").split("|");
 
-// Define a custom completer
+// Custom Completer
 const customCompleter = {
-  getCompletions: function(editor, session, pos, prefix, callback) {
+  getCompletions: function (editor, session, pos, prefix, callback) {
     if (prefix.length === 0) { callback(null, []); return; }
-    const completions = keywords.map(function(word) {
+    const completions = keywords.map(function (word) {
       return {
         caption: word,
         value: word,
@@ -139,9 +140,20 @@ const customCompleter = {
     callback(null, completions);
   }
 };
-// Add the completer
+
 const langTools = ace.require("ace/ext/language_tools");
-langTools.addCompleter(customCompleter);
+const textCompleter = langTools.textCompleter;
+// Set default completer (custom only)
+langTools.setCompleters([customCompleter]);
+
+// Toggle checkbox for local autocomplete
+document.getElementById("toggleLocalCompletion").addEventListener("change", function () {
+  if (this.checked) {
+    langTools.setCompleters([customCompleter, textCompleter]);
+  } else {
+    langTools.setCompleters([customCompleter]);
+  }
+});
 
 ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
   const oop = require("ace/lib/oop");
@@ -188,12 +200,14 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
   exports.RathenaHighlightRules = RathenaHighlightRules;
 });
 
-ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_highlight_rules"], function(require, exports) {
+ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/behaviour/cstyle", "ace/mode/rathena_highlight_rules"], function(require, exports) {
   const oop = require("ace/lib/oop");
   const TextMode = require("ace/mode/text").Mode;
   const RathenaHighlightRules = require("ace/mode/rathena_highlight_rules").RathenaHighlightRules;
+  var CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour;
   const Mode = function() {
     this.HighlightRules = RathenaHighlightRules;
+    this.$behaviour = new CstyleBehaviour();
     this.$id = "ace/mode/rathena";
   };
 
