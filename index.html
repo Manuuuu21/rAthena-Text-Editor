@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Untitled - rAthena Text Editor</title>
   <link rel="stylesheet" href="library/design.css">
+  <link rel="stylesheet" href="library/fonts/material-icons.css">
   <link rel="icon" href="library/rte-icon.png" type="image/x-icon">
 </head>
 <body>
@@ -14,18 +15,18 @@
 
 
 </div>
-<!-- Theme Buttons -->
-<div class="theme-container">
-  <button class="theme-button" onclick="toggleTheme()">Toggle Theme</button>
+<div class="action-panel">
+  <button title="toggle darkmode and lightmode" id="toggleDark" onclick="toggleTheme()"><span class="material-icons">brightness_4</span></button>
+  <button title="Open File" id="openBtn"><span class="material-icons">folder_open</span></button>
+  <button title="Save" id="saveBtn"><span class="material-icons">save</span></button>
+  <button title="Download" id="downloadBtn" onclick="downloadEditorContent()"><span class="material-icons">file_download</span></button>
+  <button title="Settings" id="Settings"><span class="material-icons">settings</span></button>
 </div>
-<!-- FAB Buttons -->
-<div class="fab-container">
-  <div class="fab-options" id="fabOptions" style="display: none;">
-    <div id="saveBtn" class="fab-option">Save</div>
-    <div id="openBtn" class="fab-option">Open File</div>
-    <div class="fab-option" onclick="downloadEditorContent()">Download</div>
-  </div>
-  <button class="fab" onclick="toggleFabOptions()">+</button>
+<div id="settingsPanel" class="settings-panel">
+  <label>
+    <input type="checkbox" id="toggleLocalCompletion">
+    Enable Local Autocomplete
+  </label>
 </div>
 <input type="file" id="fileInput" accept=".txt, .conf, .yml" />
 
@@ -44,15 +45,16 @@
 <script>
   let currentTheme = "ace/theme/monokai";
   const editor = ace.edit("editor");
+
   editor.setTheme(currentTheme);
   editor.session.setMode("ace/mode/rathena");
 
   // Enable the language tools
   ace.require("ace/ext/language_tools");
   editor.setOptions({
-    enableBasicAutocompletion: true,    // Ctrl + Space or auto-triggered
+    enableBasicAutocompletion: true,
     enableLiveAutocompletion: true,     // Autocomplete as you type
-    enableSnippets: true                // Enable code snippets
+    behavioursEnabled: true, // <<< This enables auto-pairing
   });
 
   // Enable Find box (Ctrl-F)
