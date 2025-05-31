@@ -124,3 +124,7 @@ window.onclick = function() {
     closeModal();
   }
 }
+
+document.getElementById("toggleReadOnly").addEventListener("change", function () {
+  editor.setReadOnly(this.checked);
+});

@@ -6,7 +6,8 @@ const itemKeywords = [
 	"getequipoption","getequiprandomoption","getequipcardid","getequipitemid","equip","unequip","getiteminfo","getitemname","getitemslots","getitemlook",
 	"getitemscript","getitemtype","getstoragelist","getcartlist","getmailitem","sendmail","openbuyingstore","openitemshop","opensellstore","addtoselllist",
 	"bindatcmditem","binditem","setitemscript","bounditem","refine","unrefine","enchant","additemoption","removeitemoption","setrandomoption","itemskill",
-	"getitemamount","getchariditem","getitemrate","getgroupitemrate", "getarraysize", "getitembound2", "getitembound3", "getitembound4"
+	"getitemamount","getchariditem","getitemrate","getgroupitemrate", "getarraysize", "getitembound2", "getitembound3", "getitembound4", "isequipped",
+	"rentitem"
 ];
 
 const npcInteractionKeywords = [
@@ -14,15 +15,17 @@ const npcInteractionKeywords = [
 ];
 
 const otherBlueKeywords = [
-	"rand", "delwaitingroom", "waitingroom", "getfreecell", "unitwarp", "unittalk", "cutin", "announce", "initnpctimer", "stopnpctimer",
+	"rand", "delwaitingroom", "waitingroom", "getfreecell", "unitwarp", "unitskillusepos", "unittalk", "cutin", "announce", "initnpctimer", "stopnpctimer",
 	"npctalk", "unitwalk", "bindatcmd", "atcommand", "getcharid", "bonus", "bonus2", "bonus3", "bonus4", "bonus5", "autobonus", "autobonus2", "autobonus3",
 	"statusup2", "specialeffect2", "specialeffect", "percentheal", "sc_start", "getnpcid", "duplicate", "readparam", "gettimetick", "getgroupid", 
-	"getmapxy", "getskilllv", "checkoption", "checkfalcon", "setfalcon", "query_sql", "mobcount", "monster", "showscript", "strnpcinfo", "strcharinfo"
+	"getmapxy", "getskilllv", "checkoption", "checkfalcon", "setfalcon", "query_sql", "mobcount", "monster", "showscript", "strnpcinfo", "strcharinfo",
+	"getstrlen", "checkvending", "checkchatting", "escape_sql", "input", "getbattleflag", "debugmes", "freeloop", "roclass", "eaclass", "setlook", "setd",
+	"getd", "jobname", "addtimer"
 ];
 
 const controlFlowKeywords = [
   "if", "else", "switch", "case", "default", "while", "do", "for", "break", "continue",
-  "end", "script", "goto", "return", "function", "callfunc", "callsub", "for"
+  "end", "script", "goto", "return", "callfunc", "callsub", "for", "function"
 ];
 
 const optionsConstant = [
@@ -33,13 +36,14 @@ const optionsConstant = [
 ];
 
 const equipmentLocConstant = [
-	"EQP_HEAD_LOW", "EQP_HEAD_MID", "EQP_HEAD_TOP", "EQP_ARMOR", "EQP_HAND_L", "EQP_HAND_R", "EQP_GARMENT", "EQP_SHOES", "EQP_ACC_L", "EQP_ACC_R", 
-	"EQP_COSTUME_HEAD_TOP", "EQP_COSTUME_HEAD_MID", "EQP_COSTUME_HEAD_LOW", "EQP_COSTUME_GARMENT", "EQP_COSTUME_ROBE", "EQP_SHADOW_ARMOR", 
-	"EQP_SHADOW_WEAPON", "EQP_SHADOW_SHIELD", "EQP_SHADOW_SHOES", "EQP_SHADOW_ACC_R", "EQP_SHADOW_ACC_L"
+	"EQI_HEAD_LOW", "EQI_HEAD_MID", "EQI_HEAD_TOP", "EQI_ARMOR", "EQI_HAND_L", "EQI_HAND_R", "EQI_GARMENT", "EQI_SHOES", "EQI_ACC_L", "EQI_ACC_R", 
+	"EQI_COSTUME_HEAD_TOP", "EQI_COSTUME_HEAD_MID", "EQI_COSTUME_HEAD_LOW", "EQI_COSTUME_GARMENT", "EQI_COSTUME_ROBE", "EQI_SHADOW_ARMOR", 
+	"EQI_SHADOW_WEAPON", "EQI_SHADOW_SHIELD", "EQI_SHADOW_SHOES", "EQI_SHADOW_ACC_R", "EQI_SHADOW_ACC_L"
 ];
 
 const boundVars = [
-  "BOUND_CHAR", "BOUND_ACCOUNT", "BOUND_GUILD", "BOUND_PARTY"
+  "BOUND_CHAR", "BOUND_ACCOUNT", "BOUND_GUILD", "BOUND_PARTY", "LOOK_BASE", "LOOK_HAIR", "LOOK_WEAPON", "LOOK_HEAD_BOTTOM", "LOOK_HEAD_TOP", 
+  "LOOK_HEAD_MID", "LOOK_HAIR_COLOR", "LOOK_CLOTHES_COLOR", "LOOK_SHIELD", "LOOK_SHOES", "LOOK_BODY2"
 ];
 
 const randomStatOptionVars = [
@@ -65,7 +69,7 @@ const mapNames = [
   "morocc","morocc_in","morocc_in02","morocc_in03","morocc_in04","morocc_in05","moc_ruins","moc_fild01","moc_fild02","moc_fild03","moc_fild04",
   "moc_fild05","moc_fild06","moc_fild07","moc_fild08","moc_fild09","moc_fild10","moc_fild11","moc_fild12","moc_fild13","moc_fild14","moc_fild15",
   "moc_fild16","moc_pryd01","moc_pryd02","moc_pryd03","moc_pryd04",
-  "geffen","geffen_in","geffen_tool","geffen_weapon","geffen_armory","geffenblack","geffenia","gef_fild00","gef_fild01","gef_fild02","gef_fild03",
+  "geffen","gef_tower", "geffen_in","geffen_tool","geffen_weapon","geffen_armory","geffenblack","geffenia","gef_fild00","gef_fild01","gef_fild02","gef_fild03",
   "gef_fild04","gef_fild05","gef_fild06","gef_fild07","gef_fild08","gef_fild09","gef_fild10","gef_dun00","gef_dun01","gef_dun02","gef_dun03", 
   "payon","payon_in01","payon_in02","payon_in03","payon_in04","pay_arche","pay_gld","pay_fild01","pay_fild02","pay_fild03","pay_fild04",
   "pay_fild05","pay_fild06","pay_fild07","pay_dun00","pay_dun01","pay_dun02","pay_dun03","pay_dun04",
@@ -88,13 +92,13 @@ const mapNames = [
   "einbech","ein_in01","ein_fild01","ein_dun01","ein_dun02", 
   "hugel","hu_in01","hu_fild01","hu_fild02","hu_fild03", 
   "rachel","ra_in01","ra_fild01","ra_fild02","ra_fild03","ra_san01","ra_san02","ra_san03", "ra_san04", "ra_san05",
-  "veins", "moscovia", "mid_camp", "manuk", "splendide","brasilis", "dicastes01", "mora", "dewata", "malangdo", "malaya", "eclage", "lasagna",
+  "veins", "ve_fild03", "moscovia", "mid_camp", "manuk", "splendide","brasilis", "dicastes01", "mora", "dewata", "malangdo", "malaya", "eclage", "lasagna",
   "mjolnir_01","mjolnir_02","mjolnir_03","mjolnir_04","mjolnir_05","mjolnir_06","mjolnir_07","mjolnir_08","mjolnir_09","mjolnir_10","mjolnir_11","mjolnir_12",
   "new_1-1", "new_1-2", "turbo_room", "moc_ruins", "thor_camp", "ecl_in01", "kame_house"
 ];
 
 const mapCommands = [
-  "pvpon", "pvpoff", "navigateto", "mapflag", "warpwaitingpc", "shop", "itemshop",
+  "pvpon", "pvpoff", "navigateto", "mapflag", "warpwaitingpc", "shop", "itemshop", "buyingstore",
   "pointshop", "cashshop", "soundeffect", "soundeffectall", "mapid2name", "removemapflag", "setmapflag",
   "callshop", "pcblockmove", "sleep", "sleep2", "progressbar", "warp", "mapwarp",
   "attachrid", "mapannounce", "killmonsterall", "getmapusers", "enablenpc", "disablenpc"
@@ -143,12 +147,12 @@ const operators = [
 
 /* Declare the keywords here and to RathenaHighlightRules to display on autocomplete except operators */
 const keywords = [
-	...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords,  					// Blue highlight
-	...controlFlowKeywords, 												// Red highlight
+	...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords,  										// Blue highlight
+	...controlFlowKeywords, 																								// Red highlight
 	...equipmentLocConstant, ...emotionConstants, ...randomStatOptionVars, ...boundVars, ...broadcastTargets, ...mapNames, 	// Orange highlight
 	...mapflagConstant, ...optionsConstant,
-	...varHolderKeywords, ...specialVarKeywords, ...inventoryVar, 								// Green highlight
-	...trueFalseNull 													// Violet Highlight
+	...varHolderKeywords, ...specialVarKeywords, ...inventoryVar, 															// Green highlight
+	...trueFalseNull 																										// Violet Highlight
 ];
 
 const langTools = ace.require("ace/ext/language_tools");
@@ -158,7 +162,7 @@ const customCompleter = {
     const completions = keywords.map(word => ({
       caption: word,
       value: word,
-      meta: "rAthena"
+      meta: "Keyword"
     }));
     callback(null, completions);
   }
@@ -179,7 +183,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
 	const RathenaHighlightRules = function () {
 		this.$rules = {
 		  start: [
-		    { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + [...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords].join("|") + ")\\b" },
+		  	{ token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + [...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords].join("|") + ")\\b" },
 		    { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
 		    { token: "variable.parameter", regex: "(?<![@\\w\\.])\\b(?:" + [...optionsConstant, ...broadcastTargets, ...equipmentLocConstant, ...emotionConstants, ...randomStatOptionVars, ...boundVars, ...mapNames, ...mapflagConstant].join("|") + ")\\b" },
 		    { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + [...varHolderKeywords, ...specialVarKeywords].join("|") + ")\\b" },
