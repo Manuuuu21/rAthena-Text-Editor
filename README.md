@@ -23,6 +23,6 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 ---
 # Screenshots
 ## Darkmode
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode.png)
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode1.png)
 ## Lightmode
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/lightmode.png)
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/lightmode1.png)
