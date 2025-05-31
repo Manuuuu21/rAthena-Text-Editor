@@ -10,7 +10,7 @@ const itemKeywords = [
 ];
 
 const npcInteractionKeywords = [
-	"mes", "next", "clear", "close", "close2", "close3", "menu", "select", "prompt", "emotion", "dispbottom"
+	"mes", "next", "clear", "close", "close2", "close3", "menu", "select", "prompt", "emotion", "dispbottom", "message"
 ];
 
 const otherBlueKeywords = [
