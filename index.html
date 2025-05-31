@@ -10,11 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="library/rte-icon.png" type="image/x-icon">
   <link rel="stylesheet" href="library/design.css">
-  <title>rAthena Script Editor</title>
-  <style>
-  
-
-  </style>
+  <title>Untitled - rAthena Text Editor</title>
 </head>
 <body>
   <div class="modal-overlay" id="modalOverlay">
@@ -24,19 +20,18 @@
         <button class="close-btn" onclick="closeModal()">×</button>
       </div>
       <hr/>
-      <div>
-        <label><input type="checkbox" id="toggleLocalCompletion"> Enable local autocomplete</label>
-      </div>
+      <p><label><input type="checkbox" id="toggleLocalCompletion"> Enable Local Autocomplete</label></p>
+      <p><label><input type="checkbox" id="toggleReadOnly"> Enable Read Only</label></p>
     </div>
   </div>
 
 <div id="container">
   <div id="toolbar">
-      <button id="openBtn">📂</button>
-      <button id="saveBtn">💾</button>
-      <button onclick="downloadEditorContent()">📥</button>
-      <button onclick="toggleTheme()">🌓</button>
-      <button onclick="openModal()">⚙️</button>
+      <button title="Open txt File" id="openBtn">📂</button>
+      <button title="Save" id="saveBtn">💾</button>
+      <button title="Download this content" onclick="downloadEditorContent()">📥</button>
+      <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
+      <button title="Settings" onclick="openModal()">⚙️</button>
     </div>
 <div id="editor">
 
@@ -55,7 +50,6 @@
   <!-- Custom Highlighting Rules -->
   <script src="library/rathena-highlight-rules.js"></script>
   <script src="library/init.js"></script>
-
   <script>
     let currentTheme = "ace/theme/monokai";
     const editor = ace.edit("editor");
