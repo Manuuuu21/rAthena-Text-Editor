@@ -49,7 +49,7 @@ document.getElementById("openBtn").addEventListener("click", async () => {
     editor.gotoLine(1, 0, true);
 
     // Set the <title> to the opened file's name
-    document.title = file.name + " - rAthena Text Editor";
+    document.title = file.name;
   } catch (err) {
     if (err.name === "AbortError") {
       console.log("Cancelled file open.");
@@ -76,7 +76,7 @@ async function saveToFile() {
         });
 
       // Update the <title> with the new file name
-      document.title = fileHandle.name + " - rAthena Text Editor";
+      document.title = fileHandle.name;
     }
 
     const writable = await fileHandle.createWritable();
