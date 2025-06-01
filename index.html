@@ -27,6 +27,7 @@
 
 <div id="container">
   <div id="toolbar">
+      <button title="New File" id="newFile" onclick="newFile()">📄</button>
       <button title="Open File" id="openBtn">📂</button>
       <button title="Save" id="saveBtn">💾</button>
       <button title="Download this content" onclick="downloadEditorContent()">📥</button>
@@ -35,10 +36,7 @@
       <button style="float:right;clear: right;" title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
     </div>
 <div id="mainArea">
-<div id="editor">
-
-
-</div>
+<div id="editor"></div>
   <div id="chatBotContainer">
     <div class="chat-section">
         <div class="chat-messages" id="chat-messages">
