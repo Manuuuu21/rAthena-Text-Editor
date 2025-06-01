@@ -8,6 +8,7 @@ Designed with simplicity and convenience in mind, it includes essential features
 ## ✨ Features
 
 - 🖊️ **Edit your code** directly in the browser
+- 🤖 integrated with the **Gemini Chatbot API** for the Editor! Just ask it, and it will provide code for you directly in rAthena Text Editor. 😄 Simply provide your Gemini API key. We're using the latest and fastest Gemini model: "gemini-2.5-flash-preview-05-20".
 - ⚡ **Autocomplete suggestions** to speed up your coding
 - ⬇️ **Download your code** as a `.txt` file after you're done
 - 💾 **Save your work** with just a click
