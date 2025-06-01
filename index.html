@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="library/rte-icon.png" type="image/x-icon">
   <link rel="stylesheet" href="library/design.css">
-  <title>Untitled</title>
+  <title>Untitled - rAthena Text Editor</title>
 </head>
 <body>
   <div class="modal-overlay" id="modalOverlay">
@@ -27,18 +27,41 @@
 
 <div id="container">
   <div id="toolbar">
-      <button title="Open txt File" id="openBtn">📂</button>
+      <button title="Open File" id="openBtn">📂</button>
       <button title="Save" id="saveBtn">💾</button>
       <button title="Download this content" onclick="downloadEditorContent()">📥</button>
       <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
       <button title="Settings" onclick="openModal()">⚙️</button>
+      <button style="float:right;clear: right;" title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
     </div>
+<div id="mainArea">
 <div id="editor">
 
 
 </div>
+  <div id="chatBotContainer">
+    <div class="chat-section">
+        <div class="chat-messages" id="chat-messages">
+            <div class="message ai">
+                <div class="message-bubble">Hello! How can I help you today?</div>
+            </div>
+        </div>
+        <div class="loading-indicator" id="loading-indicator">
+            AI is typing...
+        </div>
+        <div class="instruction-text">
+            Ask for code, and it will appear in the editor on the left!
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Type your message...">
+            <button id="send-button" class="send-button">➜</button>
+        </div>
+    </div>
+  </div>
+</div>
   <div id="statusBar" class="statusbardesign"></div>
 </div>
+
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
   <script src="library/ace/src-noconflict.1.41.0/ace.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/ext-language_tools.js"></script>
@@ -49,6 +72,7 @@
 
   <!-- Custom Highlighting Rules -->
   <script src="library/rathena-highlight-rules.js"></script>
+  <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
     let currentTheme = "ace/theme/monokai";
