@@ -145,14 +145,14 @@ const operators = [
   "\\|\\|", "&&", "!", "\\^", "&", "\\|", "\\?"
 ];
 
-/* Declare the keywords here and to RathenaHighlightRules to display on autocomplete except operators */
+/* Declare the keywords here to display on autocomplete and to RathenaHighlightRules, do not put here the operator */
 const keywords = [
-	...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords,  										// Blue highlight
-	...controlFlowKeywords, 																								// Red highlight
-	...equipmentLocConstant, ...emotionConstants, ...randomStatOptionVars, ...boundVars, ...broadcastTargets, ...mapNames, 	// Orange highlight
-	...mapflagConstant, ...optionsConstant,
-	...varHolderKeywords, ...specialVarKeywords, ...inventoryVar, 															// Green highlight
-	...trueFalseNull 																										// Violet Highlight
+	/* Blue highlight */ 	...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords,  										
+	/* Red highlight */ 	...controlFlowKeywords, 	
+	/* Orange highlight */ 	...equipmentLocConstant, ...emotionConstants, ...randomStatOptionVars, ...boundVars, ...broadcastTargets, ...mapNames,
+	 		     	...mapflagConstant, ...optionsConstant,
+	/* Green highlight */ 	...varHolderKeywords, ...specialVarKeywords, ...inventoryVar, 
+	/* Violet highlight */ 	...trueFalseNull 
 ];
 
 const langTools = ace.require("ace/ext/language_tools");
@@ -183,7 +183,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
 	const RathenaHighlightRules = function () {
 		this.$rules = {
 		  start: [
-		  	{ token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + [...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords].join("|") + ")\\b" },
+		    { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + [...itemKeywords, ...npcInteractionKeywords, ...mapCommands, ...otherBlueKeywords].join("|") + ")\\b" },
 		    { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
 		    { token: "variable.parameter", regex: "(?<![@\\w\\.])\\b(?:" + [...optionsConstant, ...broadcastTargets, ...equipmentLocConstant, ...emotionConstants, ...randomStatOptionVars, ...boundVars, ...mapNames, ...mapflagConstant].join("|") + ")\\b" },
 		    { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + [...varHolderKeywords, ...specialVarKeywords].join("|") + ")\\b" },
