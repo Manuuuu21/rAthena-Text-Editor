@@ -114,7 +114,7 @@ padding: 12px;
 position: fixed;
 z-index: 999;
 left: 50%;
-bottom: 30px;
+bottom: 50px;
 transform: translateX(-50%);
 font-size: 14px;
 opacity: 0;
