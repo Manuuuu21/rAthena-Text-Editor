@@ -94,12 +94,35 @@ color: red;
 button {
 font-size: 18px;
 background: none;
-border: none;
+border: 1px solid gray;
 cursor: pointer;
+border-radius: 10px;
 }
 button:hover {
 background: silver;
 border-radius: 10px;
+}
+
+#snackbar {
+visibility: hidden;
+min-width: 200px;
+background-color: #323232;
+color: #fff;
+text-align: center;
+border-radius: 4px;
+padding: 12px;
+position: fixed;
+z-index: 999;
+left: 50%;
+bottom: 30px;
+transform: translateX(-50%);
+font-size: 14px;
+opacity: 0;
+}
+
+#snackbar.show {
+visibility: visible;
+opacity: 1;
 }
 
 /* hidden by default (desktop) */
@@ -110,4 +133,7 @@ border-radius: 10px;
 button { font-size: 23px; }
 .ace_mobile-menu { display: block; }
 .modal { max-width: 300px; }
+#snackbar { max-width: 250px; }
 }
+
+

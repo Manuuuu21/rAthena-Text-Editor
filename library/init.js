@@ -21,20 +21,36 @@ function downloadEditorContent() {
   URL.revokeObjectURL(url);
 };
 
-let fileHandle = null; // We'll store this after opening
+let fileHandle;
+let lastDirectoryHandle = null;
 
-// Open file using File System Access API (real file object)
 document.getElementById("openBtn").addEventListener("click", async () => {
   try {
-    [fileHandle] = await window.showOpenFilePicker();
+    const options = {
+      types: [
+        {
+          description: "Text Files",
+          accept: { "text/plain": [".txt"] },
+        },
+      ],
+      // Try to open in the last known directory
+      startIn: lastDirectoryHandle || "documents",
+    };
+
+    [fileHandle] = await window.showOpenFilePicker(options);
+
+    // Save the directory handle for next time
+    lastDirectoryHandle = await fileHandle.getFile().then(file => fileHandle.getFile().then(() => fileHandle));
+
     const file = await fileHandle.getFile();
     const contents = await file.text();
     editor.setValue(contents, -1);
+    editor.scrollToLine(0, true, true, function () {});
+    editor.gotoLine(1, 0, true);
 
     // Set the <title> to the opened file's name
-    document.title = file.name;
-  } 
-  catch (err) {
+    document.title = file.name + " - rAthena Text Editor";
+  } catch (err) {
     if (err.name === "AbortError") {
       console.log("Cancelled file open.");
     } else {
@@ -42,6 +58,7 @@ document.getElementById("openBtn").addEventListener("click", async () => {
     }
   }
 });
+
 
 // Save file (overwrite original file, not download)
 async function saveToFile() {
@@ -59,13 +76,13 @@ async function saveToFile() {
         });
 
       // Update the <title> with the new file name
-      document.title = fileHandle.name;
+      document.title = fileHandle.name + " - rAthena Text Editor";
     }
 
     const writable = await fileHandle.createWritable();
     await writable.write(editor.getValue());
     await writable.close();
-    console.log("Saved successfully.");
+    showSnackbar("Saved successfully.");
   } 
   catch (err) {
     if (err.name === "AbortError") {
@@ -128,3 +145,23 @@ window.onclick = function() {
 document.getElementById("toggleReadOnly").addEventListener("change", function () {
   editor.setReadOnly(this.checked);
 });
+
+let snackbarTimeout;
+function createSnackbarContainer() {
+  if (document.getElementById("snackbar")) return;
+  const snackbar = document.createElement("div");
+  snackbar.id = "snackbar"; // ID used for styling
+  document.body.appendChild(snackbar);
+}
+
+function showSnackbar(message) {
+  createSnackbarContainer();
+  const snackbar = document.getElementById("snackbar");
+  snackbar.textContent = message;
+  snackbar.classList.add("show");
+
+  if (snackbarTimeout) clearTimeout(snackbarTimeout);
+  snackbarTimeout = setTimeout(() => {
+    snackbar.classList.remove("show");
+  }, 3000);
+}
