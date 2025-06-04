@@ -391,19 +391,12 @@ function typeWriterEffectForChat(element, markdownText, callback) {
     let typedCharacters = ''; // Accumulator for the raw text being typed
     let i = 0;
     const speed = 1; // Typing speed in milliseconds (faster)
-
-    // Render to HTML at intervals (more complex but better real-time rendering)
-    // This requires a sophisticated markdownToHtmlForChat that can handle partial input
-    // or you'd be re-parsing the entire string on each character.
-    // For simpler markdown (like just bolding), you might craft a custom partial renderer.
+  
     function typeAndRenderIncrementally() {
         if (i < markdownText.length) {
             typedCharacters += markdownText.charAt(i);
             i++;
 
-            // Re-render the accumulated text as HTML on each character typed
-            // This is computationally more expensive and requires markdownToHtmlForChat
-            // to be very efficient or optimized for partial parsing.
             element.innerHTML = markdownToHtmlForChat(typedCharacters);
             
             setTimeout(typeAndRenderIncrementally, speed);
@@ -506,7 +499,6 @@ async function sendMessage() {
             contents: chatHistory
         };
 
-        // The API key will be automatically provided by the Canvas environment if left empty.
         // gemini-1.5-flash, gemini-2.5-flash-preview-05-20
         const apiKey = myGeminiAPIKey;
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
@@ -537,11 +529,11 @@ async function sendMessage() {
 
             let chatDisplayMessage;
             if (match) {
-                const language = match[1] || 'javascript'; // Default to javascript if no language specified
+                const language = match[1] || 'javascript'; 
                 const codeContent = match[2].trim();
                 // Calculate the start and end indices of the matched code block
                 const codeBlockStartIndex = match.index;
-                const codeBlockEndIndex = match.index + match[0].length; // match[0] is the entire matched string including fences
+                const codeBlockEndIndex = match.index + match[0].length;
 
                 // Separate introduction, code, and footer
                 let introText = aiResponse.substring(0, codeBlockStartIndex).trim();
