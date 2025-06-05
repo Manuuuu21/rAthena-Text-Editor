@@ -24,7 +24,7 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 ---
 # Screenshots
 ## AI Sample
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/ai_sample.gif)
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/ai_sample1.gif)
 ## Darkmode
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode1.png)
 ## Lightmode
