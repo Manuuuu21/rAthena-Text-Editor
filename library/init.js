@@ -227,7 +227,7 @@ function markdownToHtmlForChat(markdownText) {
     let inCodeBlock = false;
 
     // Remove code blocks entirely from text intended for chat bubble display
-    const textForChatDisplay = markdownText.replace(/```(?:\w+)?\n([\s\S]*?)\n```/g, '').trim();
+    const textForChatDisplay = markdownText.replace(/```(\w+)?\s*([\s\S]*?)\s*```/;g, '').trim();
 
     if (textForChatDisplay === '') {
         // If only code was in the response, provide a simple message for the chat bubble
@@ -540,7 +540,7 @@ async function sendMessage() {
             const aiResponse = result.candidates[0].content.parts[0].text;
 
             // Try to extract code block for Ace Editor
-            const codeBlockRegex = /```(\w+)?\n([\s\S]*?)\n```/;
+            const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/;
             const match = aiResponse.match(codeBlockRegex);
 
             let chatDisplayMessage;
