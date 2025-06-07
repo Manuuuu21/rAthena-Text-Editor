@@ -33,7 +33,10 @@
       <button title="Download this content" onclick="downloadEditorContent()">📥</button>
       <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
       <button title="Settings" onclick="openModal()">⚙️</button>
-      <button style="float:right;clear: right;" title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
+      <div style="float:right;clear: right;" >
+        <button title="Put your API key here" onclick="openApiModal()">API Key</button>
+        <button title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
+      </div>
     </div>
 <div id="mainArea">
 <div id="editor"></div>
@@ -58,6 +61,20 @@
   </div>
 </div>
   <div id="statusBar" class="statusbardesign"></div>
+</div>
+
+<div class="modal-api-overlay" id="modalApi">
+  <div class="modal-api-box">
+    <button class="modal-api-close" onclick="closeApiModal()">✖</button>
+    <div class="modal-api-header">
+      Put Your API Key here.
+    </div>
+    <div class="modal-api-content">
+      <input type="text" name="api" placeholder="Put your API key here" value="" id="APIKey" />
+      <p>Get your API Key here at <a href="https://aistudio.google.com/apikey">https://aistudio.google.com/apikey</a>
+      So that, the Gemini Chat Bot will assist you in coding.</p>
+    </div>
+  </div>
 </div>
 
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
