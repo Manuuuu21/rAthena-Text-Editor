@@ -520,7 +520,7 @@ async function sendMessage() {
 
         // gemini-1.5-flash, gemini-2.5-flash-preview-05-20
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/learnlm-2.0-flash-experimental:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/learnlm-2.0-flash-experimental:generateContent?key=${apiKey}`;
 
         // Make the API call to Gemini
         const response = await fetch(apiUrl, {
