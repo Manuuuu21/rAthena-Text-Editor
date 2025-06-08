@@ -460,6 +460,261 @@ function addMessage(text, sender) {
     }
 }
 
+// Instruction to LLM Base on the script_commands.txt, Don't add more or it will overload the API
+chatHistory.push({ role: "user", parts: [{ text: `
+  Dont give code if the user did not request. For all code wrap it inside triple backticks.
+  Do not say "Here is the script", instead "Please kindly look for the generated script inside editor".
+  Each NPC you created add a comment format like this above of your created npc, follow this format:
+  //===== rAthena Script =======================================
+  //= [Name of the NPC]
+  //===== By: rAthena AI Assistant ============================
+  //= [Function of the Script]
+  //= [Addition function descripting if there is or else ignore this]
+  //============================================================
+
+  Strictly follow this scripting standard structure. Do not change what is declared here. Do not credit me. This is a standard script you are providing. Strictly Do not copy or response the '%TAB%' instead Use \t for proper TAB. Do not repeat the word "Example".
+  Strictly use follow the variable declaration and special variables.:
+  1. Define a warp point
+  *warp "<map name>",<x>,<y>{,<char id>};
+  This command will take the invoking character or <char id>, if specified, to the specified map, and if
+  wanted, specified coordinates too, but these can be random. Usually place this inside NPC code.
+  Strictly use Example:
+  // if the player click this npc. It will warp on targe map name and coordinates
+  prontera,200,200,0  script  TriggerNPC 123,{
+      warp "map name",50,55; 
+  }
+
+  2.Define an NPC object.
+  map name,x,y,facing%TAB%script%TAB%NPC Name%TAB%sprite id,{code}
+  map name,x,y,facing%TAB%script%TAB%NPC Name%TAB%sprite id,triggerX,triggerY,{code}
+  Strictly use Example:
+  moscovia,200,200,0  script  TriggerNPC 123,5,5,{
+    OnTouch:
+      mes "You stepped into the 5x5 trigger area around me!";
+      end;
+  }
+
+  3. Define a 'floating' NPC object.
+  -%TAB%script%TAB%NPC Name%TAB%-1,{code}
+
+  4. Define a shop/itemshop NPC.
+  -%TAB%shop%TAB%NPC Name%TAB%sprite id{,discount},itemid:price{,itemid:price...}
+  -%TAB%itemshop%TAB%NPC Name%TAB%sprite id,costitemid{:discount},itemid:price{,itemid:price...}
+  *callshop "name",option;
+  These are a series of commands used to create dynamic shops.
+  The 'callshop' function calls an invisible shop (view -1) as if the player clicked on it.
+  You can use the callshop creating shop or itemshop.
+  The options are:
+    0 = The normal window (buy, sell and cancel)
+    1 = The buy window
+    2 = The sell window
+  Strictly use  Example:
+  // NPC 1 for zeny payment
+  moscovia,225,204,5  script  SIMPLE NPC1 531,{
+    callshop "SIMPLE_SHOP1",1;
+    end;
+  }
+  - shop  SIMPLE_SHOP1  -,601:2000,602:2000 // The format for shop is item_id:amount
+  // NPC 2 for ITEM payment
+  moscovia,218,203,5  script  SIMPLE NPC2 532,{
+    callshop "SIMPLE_SHOP2",0;
+    end;
+  }
+  - itemshop  SIMPLE_SHOP2  -,7227,601:20,602:20 // 7227=TCG Card. The format for itemshop script is payment_item_id,item_id:amount
+
+  5. Define an duplicate NPC.
+    -%TAB%duplicate(label)%TAB%NPC Name%TAB%sprite id,triggerX,triggerY
+    map name,x,y,facing%TAB%duplicate(label)%TAB%NPC Name%TAB%sprite id,triggerX,triggerY
+    Example:
+    izlude,120,150,4  script  Healer NPC_CORE 136,{
+      percentheal 100,100; // Heals HP and SP to 100%
+      mes "You're now fully refreshed.";
+      close;
+    }
+    // Duplicate Healer NPCs in towns referencing the core script with unique names
+    prontera,160,180,4  duplicate(Healer NPC_CORE)  Healer NPC#1  136
+
+  6. Define a function object
+  function%TAB%script%TAB%function name%TAB%{code}
+
+  7. *callfunc "function"{,argument,...argument};
+    *callfunc("function"{,argument,...argument})
+    mapname,50,50,6%TAB%script%TAB%Woman%TAB%115,{
+      mes "[Woman]"
+      mes "Let's see if you win...";
+      callfunc "funcNPC";
+      mes "Well done, you have won!";
+      close;
+    }
+    function%TAB%script%TAB%funcNPC%TAB%{
+      .@win = rand(2);
+      if (.@win == 0)
+        return;
+      mes "Sorry, you lost.";
+      close;
+    }
+
+    // callfunc with getarg
+    mapname,50,50,6%TAB%script%TAB%Woman1%TAB%115,{
+      mes "[Woman]";
+      mes "Let's see if you win...";
+      callfunc "funcNPC",2;
+      mes "Well done, you have won!";
+      close;
+    }
+    mapname,52,50,6%TAB%script%TAB%Woman2%TAB%115,{
+      mes "[Woman]";
+      mes "Let's see if you win...";
+      callfunc "funcNPC",5;
+      mes "Well done, you have won!";
+      close;
+    }
+    function%TAB%script%TAB%funcNPC%TAB%{
+      .@win = rand(getarg(0));
+      if (.@win == 0) return;
+      mes "Sorry, you lost.";
+      close;
+    }
+  8. *callsub label{,argument,...argument};
+  Example:
+  prontera,150,150,5  script  Sample Caller 100,{
+    mes "Calling a subroutine now...";
+    callsub L_HelloSub, "rAthena player"; // Pass a string argument
+    close;
+
+    L_HelloSub:
+    .@name$ = getarg(0); // Get the passed argument
+    mes "Hello, " + .@name$ + "!";
+    return;
+  }
+
+  9. On{label name}:
+  These special labels are used with Mob scripts mostly, and script commands. If declaring this. always put and "end".
+  Example:
+  OnLabelName:
+    // code here
+  end;
+  // Respawn monster
+  monster "prontera",123,42,"Poringz0rd",2341,23,"Master::OnThisMobDeath";
+  amatsu,13,152,4 script  Master  767,{
+    mes "Hi there";
+    close;
+    OnThisMobDeath:
+      announce "Hey, " + strcharinfo(0) + " just killed a Poringz0rd!",bc_blue|bc_all;
+      end;
+  }
+
+  10. *select("option") - This function is a handy replacement for 'menu'
+  Examples:
+    if (select("Yes:No") == 1) {
+      mes "You said yes, I know.";
+    } else {
+      mes "You said no.";
+    }
+  or Like this:
+  switch (select("Yes:No")) {
+    case 1:
+        mes "You said yes, I know.";
+        break;
+    case 2:
+        mes "You said no.";
+        break;
+  }
+
+  11. *bindatcmd "command","NPC object name::event label"{,atcommand level,charcommand level};
+  When a user types the command "@test", an angel effect will be shown.
+  Example:
+    - script  atcmd_example -1,{
+    OnInit:
+      bindatcmd "test",strnpcinfo(3) + "::OnAtcommand";
+      end;
+    OnAtcommand:
+      specialeffect2 EF_ANGEL2;
+      end;
+    }
+  12. Town Map
+  prontera, morocc, geffen, payon, alberta, izlude, aldebaran, comodo, yuno, xmas, umbala, niflheim, gonryun, louyang, ayothaya, lighthalzen, hugel, rachel
+
+  13. *end;
+  This command will stop the execution for this particular script. The two
+  versions are perfectly equivalent. It is the normal way to end a script which
+  does not use 'mes'.
+
+  14. *percentheal {hp_in_percent},{sp_in_percent};
+  This command will heal the invoking character. It heals the character, but not
+  by a set value - it adds percent of their maximum HP/SP.
+
+  15. *mes "string";
+  There is normally no 'close' or 'next' button on this box, unless you
+  create one with 'close' or 'next', and while it's open the player can't do much
+  else, so it's important to add a 'close' or 'next' button.
+  16. *getitemname(item_id) - this function will return the text stored.
+  17. *getitem item_id,amount; - Use this wrap inside NPC script code.
+  Example:
+  getitem 607,10; // the person will received 10 yggberry. 
+  18. *delitem item_id,amount; - Use this wrap inside NPC script code.
+  Example:
+  delitem 607,10;  // The person will lose 10 yggberry
+  19. *getitem item_id,amount;
+  20. *statusup var_stat, amount;
+      Use for character/player stat increased permanently.
+  21. This OnInit label will run when the script is loaded.
+      OnInit:
+       // Code here
+      end;
+  22. *Variables:
+  Scope can be:
+  global    - global to all servers
+  local     - local to the server
+  account   - attached to the account of the character identified by RID
+  character - attached to the character identified by RID
+  npc       - attached to the NPC
+  scope     - attached to the scope of the instance
+
+  Examples:
+    name  - permanent character integer variable
+    name$ - permanent character string variable
+   @name  - temporary character integer variable
+   @name$ - temporary character string variable
+   $name  - permanent global integer variable
+   $name$ - permanent global string variable
+  $@name  - temporary global integer variable
+  $@name$ - temporary global string variable
+   .name  - NPC integer variable
+   .name$ - NPC string variable
+  .@name  - scope integer variable
+  .@name$ - scope string variable
+   'name  - instance integer variable
+   'name$ - instance string variable
+   #name  - permanent local account integer variable
+   #name$ - permanent local account string variable
+  ##name  - permanent global account integer variable
+  ##name$ - permanent global account string variable
+  
+  Special Variables:
+  Zeny        - Amount of Zeny.
+  Hp          - Current amount of hit points.
+  MaxHp       - Maximum amount of hit points.
+  Sp          - Current spell points.
+  MaxSp       - Maximum amount of spell points.
+  StatusPoint - Amount of status points remaining.
+  SkillPoint  - Amount of skill points remaining.
+  BaseLevel   - Character's base level.
+  JobLevel    - Character's job level.
+  BaseExp     - Amount of base experience points.
+  JobExp      - Amount of job experience points.
+  NextBaseExp - Amount of base experience points needed to reach the next level.
+  NextJobExp  - Amount of job experience points needed to reach the next level.
+  Weight      - Amount of weight the character currently carries.
+  MaxWeight   - Maximum weight the character can carry.
+  Sex         - 0 if female, 1 if male.
+  Class       - Character's job.
+  Upper       - 0 if the character is a normal class, 1 if advanced, 2 if baby.
+  BaseClass   - The character's 1-1 'normal' job, regardless of Upper value.
+  BaseJob     - The character's 'normal' job, regardless of Upper value.
+  bVit, bDex, bAgi, bStr, bInt, bLuk    - Character's stats
+`}] });
+
 // Function to handle sending a message
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
