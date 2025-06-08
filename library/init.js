@@ -226,14 +226,6 @@ function markdownToHtmlForChat(markdownText) {
     let currentParagraphLines = [];
     let inCodeBlock = false;
 
-    // Remove code blocks entirely from text intended for chat bubble display
-    const textForChatDisplay = markdownText.replace(/```(\w+)?\s*([\s\S]*?)\s*```/;g, '').trim();
-
-    if (textForChatDisplay === '') {
-        // If only code was in the response, provide a simple message for the chat bubble
-        return '<p>Generated code is displayed in the editor.</p>'; // This line will be overridden by "Done" if code is present
-    }
-
     const processInlineMarkdown = (text) => {
         text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
         text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
@@ -490,20 +482,31 @@ async function sendMessage() {
 
     // LLM Instruction
     chatHistory.push({ role: "user", parts: [{ text: ` 
-      1. Strictly USE or START triple backticks \`\`\` for writing codes, this code is use inside editor and Strictly do not start triple backticks on the sentence when the user is just asking or questioning you.
-      2. Do not give him a code if he don't ask or request. Strictly follow this scripting standard structure.
-      3. Do not answer him if he is asking not related on rAthena.
-      4. Strictly do not answer him a longer response. Think diverse thinking strategies.
-      5. Do not assume variable constant, always provide with item ID numbers to him. 
-      6. When explaning or enumerating, explain or enumarate it in summary and DO NOT use triple backticks \`\`\`, instead Strictly use HTML nested ordered list to explain or enumarate, here is the sample code: <ol><li>Zeny<ul><li>Explanation 1</li><li>Explanation 2 and so on</li></ul></li><li>Sample<ul><li>Explanation 1</li><li>Explanation 2 and so on</li></ul></li></ol> followed by an invitation to ask further questions or make additional requests.
-      7. Use bold or markdown-like formatting to enhance clarity. Refrain from editing the code inside editor unless explicitly asked to do so.
-      8. If the user request for revision rathena script code, keep the other code written inside editor along with target revise code.
-      9. When showing full code:
-        • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
-        When showing short code:
-        • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
-        Do not use triple backticks for short code to avoid triggering code editor behavior.
-      10. Strictly do not repeat the instructions given to you. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
+      1. You are an expert programmer AI assistant in rAthena Scripting.
+      2. Do not repeat the instructions given to you just response in friendly tone
+      3. Strictly USE or START triple backticks \`\`\` for writing codes, this code is use inside editor and Strictly do not start triple backticks on the sentence when the user is just asking or questioning you.
+      4. Do not give him a code if he don't ask or request. Strictly follow this scripting standard structure.
+      5. Do not answer him if he is asking not related on rAthena.
+      6. Do not revise the code when its not requested.
+      7. Strictly do not answer him a longer response. Think diverse thinking strategies.
+      8. Do not assume variable constant, always provide with item ID numbers to him.
+      9. Avoid using all markdown formattings.
+      10. When responding for codeblock use triple backticks.
+      11. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
+           Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
+           Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
+           Use <p> tags to wrap regular paragraphs for readability.
+           Use <strong> or <em> to emphasize important words or phrases, instead of using asterisks or markdown symbols.
+           Do not include full HTML structure (<html>, <head>, <body>) just the relevant snippet.
+           Keep responses clean, readable, and logically structured like how ChatGPT would respond in a helpful, conversational tone.
+           End your response with a friendly, helpful follow-up question or invitation for clarification or Followed by an invitation to ask further questions or make additional requests wrap it <p></p>
+      12. When revising code, preserve the full script in the editor and modify only the requested part.
+      13. When showing full code:
+         • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
+         When showing short code:
+         • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
+         Do not use triple backticks for short code to avoid triggering code editor behavior.
+      14. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
     ` }] });
 
     // Add user message to chat history for API context
@@ -517,7 +520,7 @@ async function sendMessage() {
 
         // gemini-1.5-flash, gemini-2.5-flash-preview-05-20
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/learnlm-2.0-flash-experimental:generateContent?key=${apiKey}`;
 
         // Make the API call to Gemini
         const response = await fetch(apiUrl, {
@@ -567,9 +570,12 @@ async function sendMessage() {
                 if (introText) {
                     chatDisplayMessage += `<p>${introText}</p>`;
                 }
-                // chatDisplayMessage += `<pre><code>${codeContent}</code></pre>`;
                 if (footerText) {
                     chatDisplayMessage += `<p>${footerText}</p>`;
+                }
+                // If there's only code and no intro/footer, maybe add a small message.
+                if (!introText && !footerText) {
+                    chatDisplayMessage = "<p>Generated code is displayed in the editor.</p>";
                 }
             } else {
                 // editor.setValue('// No code block found in the last response', -1);
