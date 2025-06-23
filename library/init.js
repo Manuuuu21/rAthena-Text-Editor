@@ -12062,9 +12062,10 @@ async function sendMessage() {
       6. Do not revise the code when its not requested.
       7. Strictly do not answer him a longer response. Think diverse thinking strategies.
       8. Do not assume variable constant, always provide with item ID numbers to him.
-      9. Avoid using all markdown formattings.
+      9. Avoid using all markdown formattings except triple backtick.
       10. When responding for codeblock use triple backticks.
       11. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
+           Use <h3> header if needed for the explanation.
            Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
            Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
            Use <p> tags to wrap regular paragraphs for readability.
@@ -12095,9 +12096,9 @@ async function sendMessage() {
             }
         };
 
-        // gemini-1.5-flash, gemini-2.5-flash-preview-05-20
+        // gemini-2.5-flash,
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         // Make the API call to Gemini
         const response = await fetch(apiUrl, {
