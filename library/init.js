@@ -12089,7 +12089,7 @@ async function sendMessage() {
         const payload = {
             contents: chatHistory,
             "generationConfig": {
-                "temperature": 0.1,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
+                "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
                 "topK": 10,              // Considers the top K most likely tokens at each step
                 "topP": 0.75,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
             }
