@@ -770,7 +770,12 @@ async function sendMessage() {
     try {
         // Prepare the payload for the Gemini API call
         const payload = {
-            contents: chatHistory
+            contents: chatHistory,
+            "generationConfig": {
+                "temperature": 0.1,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
+                "topK": 10,              // Considers the top K most likely tokens at each step
+                "topP": 0.75,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
+            }
         };
 
         // gemini-1.5-flash, gemini-2.5-flash-preview-05-20
