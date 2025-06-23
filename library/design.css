@@ -237,7 +237,7 @@ opacity: 0;
     border-bottom-right-radius: 0.25rem; /* rounded-br-lg */
 }
 .message.ai .message-bubble {
-    background-color: #c1c1c1; /* bg-gray-200 */
+    background-color: none; /* bg-gray-200 */
     color: #1f2937; /* text-gray-800 */
     border-bottom-left-radius: 0.25rem; /* rounded-bl-lg */
 }
