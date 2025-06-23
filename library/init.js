@@ -12066,6 +12066,7 @@ async function sendMessage() {
       10. When responding for codeblock use triple backticks.
       11. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
            Use <h3> header if needed for the explanation.
+           Inside <code></code> tag, use &lt; and &gt;
            Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
            Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
            Use <p> tags to wrap regular paragraphs for readability.
