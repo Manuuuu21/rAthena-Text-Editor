@@ -23,8 +23,10 @@ Designed with simplicity and convenience in mind, it includes essential features
 https://manuuuu21.github.io/rAthena-Text-Editor/
 
 ---
-# Screenshots
-## AI Sample
+# Screenshots and Video
+## AI Video
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/sample_vid.mp4)
+## AI Img
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/ai_sample1.gif)
 ## Darkmode
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode1.png)
