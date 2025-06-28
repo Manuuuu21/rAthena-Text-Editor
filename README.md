@@ -14,6 +14,7 @@ Designed with simplicity and convenience in mind, it includes essential features
 - 💾 **Save your work** with just a click
 - 📂 **Open existing** .txt files to continue where you left off
 - 📥 **Drag and drop** .txt files to get the data of txt file
+- ⏪⏩ **Navigate your Previous Generated code**
 - 🌓 **Toggle between Dark Mode and Light Mode** for better readability
 - ✅ **No installation or internet required** – works 100% offline
 
