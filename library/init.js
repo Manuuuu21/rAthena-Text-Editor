@@ -20,6 +20,9 @@ function downloadEditorContent() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+// Code history for "Previous Code" feature
+let codeHistory = [];
+let currentHistoryIndex = -1; // -1 indicates no history yet, or before the first item.
 
 // Code History Feature
 let currentHistoryIndex = -1; // -1 indicates no history yet, or before the first item.
