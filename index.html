@@ -40,6 +40,22 @@
     </div>
 <div id="mainArea">
 <div id="editor"></div>
+
+  <!-- Right-click Menu -->
+<div id="contextMenu" style="position:absolute; display:none; background:white; border:1px solid #ccc; z-index:1000; padding: 6px 6px 10px;">
+  <div id="explainThis" style="padding:5px; cursor:pointer;">🧠 Explain the highlighted code</div>
+  <div id="askAI" style="padding:5px; cursor:pointer;">💬 Ask AI</div>
+</div>
+<!-- Ask AI Form -->
+<div id="askAIForm" style="position:absolute; display:none; background:white; border:1px solid #ccc; padding:5px; z-index:1000; border-radius:6px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
+  <form autocomplete="off" id="askAIFormElement" style="display: flex; align-items: center; gap: 5px; margin: 0;">
+    <input type="text" id="askAIInput" placeholder="Ask about highlighted code"
+      style="width: 200px; padding: 9px 8px; border: 1px solid #ccc; border-radius: 4px;" />
+    <button type="submit" id="askAISubmit"
+      style="padding: 6px 10px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer;">➜</button>
+  </form>
+</div>
+  
   <div id="chatBotContainer">
     <div class="chat-section">
         <div class="chat-messages" id="chat-messages">
@@ -115,6 +131,101 @@
       },
       readOnly: false
     });
+
+    // Initialize code history with the current (likely empty) content
+    // Ensure init.js (and thus saveCurrentCodeToHistory) is loaded and editor is ready
+    if (typeof saveCurrentCodeToHistory === 'function') {
+        setTimeout(function() { // Use setTimeout to ensure editor is fully initialized
+             if (typeof editor !== 'undefined' && editor.session) {
+                saveCurrentCodeToHistory();
+                if (typeof updateHistoryButtonsState === 'function') {
+                    updateHistoryButtonsState();
+                }
+             }
+        }, 0);
+    }
+
+const contextMenu = document.getElementById("contextMenu");
+const askAIForm = document.getElementById("askAIForm");
+const askAIInput = document.getElementById("askAIInput");
+const askAISubmit = document.getElementById("askAISubmit");
+
+const explainThis = document.getElementById("explainThis");
+const askAI = document.getElementById("askAI");
+
+let latestSelectedText = "";
+let menuX = 0;
+let menuY = 0;
+
+// Track selected text
+editor.getSelection().on("changeSelection", () => {
+  latestSelectedText = editor.getSelectedText();
+});
+
+// Show context menu on right-click
+editor.container.addEventListener("contextmenu", function (e) {
+  e.preventDefault();
+
+  if (latestSelectedText.trim() !== "") {
+    menuX = e.pageX;
+    menuY = e.pageY;
+
+    contextMenu.style.left = `${menuX}px`;
+    contextMenu.style.top = `${menuY}px`;
+    contextMenu.style.display = "block";
+    askAIForm.style.display = "none";
+  }
+});
+
+// "Explain this" button logic
+explainThis.addEventListener("click", function (e) {
+  e.stopPropagation();
+  chatInput.value = `Explain this: \`\`\` ${latestSelectedText} \`\`\``;
+  sendMessage();
+
+  contextMenu.style.display = "none";
+  askAIForm.style.display = "none";
+});
+
+// "Ask AI" button logic — show form at the same position
+askAI.addEventListener("click", function (e) {
+  e.stopPropagation(); // <-- important to prevent immediate hiding
+  contextMenu.style.display = "none";
+
+  askAIForm.style.left = `${menuX}px`;
+  askAIForm.style.top = `${menuY}px`;
+  askAIForm.style.display = "block";
+  askAIInput.focus();
+});
+
+// Prevent hiding when clicking inside the form
+askAIForm.addEventListener("click", function (e) {
+  e.stopPropagation(); // <-- prevents document click from hiding the form
+});
+
+const askAIFormElement = document.getElementById("askAIFormElement");
+
+askAIFormElement.addEventListener("submit", function (e) {
+  e.preventDefault(); // prevent page reload
+  e.stopPropagation();
+
+  const question = askAIInput.value.trim();
+  if (question !== "") {
+    chatInput.value = `${question}: ${latestSelectedText}`;
+    sendMessage();
+    askAIForm.style.display = "none";
+  }
+
+  askAIInput.value = "";
+  // askAIForm.style.display = "none";
+});
+
+// Global click to close menus
+document.addEventListener("click", function () {
+  contextMenu.style.display = "none";
+  askAIForm.style.display = "none";
+  askAIInput.value = "";
+});
   </script>
 </body>
 </html>
