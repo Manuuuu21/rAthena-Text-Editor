@@ -21,6 +21,62 @@ function downloadEditorContent() {
   URL.revokeObjectURL(url);
 };
 
+// Code History Feature
+const MAX_HISTORY_SIZE = 25;
+function updateHistoryButtonsState() {
+    const prevBtn = document.getElementById('previousCodeBtn');
+    const nextBtn = document.getElementById('nextCodeBtn');
+    if (prevBtn) {
+        prevBtn.disabled = currentHistoryIndex <= 0;
+    }
+    if (nextBtn) {
+        nextBtn.disabled = currentHistoryIndex >= codeHistory.length - 1;
+    }
+}
+
+function saveCurrentCodeToHistory() {
+    if (typeof editor === 'undefined' || !editor || !editor.session) return;
+    const currentCode = editor.getValue();
+    if (currentHistoryIndex >= 0 && codeHistory[currentHistoryIndex] === currentCode) {
+        updateHistoryButtonsState(); // Still update button state in case it's the very first save
+        return;
+    }
+    if (currentHistoryIndex < codeHistory.length - 1) {
+        codeHistory = codeHistory.slice(0, currentHistoryIndex + 1);
+    }
+    codeHistory.push(currentCode);
+    currentHistoryIndex = codeHistory.length - 1;
+    if (codeHistory.length > MAX_HISTORY_SIZE) {
+        codeHistory.shift(); 
+        currentHistoryIndex--; 
+    }
+    updateHistoryButtonsState();
+}
+
+function previousCode() {
+    if (currentHistoryIndex <= 0) {
+        showSnackbar("No previous code available.");
+        return;
+    }
+    currentHistoryIndex--;
+    editor.setValue(codeHistory[currentHistoryIndex], -1);
+    editor.session.setUndoManager(new ace.UndoManager()); 
+    showSnackbar("Reverted to previous code.");
+    updateHistoryButtonsState();
+}
+
+function nextCode() {
+    if (currentHistoryIndex >= codeHistory.length - 1) {
+        showSnackbar("No next code available.");
+        return;
+    }
+    currentHistoryIndex++;
+    editor.setValue(codeHistory[currentHistoryIndex], -1);
+    editor.session.setUndoManager(new ace.UndoManager());
+    showSnackbar("Reverted to next code.");
+    updateHistoryButtonsState();
+}
+
 function openApiModal() {
   document.getElementById('modalApi').style.display = 'flex';
 }
@@ -33,6 +89,7 @@ let fileHandle;
 let lastDirectoryHandle = null;
 
 function newFile() {
+  saveCurrentCodeToHistory();
   // Reset file access handles
   fileHandle = null;
   lastDirectoryHandle = null;
@@ -41,9 +98,11 @@ function newFile() {
   editor.session.setUndoManager(new ace.UndoManager()); // Reset undo history
   // Update the <title> with the new file name
   document.title = "Untitled - rAthena Text Editor";
+  saveCurrentCodeToHistory();
 }
 
 document.getElementById("openBtn").addEventListener("click", async () => {
+  saveCurrentCodeToHistory();
   try {
     const options = {
       types: [
@@ -69,6 +128,7 @@ document.getElementById("openBtn").addEventListener("click", async () => {
 
     // Set the <title> to the opened file's name
     document.title = file.name + " - rAthena Text Editor";
+    saveCurrentCodeToHistory();
   } catch (err) {
     if (err.name === "AbortError") {
       console.log("Cancelled file open.");
@@ -101,6 +161,7 @@ async function saveToFile() {
     await writable.write(editor.getValue());
     await writable.close();
     showSnackbar("Saved successfully.");
+    saveCurrentCodeToHistory();
   } 
   catch (err) {
     if (err.name === "AbortError") {
@@ -139,11 +200,13 @@ editorElement.addEventListener("drop", async (e) => {
     return;
   }
 
+  saveCurrentCodeToHistory();
   const contents = await file.text();
   editor.setValue(contents, -1);
   editor.scrollToLine(0, true, true, function () {});
   editor.gotoLine(1, 0, true);
   // document.title = "Untitled - rAthena Text Editor";
+  saveCurrentCodeToHistory();
 });
 
 function openModal() {
@@ -12051,6 +12114,8 @@ async function sendMessage() {
 
     // Get the current content from the Ace editor
     const editorContent = editor.getValue();
+    document.getElementById('previousCodeBtn').setAttribute("disabled", "");
+    document.getElementById('nextCodeBtn').setAttribute("disabled", "");
 
     // LLM Instruction
     chatHistory.push({ role: "user", parts: [{ text: ` 
@@ -12141,6 +12206,8 @@ async function sendMessage() {
                   // Enable interaction again
                   editor.setReadOnly(false);
                   editor.container.style.pointerEvents = "auto";
+                  saveCurrentCodeToHistory();
+                  document.getElementById('previousCodeBtn').removeAttribute("disabled");
                 });
 
                 // If code is present, display "Okay" in the chat bubble
@@ -12162,6 +12229,7 @@ async function sendMessage() {
                 // Enable interaction again
                 editor.setReadOnly(false);
                 editor.container.style.pointerEvents = "auto";
+                document.getElementById('previousCodeBtn').removeAttribute("disabled");
             }
 
             addMessage(chatDisplayMessage, 'ai'); // Display AI's response with typewriter effect
@@ -12179,6 +12247,7 @@ async function sendMessage() {
             // Enable interaction again
             editor.setReadOnly(false);
             editor.container.style.pointerEvents = "auto";
+            document.getElementById('previousCodeBtn').removeAttribute("disabled");
         }
 
     } catch (error) {
@@ -12191,6 +12260,7 @@ async function sendMessage() {
         // Enable interaction again
         editor.setReadOnly(false);
         editor.container.style.pointerEvents = "auto";
+        document.getElementById('previousCodeBtn').removeAttribute("disabled");
     }
 }
 
