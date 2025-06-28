@@ -25,7 +25,7 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 ---
 # Screenshots and Video
 ## AI Video
-[Watch demo video](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/sample_vid.mp4)
+[Demo](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/sample_vid.mp4)
 ## AI Img
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/ai_sample1.gif)
 ## Darkmode
