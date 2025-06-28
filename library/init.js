@@ -22,6 +22,7 @@ function downloadEditorContent() {
 };
 
 // Code History Feature
+let currentHistoryIndex = -1; // -1 indicates no history yet, or before the first item.
 const MAX_HISTORY_SIZE = 25;
 function updateHistoryButtonsState() {
     const prevBtn = document.getElementById('previousCodeBtn');
