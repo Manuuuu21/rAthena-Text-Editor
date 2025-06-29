@@ -12173,7 +12173,15 @@ async function sendMessage() {
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            config: {
+                thinkingConfig: {
+                  // Turn off thinking:
+                  // thinkingBudget: 0
+                  // To Turn on thinking just set to 1
+                  thinkingBudget: 1,
+                },
+              },
         });
 
         if (!response.ok) {
