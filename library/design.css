@@ -33,7 +33,7 @@ p { margin: 7px 0 7px 0 }
   position: relative;
   width: 70%;
   flex: 0 0 70%;
-  overflow: auto;
+  overflow: hidden;
 }
 
 #chatBotContainer {
