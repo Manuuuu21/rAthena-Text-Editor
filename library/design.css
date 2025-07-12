@@ -55,15 +55,16 @@ p { margin: 7px 0 7px 0 }
   flex: 0 0 auto;
 }
 
-.statusbardesign {
-  text-align: right;
-  background: var(--darkmodeColor);
-  color: white;
-  padding: 5px;
-  font-family: monospace;
-  flex: 0 0 auto;
+.ai_thinking {
+  font-size: 10px !important;
+  color: gray;
+  border-left: 1px solid gray;
+  padding: 0 0 0 15px;
 }
-
+.ai_thinking ul li, .ai_thinking ol li, .ai_thinking p, thinking p, thinking ol li, thinking ul li {
+  font-size: 10px !important;
+  color: gray;
+}
 
 
 /* Button styling */
