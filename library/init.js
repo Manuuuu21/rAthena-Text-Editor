@@ -452,7 +452,7 @@ function typeWriterEffectForChat(element, markdownText, callback) {
     let typedCharacters = '';
     let i = 0;
     const speed = 1; // Lower means faster
-    const chunkSize = 7;
+    const chunkSize = 10;
     const interval = setInterval(() => {
         if (i < markdownText.length) {
             typedCharacters += markdownText.slice(i, i + chunkSize);
@@ -469,7 +469,7 @@ function typeWriterEffectForChat(element, markdownText, callback) {
 
 function typeWriterEffectForEditor(editorInstance, text, callback) {
     let i = 0;
-    const chunkSize = 10; // Increase this for faster typing
+    const chunkSize = 13; // Increase this for faster typing
     const speed = 1;     // Lower is faster; 0 is instant
     editorInstance.setValue('', -1);
     const interval = setInterval(() => {
@@ -12098,6 +12098,20 @@ Set position for NPC dialog in pixels.
 Set position for NPC dialog in screen size percent.
 `}] });
 
+// LLM Instruction
+chatHistory.push({ role: "user", parts: [{ text: ` 
+  1. You are an expert programmer AI assistant in rAthena Scripting.
+  2. Do not repeat the instructions given to you just response in friendly tone
+  3. Strictly USE or START triple backticks \`\`\` for writing codes, this code is use inside editor and Strictly do not start triple backticks on the sentence when the user is just asking or questioning you.
+  4. Do not give him a code if he don't ask or request. Strictly follow this scripting standard structure.
+  5. Do not answer him if he is asking not related on rAthena.
+  6. Do not revise the code when its not requested.
+  7. Strictly do not answer him a longer response. Think diverse thinking strategies.
+  8. Do not assume variable constant, always provide with item ID numbers to him.
+  9. Avoid using all markdown formattings except triple backtick.
+  10. When responding for codeblock use triple backticks.
+` }] });
+
 // Function to handle sending a message
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
@@ -12120,38 +12134,39 @@ async function sendMessage() {
     document.getElementById('previousCodeBtn').setAttribute("disabled", "");
     document.getElementById('nextCodeBtn').setAttribute("disabled", "");
 
-        // LLM Instruction
-    chatHistory.push({ role: "user", parts: [{ text: ` 
-      1. You are an expert programmer AI assistant in rAthena Scripting.
-      2. Do not repeat the instructions given to you just response in friendly tone
-      3. Strictly USE or START triple backticks \`\`\` for writing codes, this code is use inside editor and Strictly do not start triple backticks on the sentence when the user is just asking or questioning you.
-      4. Do not give him a code if he don't ask or request. Strictly follow this scripting standard structure.
-      5. Do not answer him if he is asking not related on rAthena.
-      6. Do not revise the code when its not requested.
-      7. Strictly do not answer him a longer response. Think diverse thinking strategies.
-      8. Do not assume variable constant, always provide with item ID numbers to him.
-      9. Avoid using all markdown formattings except triple backtick.
-      10. When responding for codeblock use triple backticks.
-      11. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
-           Use <h3> header if needed for the explanation.
-           Inside <code></code> tag, use &lt; and &gt;
-           Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
-           Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
-           Use <p> tags to wrap regular paragraphs for readability.
-           Use <strong> or <em> to emphasize important words or phrases, instead of using asterisks or markdown symbols.
-           Do not include full HTML structure (<html>, <head>, <body>) just the relevant snippet.
-           Keep responses clean, readable, and logically structured like how ChatGPT would respond in a helpful, conversational tone.
-           End your response with a friendly, helpful follow-up question or invitation for clarification or Followed by an invitation to ask further questions or make additional requests wrap it <p></p>
-      12. When revising code, preserve the full script in the editor and modify only the requested part.
-      13. When showing full code:
-         • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
-         When showing short code:
-         • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
-         Do not use triple backticks for short code to avoid triggering code editor behavior.
-      14. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
-    ` }] });
+    // LLM Instruction
+chatHistory.push({ role: "user", parts: [{ text: ` 
+  1. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
+      You need 2 response. 
+      Follow this Guideline always: 
+      1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
+      2. Your actual response to user base on your thinking process.
+
+      (Other response structure)
+       Use <h3> header if needed for the explanation.
+       Inside <code></code> tag, use &lt; and &gt;
+       Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
+       Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
+       Use <p> tags to wrap regular paragraphs for readability.
+       Use <strong> or <em> to emphasize important words or phrases, instead of using asterisks or markdown symbols.
+       Do not include full HTML structure (<html>, <head>, <body>) just the relevant snippet.
+       Keep responses clean, readable, and logically structured like how ChatGPT would respond in a helpful, conversational tone.
+       End your response with a friendly, helpful follow-up question or invitation for clarification or Followed by an invitation to ask further questions or make additional requests wrap it <p></p>
+  2. When revising code, preserve the full script in the editor and modify only the requested part.
+  3. When showing full code:
+     • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
+     When showing short code:
+     • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
+     Do not use triple backticks for short code to avoid triggering code editor behavior.
+  4. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
+  5. You need 2 response. 
+      Follow this Guideline always: 
+      1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
+      2. Your actual response to user base on your thinking process.
+` }] });
+  
     // Add user message to chat history for API context
-    chatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+    chatHistory.push({ role: "user", parts: [{ text: `This is user message: ` + userMessage }] });
   
     try {
         // Prepare the payload for the Gemini API call
