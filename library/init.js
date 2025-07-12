@@ -12181,7 +12181,7 @@ chatHistory.push({ role: "user", parts: [{ text: `
 
         // gemini-2.5-flash,
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         // Make the API call to Gemini
         const response = await fetch(apiUrl, {
