@@ -12138,7 +12138,7 @@ async function sendMessage() {
 chatHistory.push({ role: "user", parts: [{ text: ` 
   1. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
       You need 2 response. 
-      Follow this Guideline always: 
+      Follow this Guideline always. DO NOT WRAP IN TRIPLE BACKTICK IF NOT A CODE: 
       1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
       2. Your actual response to user base on your thinking process.
 
@@ -12160,7 +12160,7 @@ chatHistory.push({ role: "user", parts: [{ text: `
      Do not use triple backticks for short code to avoid triggering code editor behavior.
   4. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
   5. You need 2 response. 
-      Follow this Guideline always: 
+      Follow this Guideline always. DO NOT WRAP IN TRIPLE BACKTICK IF NOT A CODE: 
       1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
       2. Your actual response to user base on your thinking process.
 ` }] });
