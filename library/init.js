@@ -12124,7 +12124,7 @@ var chatSessionNum = 0;
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
     if (!userMessage) return; // Don't send empty messages
-    if (typeWriterStatusForChatDone == false || chatSessionNum > 0) {
+    if (chatSessionNum > 0) {
       return;
     }
     chatSessionNum++;
