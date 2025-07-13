@@ -297,7 +297,11 @@ function markdownToHtmlForChat(markdownText) {
     let inCodeBlock = false;
 
     const processInlineMarkdown = (text) => {
-        text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Step 1: Handle code blocks with escaped angle brackets
+        text = text.replace(/`([^`]+)`/g, (_, code) => {
+            const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<strong><code>${escapedCode}</code></strong>`;
+        });
         text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
         text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -12138,18 +12142,18 @@ const instructionPrompt2 = `
       7.4 Do not use links.
       7.5 Use minimal, relevant emojis to enhance clarity or friendliness — never overdo it
       7.6 Never wrap your explanation in triple backticks.
-      7.7 Follow this Response Formatting always without end!:
-        7.7.1 The thinking process step-by-step to understand the user input must be detailed.
+      7.7 Always follow this response formatting without end!:
+        7.7.1 Your thinking processes step-by-step to understand the user input must be detailed.
         7.7.2 Start a short quick answer or introduction.
-        7.7.3 Body response must be detailed.
-        7.7.3 Use <h4> headers when explaining (####) with emojis for clarity if needed (do not wrap the header in <ul> or <ol>)
+        7.7.3 Your body paragraph response must be in summarize.
+        7.7.3 Use <h4> when explaining with emojis for clarity if needed (do not wrap the header in <ul> or <ol>)
         7.7.4 Do not say "Here is the script", instead "Please kindly look for the generated script inside editor. " always wrap in <p></p>.
-        7.7.5 In generated codeblock use triple backtic (e.g., \`\`\`...\`\`\`) if requested.
+        7.7.5 In generated codeblock use triple backtic (e.g., \`\`\`...\`\`\`) if requested. do not use single backticks inside the codeblock/triple backtick.
         7.7.6 Explain the structured codeblock in summary if defined.
-        7.7.7 If the user requested to create fully working script/code/codeblock wrap it into triple backtick (eg. \`\`\`).
+        7.7.7 Always use triple backtick (eg. \`\`\`) if the user requested to create fully working script/code/codeblock.
         7.7.8 Use ordered and unordered nested lists when explaining multi-step processes
         7.7.9 When explaining the code command, use single backtick anytime to explain the code command.
-        7.8.0 End your response with a friendly follow-up question or an invitation for further request. Always connect the user input into your ending follow-up response. wrap this on p tag
+        7.8.0 End your response with a friendly follow-up question or an invitation for further request. Always connect the user input into your ending follow-up response. wrap this on p tag.
         7.8.1 If the user question or request is ambiguous, ask for clarification.
 `.trim();
 
@@ -12161,14 +12165,13 @@ chatHistory.push({
     ]
 });
 
-// Function to handle sending a message
 var chatSessionNum = 0;
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
     if (!userMessage) return; // Don't send empty messages
 
     // Prevent multiple submissions while waiting for a response
-    if (typeWriterStatusForChatDone == false || chatSessionNum > 0) {
+    if (chatSessionNum > 0) {
       return;
     }
     chatSessionNum++;
@@ -12199,8 +12202,13 @@ async function sendMessage() {
 
       In the "thinking" field, briefly explain your plan to address the user's request.
       In the "response" field, provide the full response, including any markdown or code blocks.
-      
+
       This is the Code in the editor as your basis if the user asks for changes: \`\`\`${editorContent}\`\`\`. Ignore if the Code in the editor has no code or value.
+      
+      You always need to write two (2) response. 
+      Follow this guideline always: 
+      1. Thinking process written in summary to understand the user input.
+      2. Your actual response to user base on your thinking process.
     `.trim();
   
     // Add the combined user message (instructional prompt + actual message) to chat history
