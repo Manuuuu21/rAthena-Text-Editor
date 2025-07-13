@@ -268,6 +268,10 @@ function toggleDisplayChatBotContainer() {
   }
 }
 
+let checkMarkSVG = `
+  <svg style="margin-left:-3px;margin-bottom:2px;" width="11" height="11" viewBox="0 0 20 20" fill="gray" xmlns="http://www.w3.org/2000/svg"><path d="M12.498 6.90887C12.7094 6.60867 13.1245 6.53642 13.4248 6.74774C13.7249 6.95913 13.7971 7.37424 13.5859 7.6745L9.62695 13.2995C9.51084 13.4644 9.32628 13.5681 9.125 13.5807C8.94863 13.5918 8.77583 13.5319 8.64453 13.4167L8.59082 13.364L6.50781 11.072L6.42773 10.9645C6.26956 10.6986 6.31486 10.3488 6.55273 10.1325C6.79045 9.91663 7.14198 9.9053 7.3916 10.0876L7.49219 10.1774L9.0166 11.8542L12.498 6.90887Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M10.3333 2.08496C14.7046 2.08496 18.2483 5.62867 18.2483 10C18.2483 14.3713 14.7046 17.915 10.3333 17.915C5.96192 17.915 2.41821 14.3713 2.41821 10C2.41821 5.62867 5.96192 2.08496 10.3333 2.08496ZM10.3333 3.41504C6.69646 3.41504 3.74829 6.3632 3.74829 10C3.74829 13.6368 6.69646 16.585 10.3333 16.585C13.97 16.585 16.9182 13.6368 16.9182 10C16.9182 6.3632 13.97 3.41504 10.3333 3.41504Z"></path></svg>
+`;
+
 // Get references to DOM elements
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
@@ -487,47 +491,35 @@ function typeWriterEffectForEditor(editorInstance, text, callback) {
 
 // Function to add a message to the chat display
 function addMessage(text, sender) {
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message', sender);
-
-    const messageBubble = document.createElement('div');
-    messageBubble.classList.add('message-bubble');
-
-    messageDiv.appendChild(messageBubble);
-    chatMessages.appendChild(messageDiv);
-    scrollToBottom();
-
-    // Only apply typewriter effect for AI messages
-    if (sender === 'ai') {
-        // The callback will handle re-enabling controls after typing
-        typeWriterEffectForChat(messageBubble, text, () => {
-            sendButton.disabled = false; // Re-enable send button
-            loadingIndicator.classList.remove('active'); // Hide loading indicator
-            chatInput.focus(); // Focus input for next message
-        });
-    } else {
-        // Create a <p> for user message
-        const messageText = document.createElement('p');
-        messageText.textContent = text;
-        messageBubble.appendChild(messageText);
-    }
+  const messageDiv = document.createElement('div');
+  messageDiv.classList.add('message', sender);
+  const messageBubble = document.createElement('div');
+  messageBubble.classList.add('message-bubble');
+  messageDiv.appendChild(messageBubble);
+  chatMessages.appendChild(messageDiv);
+  
+  if (sender === 'ai') {
+      typeWriterEffectForChat(messageBubble, text, () => {
+          sendButton.disabled = false;
+          loadingIndicator.classList.remove('active');
+          chatInput.focus();
+          scrollToBottom();
+      });
+  } else { // User message
+      const preElement = document.createElement('pre'); // Use <pre> for user messages to preserve formatting
+      preElement.textContent = text;
+      messageBubble.appendChild(preElement);
+      scrollToBottom();
+  }
 }
 
 // Instruction to LLM Base on the script_commands.txt, Don't add more or it will overload the API
-chatHistory.push({ role: "user", parts: [{ text: `
-  Dont give code if the user did not request. For all code wrap it inside triple backticks.
-  Do not say "Here is the script", instead "Please kindly look for the generated script inside editor".
-  Each NPC you created add a comment format like this above of your created npc, follow this format:
-  //===== rAthena Script =======================================
-  //= [Name of the NPC]
-  //===== By: rAthena AI Assistant ============================
-  //= [Function of the Script]
-  //= [Addition function descripting if there is or else ignore this]
-  //============================================================
-
-  Strictly follow this scripting standard structure. Do not change what is declared here. Do not credit me. This is a standard script you are providing. Strictly Do not copy or response the '%TAB%' instead Use \t for proper TAB. Do not repeat the word "Example".
-  Strictly use follow the variable declaration and special variables.:
-  This document is a reference manual for all the scripting commands and functions
+const standard_rAthena_script = `
+Answer the user input to best of your ability. Dont give code if the user did not request. For all code wrap it inside triple backtick. Do not thank the user for providing this documentation.
+Strictly follow this scripting standard structure. Do not change what is declared here. Do not credit me. This is a standard script you are providing. Strictly Do not copy or response the %TAB% instead Use \t for proper TAB for npc structure.
+Strictly use follow the variable declaration and special variables stated on this documentation.:
+----
+This document is a reference manual for all the scripting commands and functions
 available in rAthena. It is not a simple tutorial. When people tell you to
 "Read The F***ing Manual", they mean this.
 
@@ -12096,10 +12088,10 @@ Set position for NPC dialog in pixels.
 ---------------------------------------
 *setdialogpospercent(<x>, <y>)
 Set position for NPC dialog in screen size percent.
-`}] });
+`.trim();
 
 // LLM Instruction
-chatHistory.push({ role: "user", parts: [{ text: ` 
+const instructionPrompt2 = `
   1. You are an expert programmer AI assistant in rAthena Scripting.
   2. Do not repeat the instructions given to you just response in friendly tone
   3. Strictly USE or START triple backticks \`\`\` for writing codes, this code is use inside editor and Strictly do not start triple backticks on the sentence when the user is just asking or questioning you.
@@ -12110,12 +12102,25 @@ chatHistory.push({ role: "user", parts: [{ text: `
   8. Do not assume variable constant, always provide with item ID numbers to him.
   9. Avoid using all markdown formattings except triple backtick.
   10. When responding for codeblock use triple backticks.
-` }] });
+`.trim();
+
+chatHistory.push({
+    role: "user",
+    parts: [
+        { text: standard_rAthena_script },
+        { text: instructionPrompt2 }
+    ]
+});
 
 // Function to handle sending a message
+var chatSessionNum = 0;
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
     if (!userMessage) return; // Don't send empty messages
+    if (typeWriterStatusForChatDone == false || chatSessionNum > 0) {
+      return;
+    }
+    chatSessionNum++;
 
     var apikeyModal = document.getElementById("APIKey");
 
@@ -12135,45 +12140,54 @@ async function sendMessage() {
     document.getElementById('nextCodeBtn').setAttribute("disabled", "");
 
     // LLM Instruction
-chatHistory.push({ role: "user", parts: [{ text: `
-  This is your instruction that you must follow base on user input: 
-  1. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
-      You always need to write two (2) response format. 
-      *Always Follow this Guidelines*: 
-      1. Summarize your thinking process to understand the user input and wrap it on this "thinking" element tag <p class="ai_thought_textDesign">Thought:</p><p class="ai_thinking"><thinking>...</thinking></p>. 
-      2. Your actual response to user base on your thinking process.
-
-      (Other response structure)
-       Use <h3> header if needed for the explanation.
-       Inside <code></code> tag, use &lt; and &gt;
-       Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
-       Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
-       Use <p> tags to wrap regular paragraphs for readability.
-       Use <strong> or <em> to emphasize important words or phrases, instead of using asterisks or markdown symbols.
-       Do not include full HTML structure (<html>, <head>, <body>) just the relevant snippet.
-       Keep responses clean, readable, and logically structured like how ChatGPT would respond in a helpful, conversational tone.
-       End your response with a friendly, helpful follow-up question or invitation for clarification or Followed by an invitation to ask further questions or make additional requests wrap it <p></p>
-  2. When revising code, preserve the full script in the editor and modify only the requested part.
-  3. When showing full code:
-     • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
-     When showing short code:
-     • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
-     Do not use triple backticks for short code to avoid triggering code editor behavior.
-  4. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
-` }] });
+    const userInstructionalPrompt = `
+      This is your instruction that you must follow base on user input: 
+      1. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
+           Use <h3> header if needed for the explanation.
+           Inside <code></code> tag, use &lt; and &gt;
+           Use <ol><li>...</li></ol> for ordered (step-by-step or ranked) lists.
+           Use <ul><li>...</li></ul> for unordered lists when items are not sequential.
+           Use <p> tags to wrap regular paragraphs for readability.
+           Use <strong> or <em> to emphasize important words or phrases, instead of using asterisks or markdown symbols.
+           Do not include full HTML structure (<html>, <head>, <body>) just the relevant snippet.
+           Keep responses clean, readable, and logically structured like how ChatGPT would respond in a helpful, conversational tone.
+           End your response with a friendly, helpful follow-up question or invitation for clarification or Followed by an invitation to ask further questions or make additional requests wrap it <p></p>
+      2. When revising code, preserve the full script in the editor and modify only the requested part.
+      3. When showing full code:
+         • Use triple backticks (\`\`\`) at the start and last for full, standalone code.
+         When showing short code:
+         • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
+         Do not use triple backticks for short code to avoid triggering code editor behavior.
+      4. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
+    `.trim();
   
-    // Add user message to chat history for API context
-    chatHistory.push({ role: "user", parts: [{ text: `This is user message: ` + userMessage }] });
+    // Add the combined user message (instructional prompt + actual message) to chat history
+    chatHistory.push({
+        role: "user",
+        parts: [
+            { text: `This is your instruction that you must follow always: ` + userInstructionalPrompt },
+            { text: `This is user message: ` + userMessage }
+        ]
+    });
   
     try {
         // Prepare the payload for the Gemini API call
         const payload = {
-            contents: chatHistory,
-            "generationConfig": {
-                "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
-                "topK": 10,              // Considers the top K most likely tokens at each step
-                "topP": 0.75,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
-            }
+          contents: chatHistory,
+          "generationConfig": {
+              "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
+              "topK": 10,              // Considers the top K most likely tokens at each step
+              "topP": 0.7,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
+              responseMimeType: "application/json", // Ensure JSON response is requested
+              responseSchema: {
+                  type: "OBJECT",
+                  properties: {
+                      "thinking": { "type": "STRING" },
+                      "response": { "type": "STRING" }
+                  },
+                  propertyOrdering: ["thinking", "response"]
+              }
+          }
         };
 
         // gemini-2.5-flash,
@@ -12204,86 +12218,90 @@ chatHistory.push({ role: "user", parts: [{ text: `
 
         // Check if the response structure is valid and contains content
         if (result.candidates && result.candidates.length > 0 &&
-            result.candidates[0].content && result.candidates[0].content.parts &&
-            result.candidates[0].content.parts.length > 0) {
-            const aiResponse = result.candidates[0].content.parts[0].text;
+          result.candidates[0].content && result.candidates[0].content.parts &&
+          result.candidates[0].content.parts.length > 0) {
 
-            // Try to extract code block for Ace Editor
-            const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/;
-            const match = aiResponse.match(codeBlockRegex);
+          let thinking = "";
+          let responseText = "";
 
-            let chatDisplayMessage;
-            if (match) {
-                const language = match[1] || 'javascript'; 
-                const codeContent = match[2].trim();
-                // Calculate the start and end indices of the matched code block
-                const codeBlockStartIndex = match.index;
-                const codeBlockEndIndex = match.index + match[0].length;
+          // Try to parse JSON output from model
+          try {
+              const structuredResponse = JSON.parse(result.candidates[0].content.parts[0].text);
+              thinking = structuredResponse.thinking || "";
+              responseText = structuredResponse.response || "";
+          } catch (parseError) {
+              console.warn("Failed to parse structured JSON. Falling back to raw text.");
+              responseText = result.candidates[0].content.parts[0].text;
+          }
 
-                // Separate introduction, code, and footer
-                let introText = aiResponse.substring(0, codeBlockStartIndex).trim();
-                let footerText = aiResponse.substring(codeBlockEndIndex).trim();
+          const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/;
+          const match = responseText.match(codeBlockRegex);
 
-                typeWriterEffectForEditor(editor, codeContent, () => {
-                  // Enable interaction again
+          let chatDisplayMessage;
+          if (match) {
+              const codeContent = match[2].trim();
+              const codeBlockStartIndex = match.index;
+              const codeBlockEndIndex = match.index + match[0].length;
+
+              let introText = responseText.substring(0, codeBlockStartIndex).trim();
+              let footerText = responseText.substring(codeBlockEndIndex).trim();
+
+              typeWriterEffectForEditor(editor, codeContent, () => {
                   editor.setReadOnly(false);
                   editor.container.style.pointerEvents = "auto";
                   saveCurrentCodeToHistory();
                   document.getElementById('previousCodeBtn').removeAttribute("disabled");
-                });
+              });
 
-                // If code is present, display "Okay" in the chat bubble
-                // Construct the message to display in the chat bubble
-                chatDisplayMessage = '';
-                if (introText) {
-                    chatDisplayMessage += `<p>${introText}</p>`;
-                }
-                if (footerText) {
-                    chatDisplayMessage += `<p>${footerText}</p>`;
-                }
-                // If there's only code and no intro/footer, maybe add a small message.
-                if (!introText && !footerText) {
-                    chatDisplayMessage = "<p>Generated code is displayed in the editor.</p>";
-                }
-            } else {
-                // editor.setValue('// No code block found in the last response', -1);
-                chatDisplayMessage = aiResponse; // Use the full response for the chat bubble
-                // Enable interaction again
-                editor.setReadOnly(false);
-                editor.container.style.pointerEvents = "auto";
-                document.getElementById('previousCodeBtn').removeAttribute("disabled");
-            }
+              chatDisplayMessage = '';
+              if (introText) chatDisplayMessage += introText + "\n\n";
+              if (footerText) chatDisplayMessage += footerText;
+              if (!introText && !footerText) {
+                  chatDisplayMessage = "Generated code is displayed in the editor.";
+              }
 
-            addMessage(chatDisplayMessage, 'ai'); // Display AI's response with typewriter effect
+          } else {
+              chatDisplayMessage = responseText;
+              editor.setReadOnly(false);
+              editor.container.style.pointerEvents = "auto";
+              document.getElementById('previousCodeBtn').removeAttribute("disabled");
+          }
 
-            // Add AI response to chat history (full response including code for context)
-            chatHistory.push({ role: "model", parts: [{ text: aiResponse }] });
+          // ✅ Combined message
+          let combinedMessage = '';
+          if (thinking) {
+              combinedMessage += `
+                <p class="ai_thought_textDesign">Thought</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p>${checkMarkSVG}</p><p style="color:gray;font-size:10px;margin:-21px 0 10px 16px;">Done</p>`;
+          }
+          combinedMessage += chatDisplayMessage;
+          addMessage(combinedMessage, 'ai');
 
-        } else {
-            addMessage("Sorry, I couldn't get a response from the AI. Please try again.", 'ai');
-            console.error("Unexpected API response structure:", result);
-            // Ensure controls are re-enabled even if no valid response
-            sendButton.disabled = false;
-            loadingIndicator.classList.remove('active');
-            chatInput.focus();
-            // Enable interaction again
-            editor.setReadOnly(false);
-            editor.container.style.pointerEvents = "auto";
-            document.getElementById('previousCodeBtn').removeAttribute("disabled");
-        }
+          chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+          chatSessionNum = 0;
 
-    } catch (error) {
-        console.error('Error fetching from Gemini API:', error);
-        addMessage(`Oops! Something went wrong: ${error.message}. Please try again.`, 'ai');
-        // Ensure controls are re-enabled on API error
-        sendButton.disabled = false;
-        loadingIndicator.classList.remove('active');
-        chatInput.focus();
-        // Enable interaction again
-        editor.setReadOnly(false);
-        editor.container.style.pointerEvents = "auto";
-        document.getElementById('previousCodeBtn').removeAttribute("disabled");
-    }
+      } else {
+          addMessage("Sorry, I couldn't get a response from the AI. Please try again.", 'ai');
+          console.error("Unexpected API response structure:", result);
+          sendButton.disabled = false;
+          chatSessionNum = 0;
+          loadingIndicator.classList.remove('active');
+          chatInput.focus();
+          editor.setReadOnly(false);
+          editor.container.style.pointerEvents = "auto";
+          document.getElementById('previousCodeBtn').removeAttribute("disabled");
+      }
+
+  } catch (error) {
+      console.error('Error fetching from Gemini API:', error);
+      addMessage(`Oops! Something went wrong: ${error.message}. Please try again.`, 'ai');
+      sendButton.disabled = false;
+      chatSessionNum = 0;
+      loadingIndicator.classList.remove('active');
+      chatInput.focus();
+      editor.setReadOnly(false);
+      editor.container.style.pointerEvents = "auto";
+      document.getElementById('previousCodeBtn').removeAttribute("disabled");
+  }
 }
 
 // Event listeners
