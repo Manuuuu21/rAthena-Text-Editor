@@ -452,7 +452,7 @@ function markdownToHtmlForChat(markdownText) {
     return outputHtml.join('\n');
 }
 
-let typeWriterStatusForChatDone;
+let typeWriterStatusForChatDone = true;
 function typeWriterEffectForChat(element, markdownText, callback) {
   let typedCharacters = '';
   let i = 0;
