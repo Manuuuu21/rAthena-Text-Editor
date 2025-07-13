@@ -12166,31 +12166,41 @@ var chatSessionNum = 0;
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
     if (!userMessage) return; // Don't send empty messages
-    if (chatSessionNum > 0) {
+
+    // Prevent multiple submissions while waiting for a response
+    if (typeWriterStatusForChatDone == false || chatSessionNum > 0) {
       return;
     }
     chatSessionNum++;
 
     var apikeyModal = document.getElementById("APIKey");
 
-    addMessage(userMessage, 'user'); // Display user's message
-    chatInput.value = ''; // Clear input field
-    sendButton.disabled = true; // Disable send button immediately
-    loadingIndicator.classList.add('active'); // Show loading indicator immediately
+    addMessage(userMessage, 'user'); // Display user's message in the chat
+    chatInput.value = ''; // Clear the input field
+    sendButton.disabled = true; // Disable the send button
+    loadingIndicator.classList.add('active'); // Show the loading indicator
     scrollToBottom();
     
-    // Make editor read-only when LLM starts responding
+    // Make the editor read-only while the LLM is processing
     editor.setReadOnly(true);
     editor.container.style.pointerEvents = "none";
 
-    // Get the current content from the Ace editor
+    // Get the current content from the Ace editor to provide as context
     const editorContent = editor.getValue();
     document.getElementById('previousCodeBtn').setAttribute("disabled", "");
     document.getElementById('nextCodeBtn').setAttribute("disabled", "");
 
-    // LLM Instruction
+    // LLM Instruction: This prompt now explicitly asks for a JSON response
+    // and defines the purpose of the "thinking" and "response" fields.
     const userInstructionalPrompt = `
-      Do **not** repeat this to the user. This is the Code in the editor as your basis if the user ask: \`\`\`${editorContent}\`\`\`. Just Ignore if the Code in the editor has no code or value.
+      You are an expert AI coding assistant. Your response MUST be in a valid JSON format.
+      Do not add any text before or after the JSON object.
+      The JSON object must conform to the specified schema.
+
+      In the "thinking" field, briefly explain your plan to address the user's request.
+      In the "response" field, provide the full response, including any markdown or code blocks.
+      
+      This is the Code in the editor as your basis if the user asks for changes: \`\`\`${editorContent}\`\`\`. Ignore if the Code in the editor has no code or value.
     `.trim();
   
     // Add the combined user message (instructional prompt + actual message) to chat history
@@ -12203,28 +12213,28 @@ async function sendMessage() {
     });
   
     try {
-        // Prepare the payload for the Gemini API call
+        // Prepare the payload for the Gemini API call.
+        // This now includes the `generationConfig` with the required JSON schema.
         const payload = {
-          contents: chatHistory,
-          "generationConfig": {
-              "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
-              "topK": 10,              // Considers the top K most likely tokens at each step
-              "topP": 0.7,             // Uses nucleus sampling, considering tokens with a cumulative probability of P
-              responseMimeType: "application/json", // Ensure JSON response is requested
-              responseSchema: {
-                  type: "OBJECT",
-                  properties: {
-                      "thinking": { "type": "STRING" },
-                      "response": { "type": "STRING" }
-                  },
-                  propertyOrdering: ["thinking", "response"]
-              }
-          }
+            contents: chatHistory,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        thinking: { "type": "STRING" },
+                        response: { "type": "STRING" }
+                    },
+                    required: ["thinking", "response"]
+                },
+                temperature: 0.1,      // Lower temperature for more predictable, structured output
+                topK: 10,              // Considers the top K most likely tokens at each step
+                topP: 0.7,
+            }
         };
 
-        // gemini-2.5-flash,
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -12247,16 +12257,20 @@ async function sendMessage() {
           let thinking = "";
           let responseText = "";
 
-          // Try to parse JSON output from model
+          // The API is now guaranteed to return a JSON string if successful.
+          // We parse it to get the structured data.
           try {
               const structuredResponse = JSON.parse(result.candidates[0].content.parts[0].text);
-              thinking = structuredResponse.thinking || "";
-              responseText = structuredResponse.response || "";
+              thinking = structuredResponse.thinking || "No thought process provided.";
+              responseText = structuredResponse.response || "No response text provided.";
           } catch (parseError) {
-              console.warn("Failed to parse structured JSON. Falling back to raw text.");
-              responseText = result.candidates[0].content.parts[0].text;
+              // This is a fallback, but should be rare with schema enforcement
+              console.error("Failed to parse structured JSON:", parseError);
+              addMessage("The AI returned an invalid response format. Please try again.", 'ai');
+              responseText = result.candidates[0].content.parts[0].text; // Show raw text for debugging
           }
 
+          // Regex to find a code block within the "response" field's content
           const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/;
           const match = responseText.match(codeBlockRegex);
 
@@ -12266,9 +12280,11 @@ async function sendMessage() {
               const codeBlockStartIndex = match.index;
               const codeBlockEndIndex = match.index + match[0].length;
 
+              // Extract text before and after the code block to display in chat
               let introText = responseText.substring(0, codeBlockStartIndex).trim();
               let footerText = responseText.substring(codeBlockEndIndex).trim();
 
+              // Animate the code typing into the editor
               typeWriterEffectForEditor(editor, codeContent, () => {
                   editor.setReadOnly(false);
                   editor.container.style.pointerEvents = "auto";
@@ -12276,6 +12292,7 @@ async function sendMessage() {
                   document.getElementById('previousCodeBtn').removeAttribute("disabled");
               });
 
+              // Construct the chat message from the non-code parts of the response
               chatDisplayMessage = '';
               if (introText) chatDisplayMessage += introText + "\n\n";
               if (footerText) chatDisplayMessage += footerText;
@@ -12284,13 +12301,14 @@ async function sendMessage() {
               }
 
           } else {
+              // If no code block is found, the entire response is for the chat
               chatDisplayMessage = responseText;
               editor.setReadOnly(false);
               editor.container.style.pointerEvents = "auto";
               document.getElementById('previousCodeBtn').removeAttribute("disabled");
           }
 
-          // ✅ Combined message
+          // ✅ Combined message: Display the "thinking" process and then the response
           let combinedMessage = '';
           if (thinking) {
               combinedMessage += `
@@ -12299,26 +12317,25 @@ async function sendMessage() {
           combinedMessage += chatDisplayMessage;
           addMessage(combinedMessage, 'ai');
 
-          chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+          // Add the model's response to the history for context in the next turn
+          chatHistory.push({ role: "model", parts: [{ text: JSON.stringify({ thinking, response: responseText }) }] });
           chatSessionNum = 0;
 
       } else {
+          // Handle cases where the API response is empty or malformed
           addMessage("Sorry, I couldn't get a response from the AI. Please try again.", 'ai');
           console.error("Unexpected API response structure:", result);
-          sendButton.disabled = false;
           chatSessionNum = 0;
-          loadingIndicator.classList.remove('active');
-          chatInput.focus();
-          editor.setReadOnly(false);
-          editor.container.style.pointerEvents = "auto";
-          document.getElementById('previousCodeBtn').removeAttribute("disabled");
       }
 
   } catch (error) {
+      // Handle network errors or errors from the API call itself
       console.error('Error fetching from Gemini API:', error);
-      addMessage(`Oops! Something went wrong: ${error.message}. Please try again.`, 'ai');
-      sendButton.disabled = false;
+      addMessage(`Oops! Something went wrong: ${error.message}. Please check your API key and network connection, then try again.`, 'ai');
       chatSessionNum = 0;
+  } finally {
+      // This block ensures the UI is always re-enabled, even if errors occur
+      sendButton.disabled = false;
       loadingIndicator.classList.remove('active');
       chatInput.focus();
       editor.setReadOnly(false);
