@@ -10,6 +10,10 @@ height: 100vh;
 font-family: sans-serif;
 }
 p { margin: 7px 0 7px 0 }
+pre {
+    font-family: Arial, Helvetica, sans-serif;
+    text-wrap: auto;
+}
 #container {
   display: flex;
   flex-direction: column;
