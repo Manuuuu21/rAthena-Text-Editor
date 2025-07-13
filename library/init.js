@@ -12135,11 +12135,12 @@ async function sendMessage() {
     document.getElementById('nextCodeBtn').setAttribute("disabled", "");
 
     // LLM Instruction
-chatHistory.push({ role: "user", parts: [{ text: ` 
+chatHistory.push({ role: "user", parts: [{ text: `
+  This is your instruction that you must follow base on user input: 
   1. When responding, please format your answers using clean and minimal HTML to enhance clarity and structure. Use the following guidelines:
-      You need 2 response. 
-      Follow this Guideline always. DO NOT WRAP IN TRIPLE BACKTICK IF NOT A CODE: 
-      1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
+      You always need to write two (2) response format. 
+      *Always Follow this Guidelines*: 
+      1. Summarize your thinking process to understand the user input and wrap it on this "thinking" element tag <p class="ai_thought_textDesign">Thought:</p><p class="ai_thinking"><thinking>...</thinking></p>. 
       2. Your actual response to user base on your thinking process.
 
       (Other response structure)
@@ -12159,10 +12160,6 @@ chatHistory.push({ role: "user", parts: [{ text: `
      • Use inline formatting with single backticks (\`like this\`) or write code as plain text without backticks.
      Do not use triple backticks for short code to avoid triggering code editor behavior.
   4. This is the Code in the editor as your basis if the user ask: \`\`\` ${editorContent}\`\`\`
-  5. You need 2 response. 
-      Follow this Guideline always. DO NOT WRAP IN TRIPLE BACKTICK IF NOT A CODE: 
-      1. thinking process in summary of the user input wrap on <div class="ai_thinking"><thinking>...</thinking></div>. 
-      2. Your actual response to user base on your thinking process.
 ` }] });
   
     // Add user message to chat history for API context
