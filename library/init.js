@@ -452,23 +452,30 @@ function markdownToHtmlForChat(markdownText) {
     return outputHtml.join('\n');
 }
 
+let typeWriterStatusForChatDone;
 function typeWriterEffectForChat(element, markdownText, callback) {
-    let typedCharacters = '';
-    let i = 0;
-    const speed = 1; // Lower means faster
-    const chunkSize = 10;
-    const interval = setInterval(() => {
-        if (i < markdownText.length) {
-            typedCharacters += markdownText.slice(i, i + chunkSize);
-            i += chunkSize;
-            element.innerHTML = markdownToHtmlForChat(typedCharacters);
-            scrollToBottom();
-        } else {
-            clearInterval(interval);
-            element.innerHTML = markdownToHtmlForChat(markdownText);
-            if (callback) callback();
-        }
-    }, speed);
+  let typedCharacters = '';
+  let i = 0;
+  const speed = 1; 
+  const chunkSize = 10; 
+  element.innerHTML = ''; // Clear previous content
+  typeWriterStatusForChatDone = false;  // Reset flag
+
+  function type() {
+      if (i < markdownText.length) {
+          typedCharacters += markdownText.slice(i, Math.min(i + chunkSize, markdownText.length));
+          i += chunkSize;
+          element.innerHTML = markdownToHtmlForChat(typedCharacters);
+          scrollToBottom();
+          setTimeout(type, speed);
+      } else {
+          element.innerHTML = markdownToHtmlForChat(markdownText); // Ensure final full parse
+          scrollToBottom();
+          typeWriterStatusForChatDone = true;
+          if (callback) callback();
+      }
+  }
+  type();
 }
 
 function typeWriterEffectForEditor(editorInstance, text, callback) {
