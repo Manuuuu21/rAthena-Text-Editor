@@ -12201,19 +12201,19 @@ async function sendMessage() {
         const apiKey = apikeyModal.value;
         const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-        // Make the API call to Gemini
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             config: {
-                thinkingConfig: {
-                  // Turn off thinking:
-                  // thinkingBudget: 0
-                  // To Turn on thinking just set to 1
-                  thinkingBudget: 1,
-                },
+              thinkingConfig: {
+                // Turn off thinking:
+                // thinkingBudget: 0
+                // Turn on dynamic thinking:
+                // thinkingBudget: -1
+                thinkingBudget: 1,
               },
+            },
         });
 
         if (!response.ok) {
