@@ -12206,10 +12206,10 @@ async function sendMessage() {
         // Prepare the payload for the Gemini API call
         const payload = {
           contents: chatHistory,
-          "config": {
+          "generationConfig": {
               "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
               "topK": 10,              // Considers the top K most likely tokens at each step
-              "topP": 0.7,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
+              "topP": 0.7,             // Uses nucleus sampling, considering tokens with a cumulative probability of P
               responseMimeType: "application/json", // Ensure JSON response is requested
               responseSchema: {
                   type: "OBJECT",
@@ -12229,16 +12229,7 @@ async function sendMessage() {
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            config: {
-              thinkingConfig: {
-                // Turn off thinking:
-                // thinkingBudget: 0
-                // Turn on dynamic thinking:
-                // thinkingBudget: -1
-                thinkingBudget: 1,
-              },
-            },
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
