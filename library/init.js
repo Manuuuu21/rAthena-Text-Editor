@@ -12206,7 +12206,7 @@ async function sendMessage() {
         // Prepare the payload for the Gemini API call
         const payload = {
           contents: chatHistory,
-          "generationConfig": {
+          "config": {
               "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
               "topK": 10,              // Considers the top K most likely tokens at each step
               "topP": 0.7,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
