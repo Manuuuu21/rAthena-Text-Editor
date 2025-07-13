@@ -12185,21 +12185,21 @@ async function sendMessage() {
               "temperature": 0.0,      // Controls randomness. 0.0 = deterministic, 1.0 = highly creative
               "topK": 10,              // Considers the top K most likely tokens at each step
               "topP": 0.7,            // Uses nucleus sampling, considering tokens with a cumulative probability of P
-              responseMimeType: "application/json", // Ensure JSON response is requested
-              responseSchema: {
-                  type: "OBJECT",
-                  properties: {
+              "responseMimeType": "application/json", // Ensure JSON response is requested
+              "responseSchema": {
+                  "type": "OBJECT",
+                  "properties": {
                       "thinking": { "type": "STRING" },
                       "response": { "type": "STRING" }
                   },
-                  propertyOrdering: ["thinking", "response"]
+                  "propertyOrdering": ["thinking", "response"]
               }
           }
         };
 
         // gemini-2.5-flash,
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
