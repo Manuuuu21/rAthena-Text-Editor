@@ -12135,32 +12135,51 @@ const instructionPrompt2 = `
       6.1 The user's current code editor content will be provided to you within \`\`\`...\`\`\` in his prompt. Use this as context.
       6.2 **Do not** modify or repeat the content within \`\`\` unless the user explicitly asks for a revision of that specific code.
       6.3 When editing existing code editor content, keep the full script intact and change only the necessary target code.
-  7.  Chat Formatting:
-      7.1 Never use HTML tags. Do not use \`<ul>\`, \`<ol>\`, etc. 
-      7.2 When responding, please format your answers in a clean ordered structure and if needed use nested ordered structure.
-      7.3 Inside \`<code></code>\`, always escape angle brackets and use &lt; and &gt;
-      7.4 Do not use links.
-      7.5 Use minimal, relevant emojis to enhance clarity or friendliness — never overdo it
-      7.6 Never wrap your explanation in triple backticks.
-      7.7 Always follow this response formatting without end!:
-        7.7.1 Your thinking processes step-by-step to understand the user input must be detailed.
-        7.7.2 Start a short quick answer or introduction.
-        7.7.3 Your body paragraph response must be in summarize.
-        7.7.3 Use <h4> when explaining with emojis for clarity if needed (do not wrap the header in <ul> or <ol>)
-        7.7.4 Do not say "Here is the script", instead "Please kindly look for the generated script inside editor. " always wrap in <p></p>.
-        7.7.5 In generated codeblock use triple backtic (e.g., \`\`\`...\`\`\`) if requested. do not use single backticks inside the codeblock/triple backtick.
-        7.7.6 Explain the structured codeblock in summary if defined.
-        7.7.7 Always use triple backtick (eg. \`\`\`) if the user requested to create fully working script/code/codeblock.
-        7.7.8 Use ordered and unordered nested lists when explaining multi-step processes
-        7.7.9 When explaining the code command, use single backtick anytime to explain the code command.
-        7.8.0 End your response with a friendly follow-up question or an invitation for further request. Always connect the user input into your ending follow-up response. wrap this on p tag.
-        7.8.1 If the user question or request is ambiguous, ask for clarification.
+      # 7.1 General Rules:
+        1. **Never use HTML tags** like <ul>, <ol>, or others — except:
+           - <h4> headers for clarity (explained below).
+           - <p> tags only in "response" for key remarks (e.g., pointing to the code in editor or for final follow-up).
+        2. Use **clean ordered structure** (e.g., 1. → 1.1 → 1.1.1) when necessary for clarity.
+        3. Escape angle brackets **inside <code>** using \`&lt;\` and \`&gt;\` only when present in HTML-like code.
+        4. **Do not include any hyperlinks.**
+        5. Emojis may be used **minimally and meaningfully** to enhance tone — never overuse.
+        ---
+        # 7.2 Response Formatting Rules. 2 Output (thinking and response JSON):
+        **Always follow the structure below:**
+        # 7.2.1 "thinking" field:
+        - Provide a Detailed Plan **step-by-step** of how the user input was understood in ordered or unordered nested list if needed.
+        - Be logical and explanatory, this reflects your reasoning process.
+
+        # 7.2.2 "response" field base on your thinking field:
+        Include the following components in this order:
+        1. **Detailed Response**  
+           - A concise sentence introducing or answering the user's query. Always add a follow up question or request.
+        2. **Detailed Explanation**  
+           - Use **paragraphs** to explain the answer thoroughly.
+           - Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
+           - Use **ordered/unordered lists** to explain step-by-step guides or concepts when necessary.
+        3. **Code Blocks (if applicable)**  
+           - If the user requests a full working script/code snippet, **wrap it using triple backticks** (e.g., \`\`\`) inside the "response" field.
+           - When generating script, wrap in triple backtick.
+           - *Never use triple backticks anywhere else except in the "response" field.*
+           - Do **not** wrap the entire explanation in triple backticks — only the actual code.
+           - Explain the code in plain text afterwards using bullet points or nested lists.
+           - In showing syntax code do not use triple backticks!.
+        4. **Code Generation**  
+           - Instead of saying *"Here is the script"*, always write:
+             <p>Please kindly look for the generated script inside editor.</p>
+        5. **End with a Follow-up**  
+           - Always conclude a polite follow-up question or invitation based on the user's input.
+        ---
+        # 7.3 Special Rules
+        - Use single backticks \` \` to refer to individual **commands, code keywords**, or **parameters** during explanation.
+        - If the user's request is **unclear**, include a clarification question instead of assuming their intent.
 `.trim();
 
 chatHistory.push({
     role: "user",
     parts: [
-        { text: standard_rAthena_script },
+        { text: `THIS IS YOUR DATABASE / BASIS / DOCUMENTATION / CONTEXT THAT YOU CAN SEARCH AND MUST FOLLOW TO PROVIDE A 100% ACCURATE DATA TO USER: ` + standard_rAthena_script },
         { text: instructionPrompt2 }
     ]
 });
@@ -12200,15 +12219,14 @@ async function sendMessage() {
       Do not add any text before or after the JSON object.
       The JSON object must conform to the specified schema.
 
-      In the "thinking" field, briefly explain your plan to address the user's request.
-      In the "response" field, provide the full response, including any markdown or code blocks.
+      In the "thinking" field, explain your plan to address the user's input.
+      In the "response" field, provide the full response, including any markdown or the codeblock if the user requested for code.
 
-      This is the Code in the editor as your basis if the user asks for changes: \`\`\`${editorContent}\`\`\`. Ignore if the Code in the editor has no code or value.
-      
-      You always need to write two (2) response. 
-      Follow this guideline always: 
-      1. Thinking process written in summary to understand the user input.
-      2. Your actual response to user base on your thinking process.
+      Just Ignore if the Code in the editor has no code or value.
+      Always add a follow up question or request.
+      If the user input is unclear/broad and not pointing context ask for clarification.
+      This is the code in the editor as your basis if the user ask: \`\`\`${editorContent}\`\`\`. 
+      Wrapped it in triple backticks within the 'response' field of the JSON object for codeblock if the user requested else no.
     `.trim();
   
     // Add the combined user message (instructional prompt + actual message) to chat history
