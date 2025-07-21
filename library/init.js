@@ -12351,7 +12351,7 @@ async function sendMessage() {
           
           if (thinking) {
               combinedMessage += `
-                <p class="ai_thought_textDesign">Thought</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p>${checkMarkSVG}</p><p style="color:gray;font-size:10px;margin:-21px 0 10px 16px;">Done</p>`;
+                <p class="ai_thought_textDesign">Thought in ${timerCounterForGlobal} seconds</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p>${checkMarkSVG}</p><p style="color:gray;font-size:10px;margin:-21px 0 10px 16px;">Done</p>`;
           }
           combinedMessage += chatDisplayMessage;
           addMessage(combinedMessage, 'ai');
