@@ -12184,6 +12184,9 @@ chatHistory.push({
     ]
 });
 
+// Initialize the timerCounter as Global variable
+let timerCounterForGlobal = 0;
+
 var chatSessionNum = 0;
 async function sendMessage() {
     const userMessage = chatInput.value.trim();
@@ -12195,6 +12198,12 @@ async function sendMessage() {
     }
     chatSessionNum++;
 
+    // Reset First once we entered a chat message for AI
+    timerCounterForGlobal = 0;
+    let timerCountperChat = setInterval(function() {
+      timerCounterForGlobal++;
+    }, 1000);
+  
     var apikeyModal = document.getElementById("APIKey");
 
     addMessage(userMessage, 'user'); // Display user's message in the chat
@@ -12336,6 +12345,10 @@ async function sendMessage() {
 
           // ✅ Combined message: Display the "thinking" process and then the response
           let combinedMessage = '';
+          
+          // Stop the timerCount
+          clearInterval(timerCountperChat);
+          
           if (thinking) {
               combinedMessage += `
                 <p class="ai_thought_textDesign">Thought</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p>${checkMarkSVG}</p><p style="color:gray;font-size:10px;margin:-21px 0 10px 16px;">Done</p>`;
