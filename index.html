@@ -134,7 +134,8 @@
       },
       readOnly: false
     });
-
+    editor.setShowPrintMargin(false); // Hide the vertical print margin line
+    
     // Initialize code history with the current (likely empty) content
     // Ensure init.js (and thus saveCurrentCodeToHistory) is loaded and editor is ready
     if (typeof saveCurrentCodeToHistory === 'function') {
@@ -232,3 +233,4 @@ document.addEventListener("click", function () {
   </script>
 </body>
 </html>
+
