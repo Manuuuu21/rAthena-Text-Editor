@@ -36,7 +36,7 @@
       <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
       <button title="Settings" onclick="openModal()">⚙️</button>
       <div style="float:right;clear: right;" >
-        <button title="Put your API key here" onclick="openApiModal()">API Key</button>
+        <button style="background:silver;" title="Put your API key here" onclick="openApiModal()">API Key</button>
         <button title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
       </div>
     </div>
@@ -44,7 +44,7 @@
 <div id="editor"></div>
 
   <!-- Right-click Menu -->
-<div id="contextMenu" style="position:absolute; display:none; background:white; border:1px solid #ccc; z-index:1000; padding: 6px 6px 10px;">
+<div id="contextMenu" style="position:absolute; display:none; background:white; border:1px solid #ccc; z-index:1000; padding: 6px 6px 10px;border-radius:20px;">
   <div id="explainThis" style="padding:5px; cursor:pointer;">🧠 Explain the highlighted code</div>
   <div id="askAI" style="padding:5px; cursor:pointer;">💬 Ask AI</div>
 </div>
@@ -68,13 +68,10 @@
             -->
         </div>
         <div class="loading-indicator" id="loading-indicator">
-            AI is typing...
-        </div>
-        <div class="instruction-text">
-            Ask for code, and it will appear in the editor on the left!
+            AI is thinking <span class="first_dot">.</span><span class="second_dot">.</span><span class="third_dot">.</span>
         </div>
         <div class="chat-input-area">
-            <input type="text" id="chat-input" class="chat-input" placeholder="Type your message...">
+            <textarea type="text" id="chat-input" class="chat-input" placeholder="Type your message..."></textarea>
             <button id="send-button" class="send-button">➜</button>
         </div>
     </div>
@@ -107,6 +104,8 @@
 
   <!-- Custom Highlighting Rules -->
   <script src="library/rathena-highlight-rules.js"></script>
+
+  <script src="library/rathena_documentation.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
