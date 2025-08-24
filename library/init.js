@@ -627,7 +627,7 @@ Follow these guidelines at all times:
 chatHistory.push({
     role: "user",
     parts: [
-        { text: `This is your documentation context that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
+        { text: `This is your **GUIDE** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
         { text: `Strictly follow this guidelines all the times: `+instructionPromt2 + `.\n\n` }
     ]
 });
@@ -812,4 +812,5 @@ chatInput.addEventListener('keypress', (event) => {
         sendMessage();
     }
 });
+
 chatInput.focus();
