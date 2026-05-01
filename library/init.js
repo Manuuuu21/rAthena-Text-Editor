@@ -495,23 +495,6 @@ function typeWriterEffectForChat(element, markdownText, callback) {
   type();
 }
 
-function typeWriterEffectForEditor(editorInstance, text, callback) {
-  let i = 0;
-  const chunkSize = 13; 
-  const speed = 1;     
-  editorInstance.setValue('', -1);
-  const interval = setInterval(() => {
-      if (i < text.length) {
-          const chunk = text.slice(i, i + chunkSize);
-          editorInstance.session.insert(editorInstance.getCursorPosition(), chunk);
-          editorInstance.scrollToLine(editorInstance.session.getLength(), true, false, () => {});
-          i += chunkSize;
-      } else {
-          clearInterval(interval);
-          if (callback) callback();
-      }
-  }, speed);
-}
 
 function addMessage(text, sender) {
   const messageDiv = document.createElement('div');
@@ -590,13 +573,14 @@ Follow these guidelines at all times:
   1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
 
 5.2 \`thinking\` field:
-  1. Provide a summarize, step-by-step plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
+  1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
   2. This should be a clear, logical, and organized list (ordered or unordered) that reflects your reasoning process.
   3. Do not repeat the instruction that was provided in the "thinking" field of the JSON object.
 
 5.3 \`response\` field:
     1. **Response**  
-      1. Start with a brief answer to user first followed by a detailed answer to user input/question. use proper NPC structure code script if requested.
+      1. You have already created the following plan to guide your response base on 'thinking'. Please execute the thinking plan now.
+      2. Start with a brief answer to user first followed by a detailed answer to user input/question. use proper NPC structure code script if requested.
     2. **Detailed Format Summarize Explanation**  
       1. Use **paragraphs** to explain the answer thoroughly.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
@@ -610,7 +594,7 @@ Follow these guidelines at all times:
       3. *Never use triple backticks anywhere else except in the "response" field.*
       4. Do **not** wrap the entire explanation in triple backticks — only the actual code.
       5. In showing syntax code do not use triple backticks!.
-      6. Use proper new line break (\n), spacing, indent and script structure.
+      6. Use proper new vertical line break (\n), spacing, indent and script structure.
       3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
       3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
       3.3: Instead of saying *"Here is the script"*, always write:
@@ -699,7 +683,7 @@ async function sendMessage() {
         };
 
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -731,29 +715,25 @@ async function sendMessage() {
               responseText = result.candidates[0].content.parts[0].text;
           }
 
-          const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/;
-          const match = responseText.match(codeBlockRegex);
+          const codeBlockRegexGlobal = /```(\w+)?\s*([\s\S]*?)\s*```/g;
+          const matches = [...responseText.matchAll(codeBlockRegexGlobal)];
 
           let chatDisplayMessage;
-          if (match) {
-              const codeContent = match[2].trim();
-              const codeBlockStartIndex = match.index;
-              const codeBlockEndIndex = match.index + match[0].length;
+          if (matches.length > 0) {
+              // Collect all code content from all code blocks
+              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n');
+              
+              // Set the combined code to the editor
+              editor.setValue(allCodeContent, -1);
+              editor.setReadOnly(false);
+              editor.container.style.pointerEvents = "auto";
+              saveCurrentCodeToHistory();
+              document.getElementById('previousCodeBtn').removeAttribute("disabled");
 
-              let introText = responseText.substring(0, codeBlockStartIndex).trim();
-              let footerText = responseText.substring(codeBlockEndIndex).trim();
-
-              typeWriterEffectForEditor(editor, codeContent, () => {
-                  editor.setReadOnly(false);
-                  editor.container.style.pointerEvents = "auto";
-                  saveCurrentCodeToHistory();
-                  document.getElementById('previousCodeBtn').removeAttribute("disabled");
-              });
-
-              chatDisplayMessage = '';
-              if (introText) chatDisplayMessage += introText + "\n\n";
-              if (footerText) chatDisplayMessage += footerText;
-              if (!introText && !footerText) {
+              // Remove all triple-backtick code blocks from the chat display
+              chatDisplayMessage = responseText.replace(codeBlockRegexGlobal, '').replace(/\n{3,}/g, '\n\n').trim();
+              
+              if (!chatDisplayMessage) {
                   chatDisplayMessage = "Generated code is displayed in the editor.";
               }
 
