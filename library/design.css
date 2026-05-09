@@ -190,14 +190,63 @@ opacity: 0;
 }
 
 
-/* ============= CHATBOT GEMINI API ========== */
-.instruction-text {
-    padding: 0.5rem 1rem;
-    font-size: 12px; /* text-sm */
-    color: #6b7280; /* text-gray-500 */
-    background-color: #f0f2f5;
-    border-bottom: 1px solid #e5e7eb;
-    text-align: center;
+/* ============= DIFF MODAL STYLES ========== */
+.diff-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.diff-modal-box {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 90%;
+  width: 90%;
+  height: 90%;
+  max-height: 90%;
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-split-container {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  overflow: auto;
+}
+
+.diff-pane {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  overflow: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+.added { background-color: #d4edda; color: #155724; }
+.removed { background-color: #f8d7da; color: #721c24; text-decoration: line-through; }
+
+/* ACE markers */
+.ace_added { background-color: #d4edda !important; position: absolute; }
+.ace_removed { background-color: #f8d7da !important; position: absolute; }
+
+.diff-button {
+  padding: 5px 10px;
+  background-color: gray;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
 }
 .chat-section, .editor-section {
     display: flex;
