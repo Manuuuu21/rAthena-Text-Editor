@@ -627,7 +627,7 @@ Follow these guidelines at all times:
   1.5 **Always wrap the script in codeblock eg. \`\`\`...\`\`\`**. No specific name of codeblock just wrap in triple backtick.
   2. Do not modify, revise, or repeat the user's provided code unless they explicitly ask for a revision of that specific code.
   3. When revising existing code, keep the full script intact and only change the necessary parts.
-  4. Please use standard line breaks and indentation for all code, so that it is properly formatted and readable in any text editor.
+  4. Please Use proper new vertical line break and indentation for all code, so that it is properly formatted and readable in any text editor.
   5. Follow rAthena scripting standards and variable types (permanent, temporary, global, NPC, scope, account, character). always declare a variable in set or direct.
   6. Use \`$\` for strings as per rAthena documentation.
   7. using literal tab characters '\t' for tabs. Never use \`%TAB%\`.
@@ -649,17 +649,15 @@ Follow these guidelines at all times:
     5. Emojis may be used **minimally and meaningfully** to express your emotion as AI — never overuse.
   Code Formatting:
     1. Use single backticks ( \` \` ) for all inline code references, such as commands, keywords, or variable names.
-    2. Use triple backticks or wrap it in 1 codeblock ( \`\`\` ) only for complete, multi-line code blocks intended for the script editor.
+    2. Use triple backticks or wrap it in 1 codeblock ( \`\`\`codeblock\`\`\` ) only for complete, multi-line code blocks intended for the script editor.
     3. If a user asks you to remove code, respond only with: \`\`\`// Code removed\`\`\`
-    4. When providing a full script, do not say "Here is the script." Instead, write: \`<p>Please find the generated script in your editor.</p>\`
+    4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please find the generated script in your editor.</p>\`
 
 5.1 JSON Object Structure:
   1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
 
 5.2 \`thinking\` field:
   1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
-  2. This should be a clear, logical, and organized list (ordered or unordered) that reflects your reasoning process.
-  3. Do not repeat the instruction that was provided in the "thinking" field of the JSON object.
 
 5.3 \`response\` field:
     1. **Response**  
@@ -668,23 +666,22 @@ Follow these guidelines at all times:
     2. **Detailed Format Summarize Explanation**  
       1. Use **paragraphs** to explain the answer thoroughly.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
-      3. Use **ordered/unordered lists** to explain step-by-step guides or concepts when necessary.
+      3. Use **ordered/unordered lists** to explain in summarize the step-by-step guides or concepts when necessary.
       4. inside <code></code> Do not use "<" or ">" instead use "&lt;" or "&gt;".
-      5. Be precise in explaining.
-      6. Alway provide to user a full/completed response and wrap it in 1 codeblock. 
-    3. **1 Code Blocks Generation (if applicable) for the script**  
-      1. If the user requests a full working script/code snippet, **wrap it using triple backticks** (e.g., \`\`\`) inside the JSON Object "response" field.
+      6. Alway provide to user a full/completed code/script response and wrap it in 1 codeblock if requested. 
+    3. **1 Code Blocks Generation for the script**  
+      1. If the user requests a full working script/code, **wrap it using triple backticks** (e.g., \`\`\`) inside the JSON Object "response" field.
       2. When generating script, wrap in triple backtick.
       3. *Never use triple backticks anywhere else except in the "response" field.*
-      4. Do **not** wrap the entire explanation in triple backticks — only the actual code.
+      4. Do **not** wrap the entire explanation in triple backticks — only the actual code/script.
       5. In showing syntax code do not use triple backticks!.
       6. Use proper new vertical line break (\n), spacing, indent and script structure.
       3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
       3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
-      3.3: Instead of saying *"Here is the script"*, always write:
+      3.3: Instead of saying *"Here is the script"*, always write or revise this:
         1. "<p>Please kindly look for the generated script inside editor.</p>" when you are generating script.
     5. **End with a Follow-up**  
-      1. <p>Always conclude a polite follow-up question or invitation based on the user's input.</p>
+      1. <p>Always conclude a polite follow-up question or invitation based on the user's input.</p> Do not include this inside the nested list.
     ---
     # 7.3 Special Rules/Instructions
       1. Use single backticks \` \` to refer to single **commands, code keywords**, or **parameters** during explanation.
@@ -743,8 +740,8 @@ async function sendMessage() {
     chatHistory.push({
         role: "user",
         parts: [
-            { text: `This is your additional context that you must follow always: ` + userInstructionalPrompt + `.\n\n` },
-            { text: `This is user input/question: ` + userMessage + `. do not repeat all instructions.` }
+            { text: `` + userInstructionalPrompt + `.\n\n` },
+            { text: `This is user input/question: ` + userMessage + `. do not repeat the user instructions.` }
         ]
     });
 
@@ -765,9 +762,10 @@ async function sendMessage() {
               }
           }
         };
-
+  
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+        const selectedModel = document.getElementById('my-select-dropdown').value;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
