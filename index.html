@@ -25,6 +25,20 @@
     </div>
   </div>
 
+  <!-- Diff Modal -->
+  <div class="diff-modal" id="diffModal">
+    <div class="diff-modal-box">
+      <div class="modal-header">
+        <h2>Code Changes</h2>
+        <button class="close-btn" onclick="closeDiffModal()">×</button>
+      </div>
+      <div class="diff-split-container">
+        <div class="diff-pane" id="diffOld"></div>
+        <div class="diff-pane" id="diffNew"></div>
+      </div>
+    </div>
+  </div>
+
 <div id="container">
   <div id="toolbar">
       <button title="New File" id="newFile" onclick="newFile()">📄</button>
@@ -95,6 +109,7 @@
 </div>
 
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/ace.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/ext-language_tools.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/ext-searchbox.js"></script>
