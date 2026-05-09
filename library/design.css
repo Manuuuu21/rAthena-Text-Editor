@@ -233,7 +233,7 @@ opacity: 0;
 }
 
 .ace-github-light-default .ace_marker-layer .ace_active-line {
-    /* background: #f6f8fa; */
+    background: none !important;
     border: 2px solid #bfbfbf !important;
     margin-top: -2px !important;
 }
