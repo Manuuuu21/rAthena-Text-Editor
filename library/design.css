@@ -75,6 +75,15 @@ pre {
   margin-left: -2px;
 }
 
+.model-container {
+    padding: 0.5rem 1rem;
+    font-size: 12px;
+    color: #6b7280;
+    background-color: silver;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: center;
+}
+
 /* Button styling */
 .open-modal-btn {
 padding: 10px 20px;
@@ -295,8 +304,8 @@ opacity: 0;
 }
 .message.user .message-bubble {
 	font-size: 12px;
-    background-color: #4b81ff; /* bg-blue-500 */
-    color: #ffffff;
+    background-color: #d0d0d0; /* bg-blue-500 */
+    color: #000000;
     border-bottom-right-radius: 0.25rem; /* rounded-br-lg */
 }
 .message.ai .message-bubble {
