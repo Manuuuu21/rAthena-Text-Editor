@@ -227,7 +227,6 @@ opacity: 0;
   flex: 1;
   padding: 10px;
   border: 1px solid #ddd;
-  overflow: auto;
   font-family: monospace;
   white-space: pre-wrap;
 }
