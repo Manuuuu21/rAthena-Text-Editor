@@ -232,6 +232,12 @@ opacity: 0;
   white-space: pre-wrap;
 }
 
+.ace-github-light-default .ace_marker-layer .ace_active-line {
+    /* background: #f6f8fa; */
+    border: 2px solid #bfbfbf !important;
+    margin-top: -2px !important;
+}
+
 .added { background-color: #d4edda; color: #155724; }
 .removed { background-color: #f8d7da; color: #721c24; text-decoration: line-through; }
 
