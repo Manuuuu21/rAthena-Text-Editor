@@ -803,7 +803,7 @@ async function sendMessage() {
           let chatDisplayMessage;
           if (matches.length > 0) {
               // Collect all code content from all code blocks
-              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n');
+              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n");
               
               // Set the combined code to the editor
               const oldCode = editor.getValue();
