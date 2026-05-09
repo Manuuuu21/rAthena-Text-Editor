@@ -7,6 +7,82 @@ function toggleTheme() {
   editor.setTheme(currentTheme);
 }
 
+/* Diff Modal handling */
+function closeDiffModal() {
+    document.getElementById('diffModal').style.display = 'none';
+}
+
+let lastDiff = {old: "", new: ""};
+let diffOldEditor = null;
+let diffNewEditor = null;
+
+function setupDiffEditor(id, readOnly = true) {
+    const editor = ace.edit(id);
+    editor.setTheme("ace/theme/github_light_default");
+    editor.session.setMode("ace/mode/rathena");
+    editor.setReadOnly(readOnly);
+    editor.setShowPrintMargin(false);
+    return editor;
+}
+
+function openLastDiff() {
+    const oldCode = lastDiff.old;
+    const newCode = lastDiff.new;
+    
+    if (!diffOldEditor) {
+        diffOldEditor = setupDiffEditor('diffOld');
+    }
+    if (!diffNewEditor) {
+        diffNewEditor = setupDiffEditor('diffNew');
+    }
+    
+    diffOldEditor.setValue(oldCode, -1);
+    diffNewEditor.setValue(newCode, -1);
+    
+    // Clear previous markers
+    const oldSession = diffOldEditor.getSession();
+    const newSession = diffNewEditor.getSession();
+    
+    // ACE markers are stored in the session, but removing them requires knowing the marker ID.
+    // Simplifying: just re-creating session is cleaner, but let's try to remove them properly.
+    const oldMarkers = oldSession.getMarkers();
+    for (let m in oldMarkers) {
+      if (oldMarkers[m].clazz === 'ace_removed') oldSession.removeMarker(oldMarkers[m].id);
+    }
+    const newMarkers = newSession.getMarkers();
+    for (let m in newMarkers) {
+      if (newMarkers[m].clazz === 'ace_added') newSession.removeMarker(newMarkers[m].id);
+    }
+
+    const diff = Diff.diffLines(oldCode, newCode);
+    let oldLine = 0;
+    let newLine = 0;
+    const Range = ace.require('ace/range').Range;
+
+    diff.forEach(part => {
+        if (part.added) {
+            const range = new Range(newLine, 0, newLine + part.count - 1, Infinity);
+            newSession.addMarker(range, "ace_added", "fullLine");
+            newLine += part.count;
+        } else if (part.removed) {
+            const range = new Range(oldLine, 0, oldLine + part.count - 1, Infinity);
+            oldSession.addMarker(range, "ace_removed", "fullLine");
+            oldLine += part.count;
+        } else {
+            oldLine += part.count;
+            newLine += part.count;
+        }
+    });
+
+    document.getElementById('diffModal').style.display = 'flex';
+    
+    // Resize ACE editors once the container becomes visible
+    setTimeout(() => {
+        diffOldEditor.resize();
+        diffNewEditor.resize();
+    }, 100);
+}
+
 // Download button
 function downloadEditorContent() {
   const content = editor.getValue();
@@ -546,7 +622,7 @@ Follow these guidelines at all times:
   4. Please use standard line breaks and indentation for all code, so that it is properly formatted and readable in any text editor.
   5. Follow rAthena scripting standards and variable types (permanent, temporary, global, NPC, scope, account, character). always declare a variable in set or direct.
   6. Use \`$\` for strings as per rAthena documentation.
-  7. Use \`\\t\` or \`&#9;\` for tabs. Never use \`%TAB%\`.
+  7. using literal tab characters '\t' for tabs. Never use \`%TAB%\`.
   8. For complete scripts or NPCs intended for the editor, wrap the output in codeblock to trigger the script editor.
   9. Use single backticks anytime for inline or short code references or variable names within chat.
   10. Absolutely do **not** use double backticks under any circumstances.
@@ -611,8 +687,8 @@ Follow these guidelines at all times:
 chatHistory.push({
     role: "user",
     parts: [
-        { text: `This is your **GUIDE** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
-        { text: `Strictly follow this guidelines all the times: `+instructionPromt2 + `.\n\n` }
+        { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
+        { text: `Strictly follow this **INSTRUCTIONS** all the times: `+instructionPromt2 + `.\n\n` }
     ]
 });
 
@@ -683,7 +759,7 @@ async function sendMessage() {
         };
 
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -724,6 +800,10 @@ async function sendMessage() {
               const allCodeContent = matches.map(m => m[2].trim()).join('\n\n');
               
               // Set the combined code to the editor
+              const oldCode = editor.getValue();
+              const newCode = allCodeContent;
+              const hasChanges = oldCode !== newCode;
+              
               editor.setValue(allCodeContent, -1);
               editor.setReadOnly(false);
               editor.container.style.pointerEvents = "auto";
@@ -735,6 +815,11 @@ async function sendMessage() {
               
               if (!chatDisplayMessage) {
                   chatDisplayMessage = "Generated code is displayed in the editor.";
+              }
+              
+              if (hasChanges) {
+                  lastDiff = {old: oldCode, new: newCode};
+                  chatDisplayMessage += `<br><button class="diff-button" onclick="openLastDiff()">View Changes</button>`;
               }
 
           } else {
