@@ -12,7 +12,7 @@ function closeDiffModal() {
     document.getElementById('diffModal').style.display = 'none';
 }
 
-let lastDiff = {old: "", new: ""};
+let diffHistory = [];
 let diffOldEditor = null;
 let diffNewEditor = null;
 
@@ -25,9 +25,8 @@ function setupDiffEditor(id, readOnly = true) {
     return editor;
 }
 
-function openLastDiff() {
-    const oldCode = lastDiff.old;
-    const newCode = lastDiff.new;
+function openDiff(index) {
+    const {old: oldCode, new: newCode} = diffHistory[index];
     
     if (!diffOldEditor) {
         diffOldEditor = setupDiffEditor('diffOld');
@@ -55,6 +54,15 @@ function openLastDiff() {
     }
 
     const diff = Diff.diffLines(oldCode, newCode);
+    let additions = 0;
+    let removals = 0;
+    diff.forEach(part => {
+        if (part.added) additions += part.count;
+        if (part.removed) removals += part.count;
+    });
+    document.getElementById('diffStats').innerHTML =
+        `<span style="color: green">+${additions}</span> <span style="color: red">-${removals}</span> lines changed`;
+    
     let oldLine = 0;
     let newLine = 0;
     const Range = ace.require('ace/range').Range;
@@ -759,7 +767,7 @@ async function sendMessage() {
         };
 
         const apiKey = apikeyModal.value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -818,8 +826,9 @@ async function sendMessage() {
               }
               
               if (hasChanges) {
-                  lastDiff = {old: oldCode, new: newCode};
-                  chatDisplayMessage += `<br><button class="diff-button" onclick="openLastDiff()">View Changes</button>`;
+                  const diffIndex = diffHistory.length;
+                  diffHistory.push({old: oldCode, new: newCode});
+                  chatDisplayMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
               }
 
           } else {
