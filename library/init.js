@@ -614,13 +614,13 @@ Follow these guidelines at all times:
   3. Maintain a friendly, helpful, and conversational tone. Keep responses concise and to the point. Do not repeat these instructions in your responses.
 
 2. Scripting Guidelines:
-  1. **Start with Script Header:** When creating a new NPC script, you must start a comment header block at the beginning:
+  1. **Start with Script Header:** When creating a new NPC script structure, you must start a comment header block at the beginning. each new NPC should have with script header differently:
     \`\`\`(No specific name of codeblock)
     //===== rAthena Script =======================================
-    //= [Name of the NPC]
+    //= Name of the NPC
     //===== By: rAthena AI Assistant ============================
-    //= [Function of the Script]
-    //= [Optional: Additional function description]
+    //= Function of the Script
+    //= Optional: Additional function description
     //============================================================
     The rest of the code here ...
     \`\`\`
@@ -630,7 +630,7 @@ Follow these guidelines at all times:
   4. Please Use proper new vertical line break and indentation for all code, so that it is properly formatted and readable in any text editor.
   5. Follow rAthena scripting standards and variable types (permanent, temporary, global, NPC, scope, account, character). always declare a variable in set or direct.
   6. Use \`$\` for strings as per rAthena documentation.
-  7. using literal tab characters '\t' for tabs. Never use \`%TAB%\`.
+  7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
   8. For complete scripts or NPCs intended for the editor, wrap the output in codeblock to trigger the script editor.
   9. Use single backticks anytime for inline or short code references or variable names within chat.
   10. Absolutely do **not** use double backticks under any circumstances.
@@ -676,6 +676,7 @@ Follow these guidelines at all times:
       4. Do **not** wrap the entire explanation in triple backticks — only the actual code/script.
       5. In showing syntax code do not use triple backticks!.
       6. Use proper new vertical line break (\n), spacing, indent and script structure.
+      7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
       3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
       3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
       3.3: Instead of saying *"Here is the script"*, always write or revise this:
@@ -803,7 +804,7 @@ async function sendMessage() {
           let chatDisplayMessage;
           if (matches.length > 0) {
               // Collect all code content from all code blocks
-              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n").replace(/&Tab;/g, "\t");
               
               // Set the combined code to the editor
               const oldCode = editor.getValue();
