@@ -142,6 +142,13 @@
       fontSize: "14px",
     });
 
+    // Disable Tab completion while keeping the autocomplete menu visible/clickable
+    const Autocomplete = ace.require("ace/autocomplete").Autocomplete;
+    if (Autocomplete && Autocomplete.prototype && Autocomplete.prototype.commands) {
+        Autocomplete.prototype.commands["Tab"] = null;
+        Autocomplete.prototype.commands["Shift-Tab"] = null;
+    }
+
     // Load the statusbar extension
     ace.require("ace/ext/statusbar");
     // Create and attach the statusbar
