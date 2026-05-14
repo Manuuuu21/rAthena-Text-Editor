@@ -127,8 +127,9 @@
 
   <!-- Custom Highlighting Rules -->
   <script src="library/rathena-highlight-rules.js"></script>
+  <script src="library/rathena-linter.js"></script>
 
-  <script src="library/rathena_documentation.js"></script>
+  <script src="library/rathena_documentation_original.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
@@ -160,23 +161,39 @@
       name: "saveToFileSystem",
       bindKey: { win: "Ctrl-S", mac: "Command-S" },
       exec: function () {
-        const oldCode = editor.getValue();
+        const currentCode = editor.getValue();
         saveToFile();
-        const newCode = editor.getValue();
         
         addMessage("I made some changes", 'user');
         
-        let aiMessage = "Here are the changes";
-        // Always show the View Changes button as intentional by the user
-        const diffIndex = diffHistory.length;
-        diffHistory.push({old: oldCode, new: newCode});
-        aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
+        const diffIndex = recordChange(lastSavedCode, currentCode);
         
-        addMessage(aiMessage, 'ai');
+        if (lastSavedCode !== currentCode) {
+            lastSavedCode = currentCode;
+        }
+
+        if (diffIndex !== null) {
+            let aiMessage = "<p>Here are the changes</p>";
+            aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
+            addMessage(aiMessage, 'ai');
+        } else {
+            addMessage("No changes detected.", 'ai');
+        }
       },
       readOnly: false
     });
     editor.setShowPrintMargin(false); // Hide the vertical print margin line
+    editor.getSession().setUseSoftTabs(false);
+
+    // Trigger linter on change
+    editor.on("change", () => {
+      if (typeof runRathenaLinter === "function") {
+        runRathenaLinter(editor);
+      }
+    });
+    
+    // Initial lint
+    setTimeout(() => runRathenaLinter(editor), 500);
     
     // Initialize code history with the current (likely empty) content
     // Ensure init.js (and thus saveCurrentCodeToHistory) is loaded and editor is ready
@@ -275,4 +292,3 @@ document.addEventListener("click", function () {
   </script>
 </body>
 </html>
-
