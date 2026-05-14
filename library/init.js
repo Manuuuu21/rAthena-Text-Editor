@@ -249,6 +249,7 @@ async function saveToFile() {
     await writable.close();
     showSnackbar("Saved successfully.");
     saveCurrentCodeToHistory();
+    return true;
   } 
   catch (err) {
     if (err.name === "AbortError") {
@@ -257,6 +258,7 @@ async function saveToFile() {
     else {
       console.error("Failed to save:", err);
     }
+    return false;
   }
 }
 // Save button
