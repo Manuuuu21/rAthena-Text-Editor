@@ -159,21 +159,20 @@
     editor.commands.addCommand({
       name: "saveToFileSystem",
       bindKey: { win: "Ctrl-S", mac: "Command-S" },
-      exec: async function () {
+      exec: function () {
         const oldCode = editor.getValue();
-        const success = await saveToFile();
-        if (success) {
-            const newCode = editor.getValue();
-            addMessage("I made some changes", 'user');
-            
-            let aiMessage = "Here are the changes";
-            if (oldCode !== newCode) {
-               const diffIndex = diffHistory.length;
-               diffHistory.push({old: oldCode, new: newCode});
-               aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
-            }
-            addMessage(aiMessage, 'ai');
-        }
+        saveToFile();
+        const newCode = editor.getValue();
+        
+        addMessage("I made some changes", 'user');
+        
+        let aiMessage = "Here are the changes";
+        // Always show the View Changes button as intentional by the user
+        const diffIndex = diffHistory.length;
+        diffHistory.push({old: oldCode, new: newCode});
+        aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
+        
+        addMessage(aiMessage, 'ai');
       },
       readOnly: false
     });
