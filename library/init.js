@@ -15,6 +15,14 @@ function closeDiffModal() {
 let diffHistory = [];
 let diffOldEditor = null;
 let diffNewEditor = null;
+let lastSavedCode = "";
+
+function recordChange(oldCode, newCode) {
+    if (oldCode === newCode) return null;
+    const diffIndex = diffHistory.length;
+    diffHistory.push({old: oldCode, new: newCode});
+    return diffIndex;
+}
 
 function setupDiffEditor(id, readOnly = true) {
     const editor = ace.edit(id);
@@ -186,6 +194,7 @@ function newFile() {
   // Update the <title> with the new file name
   document.title = "Untitled - rAthena Text Editor";
   saveCurrentCodeToHistory();
+  lastSavedCode = "";
 }
 
 document.getElementById("openBtn").addEventListener("click", async () => {
@@ -216,6 +225,7 @@ document.getElementById("openBtn").addEventListener("click", async () => {
     // Set the <title> to the opened file's name
     document.title = file.name + " - rAthena Text Editor";
     saveCurrentCodeToHistory();
+    lastSavedCode = editor.getValue();
   } catch (err) {
     if (err.name === "AbortError") {
       console.log("Cancelled file open.");
@@ -249,6 +259,7 @@ async function saveToFile() {
     await writable.close();
     showSnackbar("Saved successfully.");
     saveCurrentCodeToHistory();
+    return true;
   } 
   catch (err) {
     if (err.name === "AbortError") {
@@ -257,6 +268,7 @@ async function saveToFile() {
     else {
       console.error("Failed to save:", err);
     }
+    return false;
   }
 }
 // Save button
@@ -287,6 +299,7 @@ editorElement.addEventListener("drop", async (e) => {
     return;
   }
 
+  const oldCodeContent = editor.getValue();
   saveCurrentCodeToHistory();
   const contents = await file.text();
   editor.setValue(contents, -1);
@@ -294,6 +307,9 @@ editorElement.addEventListener("drop", async (e) => {
   editor.gotoLine(1, 0, true);
   // document.title = "Untitled - rAthena Text Editor";
   saveCurrentCodeToHistory();
+  lastSavedCode = editor.getValue();
+  const newCodeContent = editor.getValue();
+  recordChange(oldCodeContent, newCodeContent);
 });
 
 function openModal() {
