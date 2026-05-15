@@ -10,7 +10,7 @@ function runRathenaLinter(editor) {
     const annotations = [];
 
     // Regex to detect NPC/Function/Shop/Warp headers
-    // Example: prontera,150,150,4	script	Healer	123,{
+    // Example: prontera,150,150,4  script  Healer  123,{
     const headerRegex = /^([^ \t]+)\s+(script|function|shop|cashshop|itemshop|pointshop|warp|boss_warp|duplicate)\s+([^,{]+)/i;
 
     lines.forEach((line, index) => {
@@ -19,47 +19,75 @@ function runRathenaLinter(editor) {
         // Skip comments and empty lines
         if (trimmedLine.startsWith('//') || trimmedLine === '') return;
 
-        // Pattern to identify potential rAthena headers (Map,X,Y,Dir or Floating -)
-        // We look for script/shop/warp/etc keywords
-        const keywords = '(script|shop|cashshop|itemshop|pointshop|warp|boss_warp|duplicate|function)';
-        const headerKeywordRegex = new RegExp(`\\s+${keywords}\\s+`, 'i');
+        // Potential Header detection
+        // rAthena headers usually start with Map,X,Y,Dir OR Floating - OR function
+        const locPattern = /^([^ \t\n\r,]+,\d+,\d+,\d+|function|-)/i;
+        const isHeaderCandidate = locPattern.test(line);
 
-        if (line.match(/^(.*),(.*),(.*),(.*)/) || line.startsWith('-')) {
-            if (headerKeywordRegex.test(line)) {
-                // Check if the line contains spaces (rAthena headers MUST use TABs)
-                // Specifically check if there are spaces between the primary components
-                let beforeBrace = line.split('{')[0];
-                // Remove trailing comma if it exists before {
-                const headerPartsRaw = beforeBrace.trim().replace(/,$/, '');
-                const componentsByTab = headerPartsRaw.split('\t').filter(part => part.trim().length > 0);
-                
-                // 1. Check for TAB usage
-                if (beforeBrace.includes(' ')) {
-                    // If there are spaces instead of tabs separating the main parts
-                    annotations.push({
-                        row: index,
-                        column: 0,
-                        text: "rAthena Error: NPC header must use literal TABs as separators, not spaces.",
-                        type: "error"
-                    });
-                } 
-                // 2. Check for structure (at least Location, Type, Name, and Sprite bits should be there for NPCs)
-                else {
-                    const type = componentsByTab[1] ? componentsByTab[1].toLowerCase() : "";
-                    const isFunction = type === "function" || (componentsByTab[0] && componentsByTab[0].toLowerCase() === "function");
-                    
-                    // Most NPCs (script, shop, warp, etc.) require 4 components
-                    // Functions usually require 3
-                    const requiredParts = isFunction ? 3 : 4;
+        if (isHeaderCandidate) {
+            const beforeBrace = line.split('{')[0];
+            
+            // 1. Check for SPACE usage instead of TABs
+            if (beforeBrace.includes(' ')) {
+                annotations.push({
+                    row: index,
+                    column: 0,
+                    text: "rAthena Error: NPC header must use literal TABs as separators, not spaces.",
+                    type: "error"
+                });
+                return; 
+            }
 
-                    if (componentsByTab.length < requiredParts) {
-                        annotations.push({
-                            row: index,
-                            column: 0,
-                            text: `rAthena Error: Incomplete NPC header structure. Expected ${requiredParts} components separated by TABs.`,
-                            type: "error"
-                        });
-                    }
+            // 2. Check if TABs exist at all (Squashed header detection)
+            const tabCount = (beforeBrace.match(/\t/g) || []).length;
+            
+            const rawComponents = beforeBrace.split('\t');
+            const componentsByTab = rawComponents.map(p => p.trim().replace(/,$/, '').trim());
+            const locPart = componentsByTab[0] || "";
+            const isFloating = locPart === '-';
+            const isFunction = locPart.toLowerCase() === 'function';
+
+            // Check for squashed text (Missing TABs between fields)
+            const requiredTabs = isFunction ? 2 : 3;
+            if (tabCount < requiredTabs) {
+                annotations.push({
+                    row: index,
+                    column: 0,
+                    text: "rAthena Error: Missing TAB separators in header (possibly squashed). Expected TABs between location, type, name, and sprite.",
+                    type: "error"
+                });
+                return;
+            }
+
+            // 3. Granular Structure Check
+            // Location
+            if (!isFloating && !isFunction) {
+                const locSubParts = locPart.split(',');
+                if (locSubParts.length < 4) {
+                    annotations.push({ row: index, column: 0, text: "rAthena Error: incomplete location field. Expected: map,x,y,dir", type: "error" });
+                } else {
+                    if (!locSubParts[0]) annotations.push({ row: index, column: 0, text: "rAthena Error: missing 'map' name.", type: "error" });
+                    if (!locSubParts[1]) annotations.push({ row: index, column: 0, text: "rAthena Error: missing 'x' coordinate.", type: "error" });
+                    if (!locSubParts[2]) annotations.push({ row: index, column: 0, text: "rAthena Error: missing 'y' coordinate.", type: "error" });
+                    if (!locSubParts[3]) annotations.push({ row: index, column: 0, text: "rAthena Error: missing 'faceDirection'.", type: "error" });
+                }
+            }
+
+            // Type Check
+            if (!componentsByTab[1]) {
+                annotations.push({ row: index, column: 0, text: "rAthena Error: missing NPC type (e.g., script, shop, warp).", type: "error" });
+            }
+
+            // Name Check
+            if (!componentsByTab[2]) {
+                annotations.push({ row: index, column: 0, text: "rAthena Error: missing NPC name.", type: "error" });
+            }
+
+            // Sprite/Ending Check
+            if (!isFunction) {
+                if (!componentsByTab[3]) {
+                    const errorText = isFloating ? "rAthena Error: missing floating marker '-'." : "rAthena Error: missing Sprite ID.";
+                    annotations.push({ row: index, column: 0, text: errorText, type: "error" });
                 }
             }
         }
