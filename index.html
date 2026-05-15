@@ -30,7 +30,10 @@
     <div class="diff-modal-box">
       <div class="modal-header">
         <h2>Code Changes <span id="diffStats" style="font-size: 14px;"></span></h2>
-        <button class="close-btn" onclick="closeDiffModal()">×</button>
+        <div>
+          <button class="restore-button" style="font-size: 14px; margin-right: 10px; padding: 5px 15px;" onclick="restoreFromDiff()">Restore code</button>
+          <button class="close-btn" onclick="closeDiffModal()">×</button>
+        </div>
       </div>
       <div class="diff-split-container">
         <div class="diff-pane" id="diffOld"></div>
@@ -153,7 +156,7 @@
   <script src="library/init.js"></script>
   <script>
     let currentTheme = "ace/theme/monokai";
-    const editor = ace.edit("editor");
+    var editor = ace.edit("editor");
     editor.setTheme(currentTheme);
     editor.session.setMode("ace/mode/rathena");
     editor.setOptions({
@@ -196,7 +199,10 @@
 
             let aiMessage = `<p>Here are the changes in your code.<br/>
                             <span style="font-size:10px">Time Edited: <b>${saveDate.toLocaleString()}</b></span></p>`;
-            aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
+            aiMessage += `<div class="diff-button-group">
+                            <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
+                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore to here</button>
+                          </div>`;
             addMessage(aiMessage, 'ai');
         } else {
             // addMessage("No changes detected.", 'ai');
