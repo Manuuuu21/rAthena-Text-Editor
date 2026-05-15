@@ -39,6 +39,24 @@
     </div>
   </div>
 
+  <!-- Clear Chat Confirmation Modal -->
+  <div class="modal-overlay" id="clearChatModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Confirm Clear</h2>
+        <button class="close-btn" onclick="closeClearChatModal()">×</button>
+      </div>
+      <hr/>
+      <div style="padding: 15px 0;">
+        <p>Are you sure you want to clear the entire chat history? This action cannot be undone.</p>
+        <div style="text-align: right; margin-top: 20px;">
+          <button class="cancel-btn" onclick="closeClearChatModal()" style="margin-right: 10px; padding: 5px 15px;">Cancel</button>
+          <button id="confirmClearChatBtn" style="background: #dc3545; color: white; border: none; padding: 7px 15px; border-radius: 8px; cursor: pointer;">Clear Chat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div id="container">
   <div id="toolbar">
       <button title="New File" id="newFile" onclick="newFile()">📄</button>
@@ -90,6 +108,7 @@
                 <option value="gemini-flash-lite-latest" selected>gemini-flash-lite-latest</option>
                 <option value="gemini-flash-latest">gemini-flash-latest</option>
             </select>
+            <button id="clear-chat-btn" title="Clear chat messages">🗑️</button>
         </div>
 
         <div class="chat-input-area">
@@ -129,7 +148,7 @@
   <script src="library/rathena-highlight-rules.js"></script>
   <script src="library/rathena-linter.js"></script>
 
-  <script src="library/rathena_documentation.js"></script>
+  <script src="library/rathena_documentation_original.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
