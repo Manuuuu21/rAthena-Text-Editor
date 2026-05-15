@@ -1,27 +1,56 @@
-# rAthena Text Editor (Offline)
+# rAthena Text Editor
 
-A lightweight, A browser-based rAthena Text Editor for editing **rAthena scripts**, built to run **completely offline**.  
-Designed with simplicity and convenience in mind, it includes essential features for rAthena scripters.
+A **100% Offline** browser-based text editor designed specifically for rAthena scripting with AI-powered assistance.
 
----
-
-## ✨ Features
-
-- 🖊️ **Edit your code** directly in the browser
-- 🤖 integrated with the **Gemini Chatbot API** for the Editor! Just ask it, and it will provide code for you directly in rAthena Text Editor. 😄 Simply provide your Gemini API key. We're using the latest and fastest Gemini model: "gemini-flash-lite-latest".
-- ⚡ **Autocomplete suggestions** to speed up your coding
-- ⬇️ **Download your code** as a `.txt` file after you're done
-- 💾 **Save your work** with just a click
-- 📂 **Open existing** .txt files to continue where you left off
-- 📥 **Drag and drop** .txt files to get the data of txt file
-- ⏪⏩ **Navigate your Previous Generated code**
-- View Changes your code with Diff Split Modal code changes viewer.
-- 🌓 **Toggle between Dark Mode and Light Mode** for better readability
-- ✅ **No installation or internet required** – works 100% offline
-
----
 ## Try it here
 https://manuuuu21.github.io/rAthena-Text-Editor/
+
+## ✨ Key Features
+
+- **Professional Code Editor** - Syntax highlighting, autocomplete, and linting for rAthena scripts
+- **Offline-First Design** - Works completely offline in your browser with no server dependency
+- **AI Chat Assistant** - Integrated Gemini API chatbot for real-time coding help and explanations
+- **File Management** - Create, open, save, and download files with drag-and-drop support
+- **Code History** - Navigate through previous versions and view detailed change diffs
+- **Dark/Light Theme** - Toggle between Monokai (dark) and GitHub Light themes
+- **Smart Settings** - Local autocomplete, read-only mode, and customizable options
+- **Responsive UI** - Side-by-side editor and chat interface with collapsible panels
+
+## 🚀 Quick Start
+
+1. **Open the Editor** - Visit the repository and open `index.html` in your browser
+2. **Start Coding** - Begin writing rAthena scripts immediately (no installation needed)
+3. **Use AI Features** (Optional):
+   - Click the "API Key" button to add your [Gemini API key](https://aistudio.google.com/apikey)
+   - Use the chatbot to ask questions, get code explanations, and generate scripts
+
+## 💻 Supported File Formats
+
+- `.txt` - Text files
+- `.conf` - Configuration files
+- `.yml` - YAML files
+
+## 🛠️ Technology Stack
+
+- **Ace Editor v1.41.0** - Professional code editing
+- **Google Gemini API** - AI-powered assistance (optional)
+- **js-diff** - Code change visualization
+- **Vanilla JavaScript** - No framework dependencies
+
+## 📌 Browser Requirements
+
+Works in any modern browser supporting:
+- File System Access API
+- Fetch API
+- Local Storage
+
+## 👤 Author
+
+**Manuel G. Sintos** - Created May 31, 2025
+
+---
+
+*For full documentation and advanced features, explore the source code or visit the repository.*
 
 ---
 # Screenshots and Video
