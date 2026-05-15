@@ -44,10 +44,6 @@ Works in any modern browser supporting:
 - Fetch API
 - Local Storage
 
-## 👤 Author
-
-**Manuel G. Sintos** - Created May 31, 2025
-
 ---
 
 *For full documentation and advanced features, explore the source code or visit the repository.*
