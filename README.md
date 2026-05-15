@@ -15,6 +15,7 @@ Designed with simplicity and convenience in mind, it includes essential features
 - 📂 **Open existing** .txt files to continue where you left off
 - 📥 **Drag and drop** .txt files to get the data of txt file
 - ⏪⏩ **Navigate your Previous Generated code**
+- View Changes your code with Diff Split Modal code changes viewer.
 - 🌓 **Toggle between Dark Mode and Light Mode** for better readability
 - ✅ **No installation or internet required** – works 100% offline
 
