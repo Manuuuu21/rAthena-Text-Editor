@@ -164,8 +164,6 @@
         const currentCode = editor.getValue();
         saveToFile();
         
-        addMessage("I made some changes", 'user');
-        
         const diffIndex = recordChange(lastSavedCode, currentCode);
         
         if (lastSavedCode !== currentCode) {
@@ -173,11 +171,13 @@
         }
 
         if (diffIndex !== null) {
-            let aiMessage = "<p>Here are the changes</p>";
+            addMessage("I made some changes", 'user');
+
+            let aiMessage = "<p>Here are the changes in your code.</p>";
             aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
             addMessage(aiMessage, 'ai');
         } else {
-            addMessage("No changes detected.", 'ai');
+            // addMessage("No changes detected.", 'ai');
         }
       },
       readOnly: false
