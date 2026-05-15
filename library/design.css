@@ -287,12 +287,34 @@ opacity: 0;
 
 .diff-button {
   padding: 5px 10px;
-  background-color: gray;
+  background-color: #6c757d;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 10px;
+}
+
+.restore-button {
+  padding: 5px 10px;
+  background: none;
+  color: #333;
+  border: 1px solid silver !important;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.restore-button:hover {
+    background: #f0f0f0 !important;
+}
+
+.diff-button-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    margin-left: -8px;
+    flex-wrap: wrap;
 }
 .chat-section, .editor-section {
     display: flex;

@@ -16,6 +16,7 @@ let diffHistory = [];
 let diffOldEditor = null;
 let diffNewEditor = null;
 let lastSavedCode = "";
+let currentDiffIndex = -1;
 
 function recordChange(oldCode, newCode) {
     if (oldCode === newCode) return null;
@@ -34,6 +35,7 @@ function setupDiffEditor(id, readOnly = true) {
 }
 
 function openDiff(index) {
+    currentDiffIndex = index;
     const {old: oldCode, new: newCode} = diffHistory[index];
     
     if (!diffOldEditor) {
@@ -361,19 +363,19 @@ function showSnackbar(message) {
 
 function toggleDisplayChatBotContainer() {
   const chatBot = document.getElementById('chatBotContainer');
-  const editor = document.getElementById('editor');
+  const editorElem = document.getElementById('editor');
 
   if (chatBot.style.display === 'none') {
     chatBot.style.display = 'block';
     chatBot.style.flex = '0 0 30%';
 
-    editor.style.width = '70%';
-    editor.style.flex = '0 0 70%';
+    editorElem.style.width = '70%';
+    editorElem.style.flex = '0 0 70%';
   } else {
     chatBot.style.display = 'none';
 
-    editor.style.width = '100%';
-    editor.style.flex = '0 0 100%';
+    editorElem.style.width = '100%';
+    editorElem.style.flex = '0 0 100%';
   }
 }
 
@@ -881,7 +883,10 @@ async function sendMessage() {
               if (hasChanges) {
                   const diffIndex = diffHistory.length;
                   diffHistory.push({old: oldCode, new: newCode});
-                  chatDisplayMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
+                  chatDisplayMessage += `<div class="diff-button-group">
+                                            <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
+                                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore to here</button>
+                                         </div>`;
               }
 
           } else {
@@ -930,6 +935,40 @@ async function sendMessage() {
       editor.container.style.pointerEvents = "auto";
       document.getElementById('previousCodeBtn').removeAttribute("disabled");
   }
+}
+
+function restoreFromDiff(index, restoreTo = 'new') {
+    // If index is an event, undefined, or null, use currentDiffIndex
+    if (typeof index !== 'number') {
+        index = currentDiffIndex;
+    }
+    
+    if (index === -1 || index === undefined || index === null) {
+        showSnackbar("No savepoint selected.");
+        return;
+    }
+    
+    if (index >= diffHistory.length) {
+        showSnackbar("Invalid savepoint index.");
+        return;
+    }
+
+    const {old: oldCode, new: newCode} = diffHistory[index];
+    
+    saveCurrentCodeToHistory();
+    const codeToRestore = (restoreTo === 'new') ? newCode : oldCode;
+    
+    if (typeof editor !== 'undefined' && editor.setValue) {
+        editor.setValue(codeToRestore, -1);
+        editor.session.setUndoManager(new ace.UndoManager()); 
+        editor.focus(); // Ensure the editor is focused after restore
+        showSnackbar(`Restored to savepoint (${restoreTo}).`);
+    } else {
+        console.error("Editor not found during restore.");
+        showSnackbar("Error: Editor not found.");
+    }
+    
+    closeDiffModal();
 }
 
 sendButton.addEventListener('click', sendMessage);
