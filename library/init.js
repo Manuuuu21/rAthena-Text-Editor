@@ -71,16 +71,20 @@ function openDiff(index) {
     document.getElementById('diffStats').innerHTML =
         `<span style="color: green">+${additions}</span> <span style="color: red">-${removals}</span> lines changed`;
     
+    let firstAddedLine = -1;
+    let firstRemovedLine = -1;
     let oldLine = 0;
     let newLine = 0;
     const Range = ace.require('ace/range').Range;
 
     diff.forEach(part => {
         if (part.added) {
+            if (firstAddedLine === -1) firstAddedLine = newLine;
             const range = new Range(newLine, 0, newLine + part.count - 1, Infinity);
             newSession.addMarker(range, "ace_added", "fullLine");
             newLine += part.count;
         } else if (part.removed) {
+            if (firstRemovedLine === -1) firstRemovedLine = oldLine;
             const range = new Range(oldLine, 0, oldLine + part.count - 1, Infinity);
             oldSession.addMarker(range, "ace_removed", "fullLine");
             oldLine += part.count;
@@ -96,6 +100,8 @@ function openDiff(index) {
     setTimeout(() => {
         diffOldEditor.resize();
         diffNewEditor.resize();
+        if (firstAddedLine !== -1) diffNewEditor.scrollToLine(firstAddedLine, true, true, function () {});
+        if (firstRemovedLine !== -1) diffOldEditor.scrollToLine(firstRemovedLine, true, true, function () {});
     }, 100);
 }
 
