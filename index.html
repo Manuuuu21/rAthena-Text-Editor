@@ -176,7 +176,7 @@
             addMessage("I made some changes", 'user');
 
             let aiMessage = `<p>Here are the changes in your code.<br/>
-                            Time Edited: ${saveDate.toLocaleString()}</p>`;
+                            Time Edited: <b>${saveDate.toLocaleString()}</b></p>`;
             aiMessage += `<br><button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>`;
             addMessage(aiMessage, 'ai');
         } else {
