@@ -320,9 +320,12 @@ function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
 }
 
-window.onclick = function() {
+window.onclick = function(event) {
   if (event.target.id == 'modalOverlay') {
     closeModal();
+  }
+  if (event.target.id == 'clearChatModal') {
+    closeClearChatModal();
   }
 }
 
@@ -388,6 +391,7 @@ setInterval(() => {
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const sendButton = document.getElementById('send-button');
+const clearChatBtn = document.getElementById('clear-chat-btn');
 const loadingIndicator = document.getElementById('loading-indicator');
 const copyCodeButton = document.getElementById('copy-code-button');
 
@@ -618,6 +622,34 @@ function addMessage(text, sender) {
       scrollToBottom();
   }
 }
+
+function openClearChatModal() {
+    document.getElementById('clearChatModal').style.display = 'flex';
+}
+
+function closeClearChatModal() {
+    document.getElementById('clearChatModal').style.display = 'none';
+}
+
+function clearChat() {
+    chatMessages.innerHTML = '';
+    // Reset chat history but keep the initial core instructions
+    // This will reset even the Previous Conversation. So, AI have no knowledge in the previous conversation.
+    chatHistory = [
+        {
+            role: "user",
+            parts: [
+                { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
+                { text: `Strictly follow this **INSTRUCTIONS** all the times: `+instructionPromt2 + `.\n\n` }
+            ]
+        }
+    ];
+    closeClearChatModal();
+    showSnackbar("Chat cleared.");
+}
+
+clearChatBtn.addEventListener('click', openClearChatModal);
+document.getElementById('confirmClearChatBtn').addEventListener('click', clearChat);
 
 const instructionPromt2 = `
 You are an expert AI assistant specializing in rAthena scripting. Your primary goal is to provide users with accurate data and well-structured, efficient rAthena scripts.

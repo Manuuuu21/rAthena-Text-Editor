@@ -82,6 +82,38 @@ pre {
     background-color: silver;
     border-bottom: 1px solid #e5e7eb;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    gap: 10px;
+}
+
+#clear-chat-btn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#clear-chat-btn:hover {
+    background: rgba(0,0,0,0.1);
+}
+
+.cancel-btn:hover {
+    background: #f3f4f6;
+}
+
+#confirmClearChatBtn:hover {
+    background: #c82333 !important;
 }
 
 /* Button styling */
@@ -108,7 +140,7 @@ z-index: 1000;
 .modal {
 position: relative;
 background: white;
-padding: 20px 20px 40px; /* Extra bottom padding for content space */
+padding: 20px 20px 10px; /* Extra bottom padding for content space */
 border-radius: 8px;
 max-width: 400px;
 width: 100%;
@@ -295,7 +327,7 @@ opacity: 0;
     justify-content: flex-start;
 }
 .message-bubble {
-	font-size: 12px;
+    font-size: 12px;
     max-width: 93%;
     padding: 0.75rem 1rem; /* py-3 px-4 */
     border-radius: 1.25rem; /* rounded-3xl */
@@ -303,7 +335,7 @@ opacity: 0;
     white-space: normal; /* Preserve line breaks and spacing for typewriter effect */
 }
 .message.user .message-bubble {
-	font-size: 12px;
+    font-size: 12px;
     background-color: #d0d0d0; /* bg-blue-500 */
     color: #000000;
     border-bottom-right-radius: 0.25rem; /* rounded-br-lg */
@@ -323,7 +355,7 @@ opacity: 0;
     margin-bottom: 0.25rem; /* Reduced space below list */
 }
 .message-bubble ul {
-	font-size: 12px;
+    font-size: 12px;
     list-style-type: disc; /* Default bullet style */
     margin-left: 1.25rem; /* Indent the list */
     padding-left: 0;
@@ -331,7 +363,7 @@ opacity: 0;
     margin-bottom: 0.25rem; /* Reduced space below list */
 }
 .message-bubble li {
-	font-size: 12px;
+    font-size: 12px;
     margin-bottom: 0.125rem; /* Reduced space between list items */
     line-height: 1.4;
 }
@@ -372,11 +404,11 @@ opacity: 0;
     width: 40px;
 }
 .send-button:hover {
-	border-radius: 20px;
+    border-radius: 20px;
     background-color: #2563eb; /* hover:bg-blue-600 */
 }
 .send-button:active {
-	border-radius: 20px;
+    border-radius: 20px;
     transform: scale(0.98);
 }
 .send-button:disabled {
