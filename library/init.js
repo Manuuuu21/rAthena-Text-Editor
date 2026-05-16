@@ -708,7 +708,7 @@ Follow these guidelines at all times:
     2. Use triple backticks or wrap it in 1 codeblock ( \`\`\`codeblock\`\`\` ) only for complete, multi-line code blocks intended for the script editor.
     3. If a user asks you to remove code, respond only with: \`\`\`// Code removed\`\`\`
     4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please find the generated script in your editor.</p>\`
-
+    5. Do not use &lt; or &gt; in the codeblock (\`\`\`).
 5.1 JSON Object Structure:
   1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
 
@@ -733,6 +733,7 @@ Follow these guidelines at all times:
       5. In showing syntax code do not use triple backticks!.
       6. Use proper new vertical line break (\n), spacing, indent and script structure.
       7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
+      8. Do not use &lt; or &gt; in the codeblock (\`\`\`).
       3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
       3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
       3.3: Instead of saying *"Here is the script"*, always write or revise this:
@@ -885,7 +886,7 @@ async function sendMessage() {
                   diffHistory.push({old: oldCode, new: newCode});
                   chatDisplayMessage += `<div class="diff-button-group">
                                             <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
-                                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore to here</button>
+                                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore Code here</button>
                                          </div>`;
               }
 
