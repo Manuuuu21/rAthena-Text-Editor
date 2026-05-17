@@ -30,7 +30,8 @@
     <div class="diff-modal-box">
       <div class="modal-header">
         <h2>Code Changes <span id="diffStats" style="font-size: 14px;"></span></h2>
-        <div>
+        <div style="display:flex; align-items:center;">
+          <span id="diffTimestamp" style="font-size: 12px; margin-right: 10px; color: #555;"></span>
           <button class="restore-button" style="font-size: 14px; margin-right: 10px; padding: 5px 15px;" onclick="restoreFromDiff()">Restore code</button>
           <button class="close-btn" onclick="closeDiffModal()">×</button>
         </div>
