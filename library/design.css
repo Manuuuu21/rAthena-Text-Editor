@@ -349,11 +349,11 @@ opacity: 0;
     justify-content: flex-start;
 }
 .message.restored {
-    background-color: none; /* bg-gray-200 */
     color: #1f2937; /* text-gray-800 */
     justify-content: flex-start;
     border: 1px solid #b4b4b4;
     border-radius: 20px;
+    margin-bottom: 20px;
 }
 .message-bubble {
     font-size: 12px;
