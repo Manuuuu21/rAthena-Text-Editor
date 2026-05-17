@@ -28,13 +28,13 @@ const supportFunctionKeywords = [
   "showdigit", "showevent", "showscript", "sit", "skill", "skilleffect", "skillpointcount", "sleep", "sleep2", "soundeffect", "soundeffectall", "specialeffect", "specialeffect2", "sprintf", "sqrt", "sscanf", "stand", "statusup", "statusup2", "stopnpctimer",
   "storagecountitem", "storagecountitem2", "storagedelitem", "storagedelitem2", "strcmp", "strcharinfo", "strmobinfo", "strnpcinfo", "strpos", "strtol", "strtolower", "strtoupper", "substr", "successrefitem", "successremovecards", "summon", "traitstatusup", "traitstatusup2", "transform", "unbindatcmd",
   "unequip", "unitattack", "unitblockskill", "unitexists", "unitkill", "unitskilluseid", "unitskillusepos", "unitstopattack", "unitstopwalk", "unittalk", "unitwalk", "unitwalkto", "unitwarp", "unloadnpc", "unrefine", "useatcmd", "viewpoint", "vip_status", "vip_time", "waitingroom",
-  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin","getstatus", "getareaunits"
+  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin", "getstatus", "getareaunits"
 ];
 
 // Red highlight - Control flow and declarations
 const controlFlowKeywords = [
   "if", "else", "switch", "case", "default", "while", "do", "for", "break", "continue",
-  "end", "script", "goto", "return", "callfunc", "callsub", "function" // 'function' keyword for declaration
+  "end", "script", "goto", "return", "callfunc", "callsub", "function" 
 ];
 
 // Orange highlight - Named constants and parameters
@@ -150,7 +150,7 @@ const constantLibraryKeywords = [
   "ROA_ID", "ROA_VALUE", "ROA_PARAM",
   "MADO_ROBOT", "MADO_SUIT",
   "PET_CATCH_UNIVERSAL", "PET_CATCH_UNIVERSAL_ITEM",
-  "INFINITE_TICK",
+  "INFINITE_TICK", "CPC_NAME", "CPC_CHAR", "CPC_ACCOUNT",
   "HAT_EF_BLIND", "HAT_EF_TALK", "HAT_EF_WATER", "HAT_EF_FIRE", "HAT_EF_STUN", "HAT_EF_SLEEP", "HAT_EF_CURSE", "HAT_EF_SILENCE", "HAT_EF_CONFUSION",
   "HAT_EF_POISON", "HAT_EF_PETRIFY", "HAT_EF_FREEZE", "HAT_EF_UP", "HAT_EF_DOWN", "HAT_EF_TALK2", "HAT_EF_MAX",
   // Unit Parameters (UMOB_*, UHOM_*, etc.) - These are very numerous and specific.
