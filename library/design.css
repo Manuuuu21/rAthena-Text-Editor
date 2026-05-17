@@ -349,6 +349,7 @@ opacity: 0;
     justify-content: flex-start;
 }
 .message.restored {
+    background: none; /* bg-gray-200 */
     color: #1f2937; /* text-gray-800 */
     justify-content: flex-start;
     border: 1px solid #b4b4b4;

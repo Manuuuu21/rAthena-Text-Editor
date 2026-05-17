@@ -981,7 +981,7 @@ function restoreFromDiff(index, restoreTo = 'new') {
         showSnackbar(`Restored to savepoint (${restoreTo}).`);
         
         const timeString = timestamp ? timestamp.toLocaleString() : "Unknown time";
-        addMessage(`Restored code from the Time: ${timeString}`, 'restored');
+        addMessage(`🏴 Restored code from the Time: ${timeString}`, 'restored');
     } else {
         console.error("Editor not found during restore.");
         showSnackbar("Error: Editor not found.");
