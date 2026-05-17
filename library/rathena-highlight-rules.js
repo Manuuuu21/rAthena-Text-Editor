@@ -401,7 +401,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
 		  	{ token: "comment.line", regex: "//.*$" },
 		    { token: "comment.block.start", regex: "/\\*", next: "comment" },
         { token: "string", regex: '".*?"' },
-        { token: "keyword.control", regex: "\\bOn\\w+:" },// Labels like OnMyLabel:
+        { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
         { token: "variable.parameter", regex: "(?<![@\\w\\.])\\b(?:" + constantLibraryKeywords.join("|") + ")\\b" }, // Using constant.library for map names, item IDs etc.
