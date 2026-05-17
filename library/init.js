@@ -18,10 +18,10 @@ let diffNewEditor = null;
 let lastSavedCode = "";
 let currentDiffIndex = -1;
 
-function recordChange(oldCode, newCode) {
+function recordChange(oldCode, newCode, timestamp = new Date()) {
     if (oldCode === newCode) return null;
     const diffIndex = diffHistory.length;
-    diffHistory.push({old: oldCode, new: newCode});
+    diffHistory.push({old: oldCode, new: newCode, timestamp: timestamp});
     return diffIndex;
 }
 
@@ -36,7 +36,10 @@ function setupDiffEditor(id, readOnly = true) {
 
 function openDiff(index) {
     currentDiffIndex = index;
-    const {old: oldCode, new: newCode} = diffHistory[index];
+    const {old: oldCode, new: newCode, timestamp} = diffHistory[index];
+    
+    // Set timestamp
+    document.getElementById('diffTimestamp').innerText = timestamp ? timestamp.toLocaleString() : "";
     
     if (!diffOldEditor) {
         diffOldEditor = setupDiffEditor('diffOld');
@@ -317,7 +320,7 @@ editorElement.addEventListener("drop", async (e) => {
   saveCurrentCodeToHistory();
   lastSavedCode = editor.getValue();
   const newCodeContent = editor.getValue();
-  recordChange(oldCodeContent, newCodeContent);
+  recordChange(oldCodeContent, newCodeContent, new Date());
 });
 
 function openModal() {
@@ -623,7 +626,16 @@ function addMessage(text, sender) {
           chatInput.focus();
           scrollToBottom();
       });
-  } else { // User message
+  }
+  if (sender === 'restored') {
+      typeWriterEffectForChat(messageBubble, text, () => {
+          sendButton.disabled = false;
+          loadingIndicator.classList.remove('active');
+          chatInput.focus();
+          scrollToBottom();
+      });
+  }
+    else { // User message
       const preElement = document.createElement('pre'); // Use <pre> for user messages to preserve formatting
       preElement.textContent = text;
       messageBubble.appendChild(preElement);
@@ -859,6 +871,8 @@ async function sendMessage() {
           const matches = [...responseText.matchAll(codeBlockRegexGlobal)];
 
           let chatDisplayMessage;
+          const saveDate1 = new Date();
+
           if (matches.length > 0) {
               // Collect all code content from all code blocks
               const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n").replace(/&Tab;/g, "\t");
@@ -883,11 +897,12 @@ async function sendMessage() {
               
               if (hasChanges) {
                   const diffIndex = diffHistory.length;
-                  diffHistory.push({old: oldCode, new: newCode});
-                  chatDisplayMessage += `<div class="diff-button-group">
-                                            <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
-                                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore Code here</button>
-                                         </div>`;
+                  diffHistory.push({old: oldCode, new: newCode, timestamp: saveDate1});
+                  chatDisplayMessage += `<br/><p><span style="font-size:10px">Time generated: <b>${saveDate1.toLocaleString()}</b></span></p>
+                                        <div class="diff-button-group">
+                                          <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
+                                          <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore Code here</button>
+                                        </div>`;
               }
 
           } else {
@@ -954,7 +969,7 @@ function restoreFromDiff(index, restoreTo = 'new') {
         return;
     }
 
-    const {old: oldCode, new: newCode} = diffHistory[index];
+    const {old: oldCode, new: newCode, timestamp} = diffHistory[index];
     
     saveCurrentCodeToHistory();
     const codeToRestore = (restoreTo === 'new') ? newCode : oldCode;
@@ -964,6 +979,9 @@ function restoreFromDiff(index, restoreTo = 'new') {
         editor.session.setUndoManager(new ace.UndoManager()); 
         editor.focus(); // Ensure the editor is focused after restore
         showSnackbar(`Restored to savepoint (${restoreTo}).`);
+        
+        const timeString = timestamp ? timestamp.toLocaleString() : "Unknown time";
+        addMessage(`Restored code from the Time: ${timeString}`, 'restored');
     } else {
         console.error("Editor not found during restore.");
         showSnackbar("Error: Editor not found.");
