@@ -55,73 +55,35 @@
         <p>Are you sure you want to clear the entire chat history? This action cannot be undone.</p>
         <div style="text-align: right; margin-top: 20px;">
           <button class="cancel-btn" onclick="closeClearChatModal()" style="margin-right: 10px; padding: 5px 15px;">Cancel</button>
-          <button id="confirmClearChatBtn" style="background: #dc3545; color: white; border: none; padding: 7px 15px; border-radius: 8px; cursor: pointer;">Clear Chat</button>
+          <button id="confirmClearChatBtn" onclick="clearChat()" style="background: #dc3545; color: white; border: none; padding: 7px 15px; border-radius: 8px; cursor: pointer;">Clear Chat</button>
         </div>
       </div>
     </div>
   </div>
 
 <div id="container">
+  <div id="tabBar">
+    <div id="tabsContainer"></div>
+    <button id="addTabBtn" onclick="tabManager.addTab()">+</button>
+  </div>
   <div id="toolbar">
-      <button title="New File" id="newFile" onclick="newFile()">📄</button>
-      <button title="Open File" id="openBtn">📂</button>
-      <button title="Save" id="saveBtn">💾</button>
-      <button title="Download this content" onclick="downloadEditorContent()">📥</button>
-      <button title="Previous Code" id="previousCodeBtn" onclick="previousCode()">⏪</button>
-      <button title="Next Code" id="nextCodeBtn" onclick="nextCode()">⏩</button>
+      <button title="Open File" id="openBtn" onclick="tabManager.activeTab.openFile()">📂</button>
+      <button title="Save" id="saveBtn" onclick="tabManager.activeTab.saveToFile()">💾</button>
+      <button title="Download this content" onclick="tabManager.activeTab.downloadEditorContent()">📥</button>
+      <button title="Previous Code" id="previousCodeBtn" onclick="tabManager.activeTab.previousCode()">⏪</button>
+      <button title="Next Code" id="nextCodeBtn" onclick="tabManager.activeTab.nextCode()">⏩</button>
       <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
       <button title="Settings" onclick="openModal()">⚙️</button>
-      <div style="float:right;clear: right;" >
+      <div style="margin-left: auto; display: flex; gap: 5px;">
         <button style="background:silver;" title="Put your API key here" onclick="openApiModal()">API Key</button>
         <button title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
       </div>
     </div>
-<div id="mainArea">
-<div id="editor"></div>
-
-  <!-- Right-click Menu -->
-<div id="contextMenu" style="position:absolute; display:none; background:white; border:1px solid #ccc; z-index:1000; padding: 6px 6px 10px;border-radius:20px;">
-  <div id="explainThis" style="padding:5px; cursor:pointer;">🧠 Explain the highlighted code</div>
-  <div id="askAI" style="padding:5px; cursor:pointer;">💬 Ask AI</div>
-</div>
-<!-- Ask AI Form -->
-<div id="askAIForm" style="position:absolute; display:none; background:white; border:1px solid #ccc; padding:5px; z-index:1000; border-radius:6px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
-  <form autocomplete="off" id="askAIFormElement" style="display: flex; align-items: center; gap: 5px; margin: 0;">
-    <input type="text" id="askAIInput" placeholder="Ask about highlighted code"
-      style="width: 200px; padding: 9px 8px; border: 1px solid #ccc; border-radius: 4px;" />
-    <button type="submit" id="askAISubmit"
-      style="padding: 6px 10px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer;">➜</button>
-  </form>
-</div>
-  
-  <div id="chatBotContainer">
-    <div class="chat-section">
-        <div class="chat-messages" id="chat-messages">
-            <!--
-            <div class="message ai">
-                <div class="message-bubble"><p>Hello! How can I help you today?</p></div>
-            </div>
-            -->
-        </div>
-        <div class="loading-indicator" id="loading-indicator">
-            AI is thinking <span class="first_dot">.</span><span class="second_dot">.</span><span class="third_dot">.</span>
-        </div>
-
-        <div class="model-container">
-            <select id="my-select-dropdown" style="border:none;font-size:12px;">
-                <option value="gemini-flash-lite-latest" selected>gemini-flash-lite-latest</option>
-                <option value="gemini-flash-latest">gemini-flash-latest</option>
-            </select>
-            <button id="clear-chat-btn" title="Clear chat messages">🗑️</button>
-        </div>
-
-        <div class="chat-input-area">
-            <textarea type="text" id="chat-input" class="chat-input" placeholder="Type your message..."></textarea>
-            <button id="send-button" class="send-button">➜</button>
-        </div>
+  <div id="mainArea">
+    <div id="tabContentArea">
+      <!-- Tab contents (editor + chat) will be injected here -->
     </div>
   </div>
-</div>
   <div id="statusBar" class="statusbardesign"></div>
 </div>
 
@@ -137,6 +99,21 @@
       So that, the Gemini Chat Bot will assist you in coding.</p>
     </div>
   </div>
+</div>
+
+  <!-- Right-click Menu -->
+<div id="contextMenu" style="position:absolute; display:none; background:white; border:1px solid #ccc; z-index:1000; padding: 6px 6px 10px;border-radius:20px;">
+  <div id="explainThis" style="padding:5px; cursor:pointer;">🧠 Explain the highlighted code</div>
+  <div id="askAI" style="padding:5px; cursor:pointer;">💬 Ask AI</div>
+</div>
+<!-- Ask AI Form -->
+<div id="askAIForm" style="position:absolute; display:none; background:white; border:1px solid #ccc; padding:5px; z-index:1000; border-radius:6px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
+  <form autocomplete="off" id="askAIFormElement" style="display: flex; align-items: center; gap: 5px; margin: 0;">
+    <input type="text" id="askAIInput" placeholder="Ask about highlighted code"
+      style="width: 200px; padding: 9px 8px; border: 1px solid #ccc; border-radius: 4px;" />
+    <button type="submit" id="askAISubmit"
+      style="padding: 6px 10px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer;">➜</button>
+  </form>
 </div>
 
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
@@ -156,168 +133,8 @@
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
-    let currentTheme = "ace/theme/monokai";
-    var editor = ace.edit("editor");
-    editor.setTheme(currentTheme);
-    editor.session.setMode("ace/mode/rathena");
-    editor.setOptions({
-      enableBasicAutocompletion: true,
-      enableLiveAutocompletion: true,
-      fontSize: "14px",
-    });
-
-    // Disable Tab completion while keeping the autocomplete menu visible/clickable
-    const Autocomplete = ace.require("ace/autocomplete").Autocomplete;
-    if (Autocomplete && Autocomplete.prototype && Autocomplete.prototype.commands) {
-        Autocomplete.prototype.commands["Tab"] = null;
-        Autocomplete.prototype.commands["Shift-Tab"] = null;
-    }
-
-    // Load the statusbar extension
-    ace.require("ace/ext/statusbar");
-    // Create and attach the statusbar
-    const StatusBar = ace.require("ace/ext/statusbar").StatusBar;
-    const statusBar = new StatusBar(editor, document.getElementById("statusBar"));
-
-    // Ctrl+S triggers save
-    editor.commands.addCommand({
-      name: "saveToFileSystem",
-      bindKey: { win: "Ctrl-S", mac: "Command-S" },
-      exec: function () {
-
-        const saveDate = new Date();
-        const currentCode = editor.getValue();
-        saveToFile();
-        
-        const diffIndex = recordChange(lastSavedCode, currentCode);
-        
-        if (lastSavedCode !== currentCode) {
-            lastSavedCode = currentCode;
-        }
-
-        if (diffIndex !== null) {
-            addMessage("I made some changes", 'user');
-
-            let aiMessage = `<p>Here are the changes in your code.<br/>
-                            <span style="font-size:10px">Time Edited: <b>${saveDate.toLocaleString()}</b></span></p>`;
-            aiMessage += `<div class="diff-button-group">
-                            <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
-                            <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore Code here</button>
-                          </div>`;
-            addMessage(aiMessage, 'ai');
-        } else {
-            // addMessage("No changes detected.", 'ai');
-        }
-      },
-      readOnly: false
-    });
-    editor.setShowPrintMargin(false); // Hide the vertical print margin line
-    editor.getSession().setUseSoftTabs(false);
-
-    // Trigger linter on change
-    editor.on("change", () => {
-      if (typeof runRathenaLinter === "function") {
-        runRathenaLinter(editor);
-      }
-    });
-    
-    // Initial lint
-    setTimeout(() => runRathenaLinter(editor), 500);
-    
-    // Initialize code history with the current (likely empty) content
-    // Ensure init.js (and thus saveCurrentCodeToHistory) is loaded and editor is ready
-    if (typeof saveCurrentCodeToHistory === 'function') {
-        setTimeout(function() { // Use setTimeout to ensure editor is fully initialized
-             if (typeof editor !== 'undefined' && editor.session) {
-                saveCurrentCodeToHistory();
-                if (typeof updateHistoryButtonsState === 'function') {
-                    updateHistoryButtonsState();
-                }
-             }
-        }, 0);
-    }
-
-const contextMenu = document.getElementById("contextMenu");
-const askAIForm = document.getElementById("askAIForm");
-const askAIInput = document.getElementById("askAIInput");
-const askAISubmit = document.getElementById("askAISubmit");
-
-const explainThis = document.getElementById("explainThis");
-const askAI = document.getElementById("askAI");
-
-let latestSelectedText = "";
-let menuX = 0;
-let menuY = 0;
-
-// Track selected text
-editor.getSelection().on("changeSelection", () => {
-  latestSelectedText = editor.getSelectedText();
-});
-
-// Show context menu on right-click
-editor.container.addEventListener("contextmenu", function (e) {
-  e.preventDefault();
-
-  if (latestSelectedText.trim() !== "") {
-    menuX = e.pageX;
-    menuY = e.pageY;
-
-    contextMenu.style.left = `${menuX}px`;
-    contextMenu.style.top = `${menuY}px`;
-    contextMenu.style.display = "block";
-    askAIForm.style.display = "none";
-  }
-});
-
-// "Explain this" button logic
-explainThis.addEventListener("click", function (e) {
-  e.stopPropagation();
-  chatInput.value = `Explain this: ${latestSelectedText}`;
-  sendMessage();
-
-  contextMenu.style.display = "none";
-  askAIForm.style.display = "none";
-});
-
-// "Ask AI" button logic — show form at the same position
-askAI.addEventListener("click", function (e) {
-  e.stopPropagation(); // <-- important to prevent immediate hiding
-  contextMenu.style.display = "none";
-
-  askAIForm.style.left = `${menuX}px`;
-  askAIForm.style.top = `${menuY}px`;
-  askAIForm.style.display = "block";
-  askAIInput.focus();
-});
-
-// Prevent hiding when clicking inside the form
-askAIForm.addEventListener("click", function (e) {
-  e.stopPropagation(); // <-- prevents document click from hiding the form
-});
-
-const askAIFormElement = document.getElementById("askAIFormElement");
-
-askAIFormElement.addEventListener("submit", function (e) {
-  e.preventDefault(); // prevent page reload
-  e.stopPropagation();
-
-  const question = askAIInput.value.trim();
-  if (question !== "") {
-    chatInput.value = `${question}: ${latestSelectedText}`;
-    sendMessage();
-    askAIForm.style.display = "none";
-  }
-
-  askAIInput.value = "";
-  // askAIForm.style.display = "none";
-});
-
-// Global click to close menus
-document.addEventListener("click", function () {
-  contextMenu.style.display = "none";
-  askAIForm.style.display = "none";
-  askAIInput.value = "";
-});
+    // Initialize the tab manager
+    tabManager.addTab(); // Create the first tab on load
   </script>
 </body>
 </html>
