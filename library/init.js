@@ -1,10 +1,32 @@
+let currentTheme = "ace/theme/monokai";
+
 function toggleTheme() {
   const root = document.documentElement;
   const isLight = currentTheme === "ace/theme/github_light_default";
 
   currentTheme = isLight ? "ace/theme/monokai" : "ace/theme/github_light_default";
-  root.style.setProperty('--darkmodeColor', isLight ? '#686868' : '#d9d9d9');
-  editor.setTheme(currentTheme);
+  
+  if (isLight) {
+    // Switching to DARK
+    root.style.setProperty('--tabBarBg', '#2e2e2e');
+    root.style.setProperty('--toolbarBg', '#3e3e3e');
+    root.style.setProperty('--textColor', '#ddd');
+    root.style.setProperty('--activeTabColor', '#fff');
+    root.style.setProperty('--tabCloseColor', '#bbb');
+    root.style.setProperty('--darkmodeColor', '#686868');
+  } else {
+    // Switching to LIGHT
+    root.style.setProperty('--tabBarBg', '#d8ccc6');
+    root.style.setProperty('--toolbarBg', '#f8f1ef');
+    root.style.setProperty('--textColor', '#333');
+    root.style.setProperty('--activeTabColor', '#000');
+    root.style.setProperty('--tabCloseColor', '#777');
+    root.style.setProperty('--darkmodeColor', '#d9d9d9');
+  }
+  
+  tabManager.tabs.forEach(tab => {
+    if (tab.editor) tab.editor.setTheme(currentTheme);
+  });
 }
 
 /* Diff Modal handling */
@@ -12,18 +34,10 @@ function closeDiffModal() {
     document.getElementById('diffModal').style.display = 'none';
 }
 
-let diffHistory = [];
 let diffOldEditor = null;
 let diffNewEditor = null;
-let lastSavedCode = "";
 let currentDiffIndex = -1;
-
-function recordChange(oldCode, newCode, timestamp = new Date()) {
-    if (oldCode === newCode) return null;
-    const diffIndex = diffHistory.length;
-    diffHistory.push({old: oldCode, new: newCode, timestamp: timestamp});
-    return diffIndex;
-}
+let currentDiffTab = null;
 
 function setupDiffEditor(id, readOnly = true) {
     const editor = ace.edit(id);
@@ -34,9 +48,17 @@ function setupDiffEditor(id, readOnly = true) {
     return editor;
 }
 
-function openDiff(index) {
+function openDiff(index, tabId) {
+    let tab = tabManager.activeTab;
+    if (tabId !== undefined) {
+        tab = tabManager.tabs.find(t => t.id === tabId) || tab;
+    }
+    if (!tab) return;
+    
     currentDiffIndex = index;
-    const {old: oldCode, new: newCode, timestamp} = diffHistory[index];
+    currentDiffTab = tab;
+
+    const {old: oldCode, new: newCode, timestamp} = tab.diffHistory[index];
     
     // Set timestamp
     document.getElementById('diffTimestamp').innerText = timestamp ? timestamp.toLocaleString() : "";
@@ -51,12 +73,9 @@ function openDiff(index) {
     diffOldEditor.setValue(oldCode, -1);
     diffNewEditor.setValue(newCode, -1);
     
-    // Clear previous markers
     const oldSession = diffOldEditor.getSession();
     const newSession = diffNewEditor.getSession();
     
-    // ACE markers are stored in the session, but removing them requires knowing the marker ID.
-    // Simplifying: just re-creating session is cleaner, but let's try to remove them properly.
     const oldMarkers = oldSession.getMarkers();
     for (let m in oldMarkers) {
       if (oldMarkers[m].clazz === 'ace_removed') oldSession.removeMarker(oldMarkers[m].id);
@@ -101,7 +120,6 @@ function openDiff(index) {
 
     document.getElementById('diffModal').style.display = 'flex';
     
-    // Resize ACE editors once the container becomes visible
     setTimeout(() => {
         diffOldEditor.resize();
         diffNewEditor.resize();
@@ -110,77 +128,36 @@ function openDiff(index) {
     }, 100);
 }
 
-// Download button
-function downloadEditorContent() {
-  const content = editor.getValue();
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "rAthenaTxtScript.txt";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-// Code History Feature
-let codeHistory = [];
-let currentHistoryIndex = -1; // -1 indicates no history yet, or before the first item.
-const MAX_HISTORY_SIZE = 25;
-
-function updateHistoryButtonsState() {
-    const prevBtn = document.getElementById('previousCodeBtn');
-    const nextBtn = document.getElementById('nextCodeBtn');
-    if (prevBtn) {
-        prevBtn.disabled = currentHistoryIndex <= 0;
+function restoreFromDiff(index, restoreTo = 'new', tabId) {
+    if (typeof index !== 'number') {
+        index = currentDiffIndex;
     }
-    if (nextBtn) {
-        nextBtn.disabled = currentHistoryIndex >= codeHistory.length - 1;
+    
+    let tab = currentDiffTab || tabManager.activeTab;
+    if (tabId !== undefined) {
+        tab = tabManager.tabs.find(t => t.id === tabId) || tab;
     }
-}
-
-function saveCurrentCodeToHistory() {
-    if (typeof editor === 'undefined' || !editor || !editor.session) return;
-    const currentCode = editor.getValue();
-    if (currentHistoryIndex >= 0 && codeHistory[currentHistoryIndex] === currentCode) {
-        updateHistoryButtonsState(); // Still update button state in case it's the very first save
+    
+    if (!tab) return;
+    
+    if (index === -1 || index === undefined || index === null) {
+        showSnackbar("No savepoint selected.");
         return;
     }
-    if (currentHistoryIndex < codeHistory.length - 1) {
-        codeHistory = codeHistory.slice(0, currentHistoryIndex + 1);
-    }
-    codeHistory.push(currentCode);
-    currentHistoryIndex = codeHistory.length - 1;
-    if (codeHistory.length > MAX_HISTORY_SIZE) {
-        codeHistory.shift(); 
-        currentHistoryIndex--; 
-    }
-    updateHistoryButtonsState();
-}
-
-function previousCode() {
-    if (currentHistoryIndex <= 0) {
-        showSnackbar("No previous code available.");
-        return;
-    }
-    currentHistoryIndex--;
-    editor.setValue(codeHistory[currentHistoryIndex], -1);
-    editor.session.setUndoManager(new ace.UndoManager()); 
-    showSnackbar("Reverted to previous code.");
-    updateHistoryButtonsState();
-}
-
-function nextCode() {
-    if (currentHistoryIndex >= codeHistory.length - 1) {
-        showSnackbar("No next code available.");
-        return;
-    }
-    currentHistoryIndex++;
-    editor.setValue(codeHistory[currentHistoryIndex], -1);
-    editor.session.setUndoManager(new ace.UndoManager());
-    showSnackbar("Reverted to next code.");
-    updateHistoryButtonsState();
+    
+    const {old: oldCode, new: newCode, timestamp} = tab.diffHistory[index];
+    tab.saveCurrentCodeToHistory();
+    const codeToRestore = (restoreTo === 'new') ? newCode : oldCode;
+    
+    tab.editor.setValue(codeToRestore, -1);
+    tab.editor.session.setUndoManager(new ace.UndoManager()); 
+    tab.editor.focus();
+    showSnackbar(`Restored to savepoint (${restoreTo}).`);
+    
+    const timeString = timestamp ? timestamp.toLocaleString() : "Unknown time";
+    tab.addMessage(`🏴 Restored code from the Time: ${timeString}`, 'restored');
+    
+    closeDiffModal();
 }
 
 function openApiModal() {
@@ -191,138 +168,6 @@ function closeApiModal() {
   document.getElementById('modalApi').style.display = 'none';
 }
 
-let fileHandle;
-let lastDirectoryHandle = null;
-
-function newFile() {
-  saveCurrentCodeToHistory();
-  // Reset file access handles
-  fileHandle = null;
-  lastDirectoryHandle = null;
-
-  editor.setValue("", -1); // Clear editor content, move cursor to start
-  editor.session.setUndoManager(new ace.UndoManager()); // Reset undo history
-  // Update the <title> with the new file name
-  document.title = "Untitled - rAthena Text Editor";
-  saveCurrentCodeToHistory();
-  lastSavedCode = "";
-}
-
-document.getElementById("openBtn").addEventListener("click", async () => {
-  saveCurrentCodeToHistory();
-  try {
-    const options = {
-      types: [
-        {
-          description: "Text Files",
-          accept: { "text/plain": [".txt"] },
-        },
-      ],
-      // Try to open in the last known directory
-      startIn: lastDirectoryHandle || "documents",
-    };
-
-    [fileHandle] = await window.showOpenFilePicker(options);
-
-    // Save the directory handle for next time
-    lastDirectoryHandle = await fileHandle.getFile().then(file => fileHandle.getFile().then(() => fileHandle));
-
-    const file = await fileHandle.getFile();
-    const contents = await file.text();
-    editor.setValue(contents, -1);
-    editor.scrollToLine(0, true, true, function () {});
-    editor.gotoLine(1, 0, true);
-
-    // Set the <title> to the opened file's name
-    document.title = file.name + " - rAthena Text Editor";
-    saveCurrentCodeToHistory();
-    lastSavedCode = editor.getValue();
-  } catch (err) {
-    if (err.name === "AbortError") {
-      console.log("Cancelled file open.");
-    } else {
-      console.error("Open failed:", err);
-    }
-  }
-});
-
-// Save file (overwrite original file, not download)
-async function saveToFile() {
-  try {
-    if (!fileHandle) {
-      // Trigger Save As dialog
-        fileHandle = await window.showSaveFilePicker({
-          suggestedName: "rAthenaTxtScript.txt",
-          types: [
-            {
-              description: "Text Files",
-              accept: { "text/plain": [".txt"] },
-            },
-          ],
-        });
-
-      // Update the <title> with the new file name
-      document.title = fileHandle.name + " - rAthena Text Editor";
-    }
-
-    const writable = await fileHandle.createWritable();
-    await writable.write(editor.getValue());
-    await writable.close();
-    showSnackbar("Saved successfully.");
-    saveCurrentCodeToHistory();
-    return true;
-  } 
-  catch (err) {
-    if (err.name === "AbortError") {
-      console.log("Saving was canceled.");
-    } 
-    else {
-      console.error("Failed to save:", err);
-    }
-    return false;
-  }
-}
-// Save button
-document.getElementById("saveBtn").addEventListener("click", () => {
-  saveToFile();
-});
-
-// Drag and drop support (only .txt and .conf, and only 1 file)
-const editorElement = document.getElementById("editor");
-editorElement.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "copy";
-});
-
-editorElement.addEventListener("drop", async (e) => {
-  e.preventDefault();
-  const files = e.dataTransfer.files;
-  if (files.length !== 1) {
-    alert("Only one file is allowed to be dropped.");
-    return;
-  }
-
-  const file = files[0];
-  const validExtensions = [".txt", ".conf", ".yml"];
-  const fileName = file.name.toLowerCase();
-  if (!validExtensions.some(ext => fileName.endsWith(ext))) {
-    alert("Only .txt or .conf files are allowed.");
-    return;
-  }
-
-  const oldCodeContent = editor.getValue();
-  saveCurrentCodeToHistory();
-  const contents = await file.text();
-  editor.setValue(contents, -1);
-  editor.scrollToLine(0, true, true, function () {});
-  editor.gotoLine(1, 0, true);
-  // document.title = "Untitled - rAthena Text Editor";
-  saveCurrentCodeToHistory();
-  lastSavedCode = editor.getValue();
-  const newCodeContent = editor.getValue();
-  recordChange(oldCodeContent, newCodeContent, new Date());
-});
-
 function openModal() {
   document.getElementById('modalOverlay').style.display = 'flex';
 }
@@ -331,89 +176,644 @@ function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
 }
 
+function openClearChatModal() {
+    document.getElementById('clearChatModal').style.display = 'flex';
+}
+
+function closeClearChatModal() {
+    document.getElementById('clearChatModal').style.display = 'none';
+}
+
 window.onclick = function(event) {
-  if (event.target.id == 'modalOverlay') {
-    closeModal();
-  }
-  if (event.target.id == 'clearChatModal') {
-    closeClearChatModal();
-  }
+  if (event.target.id == 'modalOverlay') closeModal();
+  if (event.target.id == 'clearChatModal') closeClearChatModal();
 }
 
 document.getElementById("toggleReadOnly").addEventListener("change", function () {
-  editor.setReadOnly(this.checked);
+  if (tabManager.activeTab) {
+    tabManager.activeTab.editor.setReadOnly(this.checked);
+  }
 });
 
-let snackbarTimeout;
-function createSnackbarContainer() {
-  if (document.getElementById("snackbar")) return;
-  const snackbar = document.createElement("div");
-  snackbar.id = "snackbar"; // ID used for styling
-  document.getElementById("editor").appendChild(snackbar);
-}
-
-function showSnackbar(message) {
-  createSnackbarContainer();
-  const snackbar = document.getElementById("snackbar");
-  snackbar.textContent = message;
-  snackbar.classList.add("show");
-
-  if (snackbarTimeout) clearTimeout(snackbarTimeout);
-  snackbarTimeout = setTimeout(() => {
-    snackbar.classList.remove("show");
-  }, 3000);
-}
-
 function toggleDisplayChatBotContainer() {
-  const chatBot = document.getElementById('chatBotContainer');
-  const editorElem = document.getElementById('editor');
+  const activeTab = tabManager.activeTab;
+  if (!activeTab) return;
 
-  if (chatBot.style.display === 'none') {
-    chatBot.style.display = 'block';
-    chatBot.style.flex = '0 0 30%';
+  const chatBot = activeTab.elements.chatBotContainer;
+  const editorElem = activeTab.elements.editor;
 
+  if (window.getComputedStyle(chatBot).display === 'none') {
+    chatBot.style.display = 'flex';
+    editorElem.style.flex = '1 1 70%';
     editorElem.style.width = '70%';
-    editorElem.style.flex = '0 0 70%';
+    // Scroll to bottom after displaying
+    setTimeout(() => {
+        const messages = activeTab.elements.chatMessages;
+        messages.scrollTop = messages.scrollHeight;
+    }, 100);
   } else {
     chatBot.style.display = 'none';
-
+    editorElem.style.flex = '1 1 100%';
     editorElem.style.width = '100%';
-    editorElem.style.flex = '0 0 100%';
   }
 }
 
-let checkMarkSVG = `
-    <svg style="margin-left:-3px;margin-bottom:2px;" xmlns="http://www.w3.org/2000/svg" height="11px" viewBox="0 -960 960 960" width="11px" fill="gray"><path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170Zm56 216q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
-`;
+function showSnackbar(message) {
+    const activeTab = tabManager.activeTab;
+    if (!activeTab) return;
+    
+    let snackbar = activeTab.elements.editor.querySelector(".snackbar");
+    if (!snackbar) {
+        snackbar = document.createElement("div");
+        snackbar.className = "snackbar";
+        snackbar.id = "snackbar";
+        activeTab.elements.editor.appendChild(snackbar);
+    }
+    
+    snackbar.textContent = message;
+    snackbar.classList.add("show");
 
-const firstDot = document.querySelector('.first_dot');
-const secondDot = document.querySelector('.second_dot');
-const thirdDot = document.querySelector('.third_dot');
-let step = 0;
-
-setInterval(() => {
-  step = (step + 1) % 4;
-  firstDot.style.visibility = step >= 1 ? 'visible' : 'hidden';
-  secondDot.style.visibility = step >= 2 ? 'visible' : 'hidden';
-  thirdDot.style.visibility = step >= 3 ? 'visible' : 'hidden';
-}, 100); // adjust speed if needed
-
-// Get references to DOM elements
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const sendButton = document.getElementById('send-button');
-const clearChatBtn = document.getElementById('clear-chat-btn');
-const loadingIndicator = document.getElementById('loading-indicator');
-const copyCodeButton = document.getElementById('copy-code-button');
-
-// Initialize chat history for the Gemini API
-let chatHistory = [];
-
-// Function to scroll to the bottom of the chat messages
-function scrollToBottom() {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (activeTab.snackbarTimeout) clearTimeout(activeTab.snackbarTimeout);
+    activeTab.snackbarTimeout = setTimeout(() => {
+        snackbar.classList.remove("show");
+    }, 3000);
 }
 
+class Tab {
+    constructor(id, name = "Untitled") {
+        this.id = id;
+        this.name = name;
+        this.chatHistory = [];
+        this.diffHistory = [];
+        this.codeHistory = [];
+        this.currentHistoryIndex = -1;
+        this.fileHandle = null;
+        this.lastSavedCode = "";
+        this.timerCounterForGlobal = 0;
+        this.chatSessionNum = 0;
+        this.typeWriterStatusForChatDone = true;
+        this.snackbarTimeout = null;
+
+        this.initDOM();
+        this.initEditor();
+        this.initChat();
+    }
+
+    initDOM() {
+        this.elements = {};
+        const content = document.createElement("div");
+        content.className = "tab-content";
+        content.id = `tab-content-${this.id}`;
+        content.innerHTML = `
+            <div id="editor-${this.id}" class="editor-instance"></div>
+            <div id="chatBotContainer-${this.id}" class="chat-container-instance">
+                <div class="chat-section">
+                    <div class="chat-messages" id="chat-messages-${this.id}"></div>
+                    <div class="loading-indicator" id="loading-indicator-${this.id}">
+                        AI is thinking <span class="first_dot">.</span><span class="second_dot">.</span><span class="third_dot">.</span>
+                    </div>
+                    <div class="model-container">
+                        <select id="model-select-${this.id}" style="border:none;font-size:12px;">
+                            <option value="gemini-flash-lite-latest" selected>gemini-flash-lite-latest</option>
+                            <option value="gemini-flash-latest">gemini-flash-latest</option>
+                        </select>
+                        <button id="clear-chat-${this.id}" class="clear-chat-btn" title="Clear chat messages" style="background:none;border:none;cursor:pointer;">🗑️</button>
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="chat-input-${this.id}" class="chat-input" placeholder="Type your message..."></textarea>
+                        <button id="send-button-${this.id}" class="send-button">➜</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById("tabContentArea").appendChild(content);
+        
+        this.elements.content = content;
+        this.elements.editor = content.querySelector(`#editor-${this.id}`);
+        this.elements.chatBotContainer = content.querySelector(`#chatBotContainer-${this.id}`);
+        this.elements.chatMessages = content.querySelector(`#chat-messages-${this.id}`);
+        this.elements.chatInput = content.querySelector(`#chat-input-${this.id}`);
+        this.elements.sendButton = content.querySelector(`#send-button-${this.id}`);
+        this.elements.loadingIndicator = content.querySelector(`#loading-indicator-${this.id}`);
+        this.elements.clearChatBtn = content.querySelector(`#clear-chat-${this.id}`);
+        this.elements.modelSelect = content.querySelector(`#model-select-${this.id}`);
+    }
+
+    initEditor() {
+        this.editor = ace.edit(this.elements.editor.id);
+        this.editor.setTheme(currentTheme);
+        this.editor.session.setMode("ace/mode/rathena");
+        this.editor.setOptions({
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: true,
+            fontSize: "14px",
+        });
+
+        this.editor.setShowPrintMargin(false); // Hide the vertical print margin line
+        this.editor.getSession().setUseSoftTabs(false);
+        
+        // Disable Tab completion
+        const Autocomplete = ace.require("ace/autocomplete").Autocomplete;
+        if (Autocomplete && Autocomplete.prototype && Autocomplete.prototype.commands) {
+            Autocomplete.prototype.commands["Tab"] = null;
+            Autocomplete.prototype.commands["Shift-Tab"] = null;
+        }
+
+        ace.require("ace/ext/statusbar");
+        const StatusBar = ace.require("ace/ext/statusbar").StatusBar;
+        // The status bar is unique in the original, we keep only one global status bar if needed,
+        // but here we can try to attach it to the current editor.
+        // Simplified: status bar is handled by tab switch.
+
+        this.editor.on("change", () => {
+            if (typeof runRathenaLinter === "function") {
+                runRathenaLinter(this.editor);
+            }
+        });
+
+        this.editor.getSelection().on("changeSelection", () => {
+             tabManager.latestSelectedText = this.editor.getSelectedText();
+        });
+
+        // Restore CTRL+S functionality
+        this.editor.commands.addCommand({
+            name: 'saveToFileSystem',
+            bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
+            exec: (editor) => {
+                this.saveToFile();
+            },
+            readOnly: false
+        });
+
+        this.editor.container.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            if (tabManager.latestSelectedText.trim() !== "") {
+                tabManager.menuX = e.pageX;
+                tabManager.menuY = e.pageY;
+                const contextMenu = document.getElementById("contextMenu");
+                contextMenu.style.left = `${tabManager.menuX}px`;
+                contextMenu.style.top = `${tabManager.menuY}px`;
+                contextMenu.style.display = "block";
+                document.getElementById("askAIForm").style.display = "none";
+            }
+        });
+
+        // Drag and Drop
+        this.elements.editor.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+        });
+        this.elements.editor.addEventListener("drop", async (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length !== 1) {
+                alert("Only one file is allowed to be dropped.");
+                return;
+            }
+            const file = files[0];
+            const contents = await file.text();
+            this.recordChange(this.editor.getValue(), contents);
+            this.editor.setValue(contents, -1);
+            this.saveCurrentCodeToHistory();
+            this.lastSavedCode = contents;
+        });
+    }
+
+    initChat() {
+        this.clearChat(false);
+        this.elements.sendButton.addEventListener('click', () => this.sendMessage());
+        this.elements.chatInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) { 
+                event.preventDefault(); 
+                this.sendMessage();
+            }
+        });
+        this.elements.clearChatBtn.addEventListener('click', () => openClearChatModal());
+        
+        // Initial AI logic connection
+        const firstDot = this.elements.loadingIndicator.querySelector('.first_dot');
+        const secondDot = this.elements.loadingIndicator.querySelector('.second_dot');
+        const thirdDot = this.elements.loadingIndicator.querySelector('.third_dot');
+        let step = 0;
+        setInterval(() => {
+            step = (step + 1) % 4;
+            if (firstDot) firstDot.style.visibility = step >= 1 ? 'visible' : 'hidden';
+            if (secondDot) secondDot.style.visibility = step >= 2 ? 'visible' : 'hidden';
+            if (thirdDot) thirdDot.style.visibility = step >= 3 ? 'visible' : 'hidden';
+        }, 150);
+    }
+
+    activate() {
+        this.elements.content.classList.add("active");
+        this.editor.resize();
+        this.updateHistoryButtons();
+        document.title = `${this.name} - rAthena Text Editor`;
+        // Use timeout to prevent scroll-to-focus issues during tab transition
+        setTimeout(() => {
+          if (this.elements.chatInput) {
+            this.elements.chatInput.focus({ preventScroll: true });
+          }
+        }, 50);
+    }
+
+    deactivate() {
+        this.elements.content.classList.remove("active");
+    }
+
+    // Methods ported from init.js
+    recordChange(oldCode, newCode, timestamp = new Date()) {
+        if (oldCode === newCode) return null;
+        const diffIndex = this.diffHistory.length;
+        this.diffHistory.push({old: oldCode, new: newCode, timestamp: timestamp});
+        return diffIndex;
+    }
+
+    saveCurrentCodeToHistory() {
+        const currentCode = this.editor.getValue();
+        if (this.currentHistoryIndex >= 0 && this.codeHistory[this.currentHistoryIndex] === currentCode) {
+            this.updateHistoryButtons();
+            return;
+        }
+        if (this.currentHistoryIndex < this.codeHistory.length - 1) {
+            this.codeHistory = this.codeHistory.slice(0, this.currentHistoryIndex + 1);
+        }
+        this.codeHistory.push(currentCode);
+        this.currentHistoryIndex = this.codeHistory.length - 1;
+        if (this.codeHistory.length > 25) {
+            this.codeHistory.shift(); 
+            this.currentHistoryIndex--; 
+        }
+        this.updateHistoryButtons();
+    }
+
+    updateHistoryButtons() {
+        if (tabManager.activeTab !== this) return;
+        const prevBtn = document.getElementById('previousCodeBtn');
+        const nextBtn = document.getElementById('nextCodeBtn');
+        if (prevBtn) prevBtn.disabled = this.currentHistoryIndex <= 0;
+        if (nextBtn) nextBtn.disabled = this.currentHistoryIndex >= this.codeHistory.length - 1;
+    }
+
+    previousCode() {
+        if (this.currentHistoryIndex <= 0) return;
+        this.currentHistoryIndex--;
+        this.editor.setValue(this.codeHistory[this.currentHistoryIndex], -1);
+        this.editor.session.setUndoManager(new ace.UndoManager()); 
+        this.updateHistoryButtons();
+    }
+
+    nextCode() {
+        if (this.currentHistoryIndex >= this.codeHistory.length - 1) return;
+        this.currentHistoryIndex++;
+        this.editor.setValue(this.codeHistory[this.currentHistoryIndex], -1);
+        this.editor.session.setUndoManager(new ace.UndoManager());
+        this.updateHistoryButtons();
+    }
+
+    async openFile() {
+        try {
+            const [handle] = await window.showOpenFilePicker({
+                types: [{ description: "Text Files", accept: { "text/plain": [".txt"] } }],
+                startIn: tabManager.lastDirectoryHandle || "documents"
+            });
+            this.fileHandle = handle;
+            tabManager.lastDirectoryHandle = handle;
+            const file = await handle.getFile();
+            const contents = await file.text();
+            this.editor.setValue(contents, -1);
+            this.name = file.name;
+            tabManager.renderTabs();
+            this.activate();
+            this.saveCurrentCodeToHistory();
+            this.lastSavedCode = contents;
+        } catch (err) {
+            console.error("Open failed:", err);
+        }
+    }
+
+    async saveToFile() {
+        const currentCode = this.editor.getValue();
+        const saveDate = new Date();
+        try {
+            if (!this.fileHandle) {
+                this.fileHandle = await window.showSaveFilePicker({
+                    suggestedName: this.name.endsWith(".txt") ? this.name : this.name + ".txt",
+                    types: [{ description: "Text Files", accept: { "text/plain": [".txt"] } }]
+                });
+                this.name = this.fileHandle.name;
+                tabManager.renderTabs();
+                this.activate();
+            }
+            const writable = await this.fileHandle.createWritable();
+            await writable.write(currentCode);
+            await writable.close();
+            showSnackbar("Saved successfully.");
+            this.saveCurrentCodeToHistory();
+
+            const diffIndex = this.recordChange(this.lastSavedCode, currentCode, saveDate);
+            if (this.lastSavedCode !== currentCode) {
+                this.lastSavedCode = currentCode;
+            }
+
+            if (diffIndex !== null) {
+                this.addMessage("I made some changes", 'user');
+                let aiMessage = `<p>Here are the changes in your code.<br/><br/>
+                                <span style="font-size:10px">Time Edited: <b>${saveDate.toLocaleString()}</b></span></p>`;
+                aiMessage += `<div class="diff-actions">
+                                <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
+                                <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
+                              </div>`;
+                this.addMessage(aiMessage, 'ai');
+            }
+        } catch (err) {
+            console.error("Save failed:", err);
+        }
+    }
+
+    downloadEditorContent() {
+        const content = this.editor.getValue();
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = this.name.endsWith(".txt") ? this.name : this.name + ".txt";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    clearChat(showSnack = true) {
+        this.elements.chatMessages.innerHTML = '';
+        this.chatHistory = [
+            {
+                role: "user",
+                parts: [
+                    { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
+                    { text: `Strictly follow this **INSTRUCTIONS** all the times: `+ instructionPromt2 + `.\n\n` }
+                ]
+            }
+        ];
+        if (showSnack) showSnackbar("Chat cleared.");
+    }
+
+    async sendMessage() {
+        const userMessage = this.elements.chatInput.value.trim();
+        if (!userMessage || !this.typeWriterStatusForChatDone || this.chatSessionNum > 0) return;
+
+        this.chatSessionNum++;
+        this.timerCounterForGlobal = 0;
+        let timer = setInterval(() => this.timerCounterForGlobal++, 1000);
+
+        this.addMessage(userMessage, 'user');
+        this.elements.chatInput.value = '';
+        this.elements.sendButton.disabled = true;
+        this.elements.loadingIndicator.classList.add('active');
+        this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+        
+        this.editor.setReadOnly(true);
+        this.editor.container.style.pointerEvents = "none";
+        const editorContent = this.editor.getValue();
+
+        const userInstructionalPrompt = `This is the code inside the editor as your context if the user ask: \`\`\`${editorContent}\`\`\`. Just Ignore if the Code inside the editor has no code or value.`.trim();
+
+        this.chatHistory.push({
+            role: "user",
+            parts: [
+                { text: userInstructionalPrompt + `.\n\n` },
+                { text: `This is user input/question: ` + userMessage + `. do not repeat the user instructions.` }
+            ]
+        });
+
+        try {
+            const apiKey = document.getElementById("APIKey").value;
+            const selectedModel = this.elements.modelSelect.value;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: this.chatHistory,
+                generationConfig: {
+                    temperature: 0.0,
+                    maxOutputTokens: 65536,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: { thinking: { type: "STRING" }, response: { type: "STRING" } },
+                        propertyOrdering: ["thinking", "response"]
+                    }
+                }
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("AI API Error");
+
+            const result = await response.json();
+            const content = result.candidates[0].content.parts[0].text;
+            const data = JSON.parse(content);
+            const thinking = data.thinking || "";
+            const responseText = data.response || "";
+
+            const codeBlockRegexGlobal = /```(\w+)?\s*([\s\S]*?)\s*```/g;
+            const matches = [...responseText.matchAll(codeBlockRegexGlobal)];
+
+            let chatDisplayMessageValue = responseText;
+            let diffIndex = -1;
+
+            if (matches.length > 0) {
+                const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n").replace(/&Tab;/g, "\t");
+                const oldCode = this.editor.getValue();
+                this.editor.setValue(allCodeContent, -1);
+                this.editor.setReadOnly(false);
+                this.editor.container.style.pointerEvents = "auto";
+                this.saveCurrentCodeToHistory();
+                diffIndex = this.recordChange(oldCode, allCodeContent);
+                
+                chatDisplayMessageValue = responseText.replace(codeBlockRegexGlobal, '').trim() || "Generated code is displayed in the editor.";
+                
+                // Add View Changes and Restore buttons if a change was made
+                if (diffIndex !== null) {
+                    const genTime = new Date();
+                    chatDisplayMessageValue += `
+                        <p style="font-size:10px; margin-top:20px;">Time generated: <b>${genTime.toLocaleString()}</b></p>
+                        <div class="diff-actions">
+                            <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
+                            <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
+                        </div>
+                    `;
+                }
+            }
+
+            clearInterval(timer);
+            let combined = '';
+            if (thinking) {
+                combined += `<p class="ai_thought_textDesign">🤖 Thought in ${this.timerCounterForGlobal} seconds</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p style="color:gray;font-size:10px;">Done</p>`;
+            }
+            combined += chatDisplayMessageValue;
+            this.addMessage(combined, 'ai');
+            this.chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+        } catch (err) {
+            console.error(err);
+            this.addMessage("Error communicating with AI.", "ai");
+        } finally {
+            this.chatSessionNum = 0;
+            this.elements.loadingIndicator.classList.remove('active');
+            this.elements.sendButton.disabled = false;
+            this.editor.setReadOnly(false);
+            this.editor.container.style.pointerEvents = "auto";
+        }
+    }
+
+    addMessage(text, sender) {
+        const div = document.createElement("div");
+        div.className = `message ${sender}`;
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        div.appendChild(bubble);
+        this.elements.chatMessages.appendChild(div);
+
+        if (sender === 'ai' || sender === 'restored') {
+            this.typeWriterEffect(bubble, text);
+        } else {
+            bubble.textContent = text;
+        }
+        this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+    }
+
+    typeWriterEffect(element, text) {
+        this.typeWriterStatusForChatDone = false;
+        let i = 0;
+        const speed = 1;
+        const chunkSize = 15;
+        element.innerHTML = '';
+        let typed = '';
+        
+        const type = () => {
+            if (i < text.length) {
+                typed += text.slice(i, i + chunkSize);
+                i += chunkSize;
+                element.innerHTML = markdownToHtmlForChat(typed);
+                this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+                setTimeout(type, speed);
+            } else {
+                element.innerHTML = markdownToHtmlForChat(text);
+                this.typeWriterStatusForChatDone = true;
+                this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+            }
+        };
+        type();
+    }
+}
+
+const tabManager = {
+    tabs: [],
+    activeTab: null,
+    nextId: 1,
+    lastDirectoryHandle: null,
+    latestSelectedText: "",
+    menuX: 0,
+    menuY: 0,
+
+    addTab() {
+        const tab = new Tab(this.nextId++, "Untitled");
+        this.tabs.push(tab);
+        this.renderTabs();
+        this.switchTab(tab.id);
+    },
+
+    switchTab(id) {
+        const tab = this.tabs.find(t => t.id === id);
+        if (!tab) return;
+        if (this.activeTab) this.activeTab.deactivate();
+        this.activeTab = tab;
+        tab.activate();
+        
+        // Reattach global status bar to active tab's editor
+        if (typeof ace.require("ace/ext/statusbar") !== "undefined") {
+            const StatusBar = ace.require("ace/ext/statusbar").StatusBar;
+            const statusBarElem = document.getElementById("statusBar");
+            statusBarElem.innerHTML = ""; // Clear old one
+            new StatusBar(tab.editor, statusBarElem);
+        }
+
+        this.renderTabs();
+    },
+
+    closeTab(id, e) {
+        if (e) e.stopPropagation();
+        const index = this.tabs.findIndex(t => t.id === id);
+        if (index === -1) return;
+        
+        const [tab] = this.tabs.splice(index, 1);
+        tab.elements.content.remove();
+        
+        if (this.tabs.length === 0) {
+            this.addTab();
+        } else if (this.activeTab && this.activeTab.id === id) {
+            this.switchTab(this.tabs[Math.max(0, index - 1)].id);
+        } else {
+            this.renderTabs();
+        }
+    },
+
+    renderTabs() {
+        const container = document.getElementById("tabsContainer");
+        container.innerHTML = "";
+        this.tabs.forEach(tab => {
+            const btn = document.createElement("div");
+            btn.className = `tab-button ${this.activeTab && this.activeTab.id === tab.id ? 'active' : ''}`;
+            btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">×</span>`;
+            btn.onclick = () => this.switchTab(tab.id);
+            btn.querySelector(".tab-close").onclick = (e) => this.closeTab(tab.id, e);
+            container.appendChild(btn);
+        });
+    }
+};
+
+// Global helper: clearChat (called by index.html modal button)
+function clearChat() {
+    if (tabManager.activeTab) tabManager.activeTab.clearChat();
+    closeClearChatModal();
+}
+
+// Global context menu logic
+document.addEventListener("click", () => {
+    document.getElementById("contextMenu").style.display = "none";
+    document.getElementById("askAIForm").style.display = "none";
+});
+
+document.getElementById("explainThis").addEventListener("click", (e) => {
+    if (tabManager.activeTab) {
+        tabManager.activeTab.elements.chatInput.value = `Explain this: ${tabManager.latestSelectedText}`;
+        tabManager.activeTab.sendMessage();
+    }
+});
+
+document.getElementById("askAI").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("contextMenu").style.display = "none";
+    const form = document.getElementById("askAIForm");
+    form.style.left = `${tabManager.menuX}px`;
+    form.style.top = `${tabManager.menuY}px`;
+    form.style.display = "block";
+    document.getElementById("askAIInput").focus();
+});
+
+document.getElementById("askAIFormElement").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("askAIInput");
+    const question = input.value.trim();
+    if (question && tabManager.activeTab) {
+        tabManager.activeTab.elements.chatInput.value = `${question}: ${tabManager.latestSelectedText}`;
+        tabManager.activeTab.sendMessage();
+    }
+    input.value = "";
+    document.getElementById("askAIForm").style.display = "none";
+});
+
+// Ported markdown parser (from line 417 of original init.js)
 function markdownToHtmlForChat(markdownText) {
     let outputHtml = [];
     let lines = markdownText.split('\n');
@@ -424,7 +824,6 @@ function markdownToHtmlForChat(markdownText) {
     let inCodeBlock = false;
 
     const processInlineMarkdown = (text) => {
-        // Step 1: Handle code blocks with escaped angle brackets
         text = text.replace(/`([^`]+)`/g, (_, code) => {
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
             return `<strong><code>${escapedCode}</code></strong>`;
@@ -444,54 +843,29 @@ function markdownToHtmlForChat(markdownText) {
         inParagraph = false;
     };
 
-    const flushBlockquote = () => {
-        if (inBlockquote) {
-            outputHtml.push('</blockquote>');
-            inBlockquote = false;
-        }
-    };
+    const flushBlockquote = () => { if (inBlockquote) { outputHtml.push('</blockquote>'); inBlockquote = false; } };
 
     const closeListsAndItems = (targetIndent, forceCloseAll = false) => {
         while (listStack.length > 0) {
             const topList = listStack[listStack.length - 1];
-
             if (forceCloseAll || topList.indent >= targetIndent) {
-                if (topList.lastItemOpen) {
-                    outputHtml.push('</li>');
-                    topList.lastItemOpen = false;
-                }
+                if (topList.lastItemOpen) outputHtml.push('</li>');
                 outputHtml.push(`</${topList.type}>`);
                 listStack.pop();
-            } else {
-                break;
-            }
+            } else break;
         }
     };
 
-    const closeAllOpenElements = () => {
-        flushParagraph();
-        closeListsAndItems(0, true);
-        flushBlockquote();
-    };
+    const closeAllOpenElements = () => { flushParagraph(); closeListsAndItems(0, true); flushBlockquote(); };
 
     for (let i = 0; i < lines.length; i++) {
         const originalLine = lines[i];
         const trimmedLine = originalLine.trim();
-        const leadingSpaces = originalLine.match(/^\s*/)[0].length;
+        const leadingSpaces = (originalLine.match(/^\s*/) || [""])[0].length;
 
-        if (originalLine.startsWith('```')) {
-            closeAllOpenElements();
-            inCodeBlock = !inCodeBlock;
-            continue;
-        }
-        if (inCodeBlock) {
-            continue;
-        }
-
-        if (trimmedLine === '') {
-            closeAllOpenElements();
-            continue;
-        }
+        if (originalLine.startsWith('```')) { closeAllOpenElements(); inCodeBlock = !inCodeBlock; continue; }
+        if (inCodeBlock) continue;
+        if (trimmedLine === '') { closeAllOpenElements(); continue; }
 
         const headingMatch = trimmedLine.match(/^(#{1,6})\s(.+)/);
         if (headingMatch) {
@@ -501,175 +875,41 @@ function markdownToHtmlForChat(markdownText) {
             continue;
         }
 
-        if (trimmedLine === '---' || trimmedLine === '***') {
-            closeAllOpenElements();
-            outputHtml.push('<hr>');
-            continue;
-        }
+        if (trimmedLine === '---' || trimmedLine === '***') { closeAllOpenElements(); outputHtml.push('<hr>'); continue; }
 
         const blockquoteMatch = trimmedLine.match(/^>\s*(.*)/);
         if (blockquoteMatch) {
-            flushParagraph();
-            closeListsAndItems(0, true);
-
-            if (!inBlockquote) {
-                outputHtml.push('<blockquote>');
-                inBlockquote = true;
-            }
+            flushParagraph(); closeListsAndItems(0, true);
+            if (!inBlockquote) { outputHtml.push('<blockquote>'); inBlockquote = true; }
             outputHtml.push(`<p>${processInlineMarkdown(blockquoteMatch[1].trim())}</p>`);
             continue;
-        } else if (inBlockquote) {
-            flushBlockquote();
         }
 
         const olMatch = trimmedLine.match(/^(\d+)\.\s(.+)/);
         const ulMatch = trimmedLine.match(/^[-*]\s(.+)/);
-
         if (olMatch || ulMatch) {
-            flushParagraph();
-            flushBlockquote();
-
+            flushParagraph(); flushBlockquote();
             const currentListType = olMatch ? 'ol' : 'ul';
             const listItemContent = olMatch ? olMatch[2] : ulMatch[1];
             const itemIndent = leadingSpaces;
-
-            while (listStack.length > 0) {
-                const topList = listStack[listStack.length - 1];
-                if (topList.indent > itemIndent || (topList.indent === itemIndent && topList.type !== currentListType)) {
-                    if (topList.lastItemOpen) {
-                        outputHtml.push('</li>');
-                        topList.lastItemOpen = false;
-                    }
-                    outputHtml.push(`</${topList.type}>`);
-                    listStack.pop();
-                } else {
-                    break;
-                }
-            }
-
+            closeListsAndItems(itemIndent);
             let topList = listStack.length > 0 ? listStack[listStack.length - 1] : null;
-
             if (!topList || topList.indent < itemIndent) {
                 outputHtml.push(`<${currentListType}>`);
                 listStack.push({ type: currentListType, indent: itemIndent, lastItemOpen: false });
                 topList = listStack[listStack.length - 1];
             }
-
-            if (topList && topList.lastItemOpen) {
-                outputHtml.push('</li>');
-                topList.lastItemOpen = false;
-            }
-
+            if (topList.lastItemOpen) outputHtml.push('</li>');
             outputHtml.push(`<li>${processInlineMarkdown(listItemContent)}`);
-            if (topList) {
-                topList.lastItemOpen = true;
-            }
-
+            topList.lastItemOpen = true;
             continue;
-        } else {
-            flushParagraph();
-            closeListsAndItems(0, true);
-            flushBlockquote();
         }
-
-        flushBlockquote();
-        closeListsAndItems(0, true);
-
         inParagraph = true;
         currentParagraphLines.push(originalLine);
     }
-
     closeAllOpenElements();
-
     return outputHtml.join('\n');
 }
-
-let typeWriterStatusForChatDone;
-function typeWriterEffectForChat(element, markdownText, callback) {
-  let typedCharacters = '';
-  let i = 0;
-  const speed = 1; 
-  const chunkSize = 10; 
-  element.innerHTML = ''; // Clear previous content
-  typeWriterStatusForChatDone = false;  // Reset flag
-
-  function type() {
-      if (i < markdownText.length) {
-          typedCharacters += markdownText.slice(i, Math.min(i + chunkSize, markdownText.length));
-          i += chunkSize;
-          element.innerHTML = markdownToHtmlForChat(typedCharacters);
-          scrollToBottom();
-          setTimeout(type, speed);
-      } else {
-          element.innerHTML = markdownToHtmlForChat(markdownText); // Ensure final full parse
-          scrollToBottom();
-          typeWriterStatusForChatDone = true;
-          if (callback) callback();
-      }
-  }
-  type();
-}
-
-
-function addMessage(text, sender) {
-  const messageDiv = document.createElement('div');
-  messageDiv.classList.add('message', sender);
-  const messageBubble = document.createElement('div');
-  messageBubble.classList.add('message-bubble');
-  messageDiv.appendChild(messageBubble);
-  chatMessages.appendChild(messageDiv);
-  
-  if (sender === 'ai') {
-      typeWriterEffectForChat(messageBubble, text, () => {
-          sendButton.disabled = false;
-          loadingIndicator.classList.remove('active');
-          chatInput.focus();
-          scrollToBottom();
-      });
-  }
-  if (sender === 'restored') {
-      typeWriterEffectForChat(messageBubble, text, () => {
-          sendButton.disabled = false;
-          loadingIndicator.classList.remove('active');
-          chatInput.focus();
-          scrollToBottom();
-      });
-  }
-    else { // User message
-      const preElement = document.createElement('pre'); // Use <pre> for user messages to preserve formatting
-      preElement.textContent = text;
-      messageBubble.appendChild(preElement);
-      scrollToBottom();
-  }
-}
-
-function openClearChatModal() {
-    document.getElementById('clearChatModal').style.display = 'flex';
-}
-
-function closeClearChatModal() {
-    document.getElementById('clearChatModal').style.display = 'none';
-}
-
-function clearChat() {
-    chatMessages.innerHTML = '';
-    // Reset chat history but keep the initial core instructions
-    // This will reset even the Previous Conversation. So, AI have no knowledge in the previous conversation.
-    chatHistory = [
-        {
-            role: "user",
-            parts: [
-                { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
-                { text: `Strictly follow this **INSTRUCTIONS** all the times: `+instructionPromt2 + `.\n\n` }
-            ]
-        }
-    ];
-    closeClearChatModal();
-    showSnackbar("Chat cleared.");
-}
-
-clearChatBtn.addEventListener('click', openClearChatModal);
-document.getElementById('confirmClearChatBtn').addEventListener('click', clearChat);
 
 const instructionPromt2 = `
 You are an expert AI assistant specializing in rAthena scripting. Your primary goal is to provide users with accurate data and well-structured, efficient rAthena scripts.
@@ -759,243 +999,3 @@ Follow these guidelines at all times:
       3. Strictly complete your explanation.
 `.trim();
 
-chatHistory.push({
-    role: "user",
-    parts: [
-        { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
-        { text: `Strictly follow this **INSTRUCTIONS** all the times: `+instructionPromt2 + `.\n\n` }
-    ]
-});
-
-
-// Initialize the timerCounter as Global variable
-let timerCounterForGlobal = 0;
-var chatSessionNum = 0;
-async function sendMessage() {
-    const userMessage = chatInput.value.trim();
-    if (!userMessage) return;
-
-    if (typeWriterStatusForChatDone == false || chatSessionNum > 0) {
-      return;
-    }
-    chatSessionNum++;
-
-    // Reset First once we entered a chat message for AI
-    timerCounterForGlobal = 0;
-    let timerCountperChat = setInterval(function() {
-      timerCounterForGlobal++;
-    }, 1000);
-
-    var apikeyModal = document.getElementById("APIKey");
-
-    addMessage(userMessage, 'user');
-    chatInput.value = '';
-    sendButton.disabled = true;
-    loadingIndicator.classList.add('active');
-    scrollToBottom();
-    
-    editor.setReadOnly(true);
-    editor.container.style.pointerEvents = "none";
-    const editorContent = editor.getValue();
-    document.getElementById('previousCodeBtn').setAttribute("disabled", "");
-    document.getElementById('nextCodeBtn').setAttribute("disabled", "");
-
-    // Construct the parts for the current user message
-    // The instructional prompt and the actual user message are combined into one "user" turn
-    const userInstructionalPrompt = `
-      This is the code inside the editor as your context if the user ask: \`\`\`${editorContent}\`\`\`. Just Ignore if the Code inside the editor has no code or value.
-    `.trim();
-
-    // Add the combined user message (instructional prompt + actual message) to chat history
-    chatHistory.push({
-        role: "user",
-        parts: [
-            { text: `` + userInstructionalPrompt + `.\n\n` },
-            { text: `This is user input/question: ` + userMessage + `. do not repeat the user instructions.` }
-        ]
-    });
-
-    try {
-        const payload = {
-          contents: chatHistory,
-          "generationConfig": {
-              "temperature": 0.0,       
-              "maxOutputTokens": 65536, 
-              "responseMimeType": "application/json",
-              "responseSchema": {
-                  "type": "OBJECT",
-                  "properties": {
-                      "thinking": { "type": "STRING" },
-                      "response": { "type": "STRING" }
-                  },
-                  "propertyOrdering": ["thinking", "response"]
-              }
-          }
-        };
-  
-        const apiKey = apikeyModal.value;
-        const selectedModel = document.getElementById('my-select-dropdown').value;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`API error: ${response.status} ${response.statusText} - ${errorData.error.message || 'Unknown error'}`);
-        }
-
-        const result = await response.json();
-
-        if (result.candidates && result.candidates.length > 0 &&
-          result.candidates[0].content && result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0) {
-
-          let thinking = "";
-          let responseText = "";
-
-          // Try to parse JSON output from model
-          try {
-              const structuredResponse = JSON.parse(result.candidates[0].content.parts[0].text);
-              thinking = structuredResponse.thinking || "";
-              responseText = structuredResponse.response || "";
-          } catch (parseError) {
-              console.warn("Failed to parse structured JSON. Falling back to raw text.");
-              responseText = result.candidates[0].content.parts[0].text;
-          }
-
-          const codeBlockRegexGlobal = /```(\w+)?\s*([\s\S]*?)\s*```/g;
-          const matches = [...responseText.matchAll(codeBlockRegexGlobal)];
-
-          let chatDisplayMessage;
-          const saveDate1 = new Date();
-
-          if (matches.length > 0) {
-              // Collect all code content from all code blocks
-              const allCodeContent = matches.map(m => m[2].trim()).join('\n\n').replace(/\\n/g, "\n").replace(/&Tab;/g, "\t");
-              
-              // Set the combined code to the editor
-              const oldCode = editor.getValue();
-              const newCode = allCodeContent;
-              const hasChanges = oldCode !== newCode;
-              
-              editor.setValue(allCodeContent, -1);
-              editor.setReadOnly(false);
-              editor.container.style.pointerEvents = "auto";
-              saveCurrentCodeToHistory();
-              document.getElementById('previousCodeBtn').removeAttribute("disabled");
-
-              // Remove all triple-backtick code blocks from the chat display
-              chatDisplayMessage = responseText.replace(codeBlockRegexGlobal, '').replace(/\n{3,}/g, '\n\n').trim();
-              
-              if (!chatDisplayMessage) {
-                  chatDisplayMessage = "Generated code is displayed in the editor.";
-              }
-              
-              if (hasChanges) {
-                  const diffIndex = diffHistory.length;
-                  diffHistory.push({old: oldCode, new: newCode, timestamp: saveDate1});
-                  chatDisplayMessage += `<br/><p><span style="font-size:10px">Time generated: <b>${saveDate1.toLocaleString()}</b></span></p>
-                                        <div class="diff-button-group">
-                                          <button class="diff-button" onclick="openDiff(${diffIndex})">View Changes</button>
-                                          <button class="restore-button" onclick="restoreFromDiff(${diffIndex}, 'new')">Restore Code here</button>
-                                        </div>`;
-              }
-
-          } else {
-              chatDisplayMessage = responseText;
-              editor.setReadOnly(false);
-              editor.container.style.pointerEvents = "auto";
-              document.getElementById('previousCodeBtn').removeAttribute("disabled");
-          }
-
-          // ✅ Combined message
-          let combinedMessage = '';
-          
-          // Stop the timerCount
-          clearInterval(timerCountperChat);
-
-          if (thinking) {
-              combinedMessage += `
-                <p class="ai_thought_textDesign">🤖  Thought in ${timerCounterForGlobal} seconds</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p>${checkMarkSVG}</p><p style="color:gray;font-size:10px;margin:-21px 0 10px 16px;">Done</p>`;
-          }
-          combinedMessage += chatDisplayMessage;
-          addMessage(combinedMessage, 'ai');
-
-          chatHistory.push({ role: "model", parts: [{ text: responseText }] });
-          chatSessionNum = 0;
-
-      } else {
-          addMessage("Sorry, I couldn't get a response from the AI. Please try again.", 'ai');
-          console.error("Unexpected API response structure:", result);
-          sendButton.disabled = false;
-          chatSessionNum = 0;
-          loadingIndicator.classList.remove('active');
-          chatInput.focus();
-          editor.setReadOnly(false);
-          editor.container.style.pointerEvents = "auto";
-          document.getElementById('previousCodeBtn').removeAttribute("disabled");
-      }
-
-  } catch (error) {
-      console.error('Error fetching from Gemini API:', error);
-      addMessage(`Oops! Something went wrong: ${error.message}. Please try again.`, 'ai');
-      sendButton.disabled = false;
-      chatSessionNum = 0;
-      loadingIndicator.classList.remove('active');
-      chatInput.focus();
-      editor.setReadOnly(false);
-      editor.container.style.pointerEvents = "auto";
-      document.getElementById('previousCodeBtn').removeAttribute("disabled");
-  }
-}
-
-function restoreFromDiff(index, restoreTo = 'new') {
-    // If index is an event, undefined, or null, use currentDiffIndex
-    if (typeof index !== 'number') {
-        index = currentDiffIndex;
-    }
-    
-    if (index === -1 || index === undefined || index === null) {
-        showSnackbar("No savepoint selected.");
-        return;
-    }
-    
-    if (index >= diffHistory.length) {
-        showSnackbar("Invalid savepoint index.");
-        return;
-    }
-
-    const {old: oldCode, new: newCode, timestamp} = diffHistory[index];
-    
-    saveCurrentCodeToHistory();
-    const codeToRestore = (restoreTo === 'new') ? newCode : oldCode;
-    
-    if (typeof editor !== 'undefined' && editor.setValue) {
-        editor.setValue(codeToRestore, -1);
-        editor.session.setUndoManager(new ace.UndoManager()); 
-        editor.focus(); // Ensure the editor is focused after restore
-        showSnackbar(`Restored to savepoint (${restoreTo}).`);
-        
-        const timeString = timestamp ? timestamp.toLocaleString() : "Unknown time";
-        addMessage(`🏴 Restored code from the Time: ${timeString}`, 'restored');
-    } else {
-        console.error("Editor not found during restore.");
-        showSnackbar("Error: Editor not found.");
-    }
-    
-    closeDiffModal();
-}
-
-sendButton.addEventListener('click', sendMessage);
-chatInput.addEventListener('keypress', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) { 
-        event.preventDefault(); 
-        sendMessage();
-    }
-});
-
-chatInput.focus();
