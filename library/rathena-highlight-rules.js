@@ -411,6 +411,8 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
     		{ token: "constant.numeric", regex: "\\b\\d+\\b" },
     		{ token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
         // { token: "variable.other", regex: "\\b\\w+\\b" } // General variable rule color green
+		// Function names like player()
+        { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
 		  ],
 		  comment: [
 		    { token: "comment.block.end", regex: "\\*/", next: "start" },
