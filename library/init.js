@@ -381,6 +381,7 @@ class Tab {
                 return;
             }
             const file = files[0];
+
             const contents = await file.text();
             this.recordChange(this.editor.getValue(), contents);
             this.editor.setValue(contents, -1);
@@ -486,6 +487,13 @@ class Tab {
                 types: [{ description: "Text Files", accept: { "text/plain": [".txt"] } }],
                 startIn: tabManager.lastDirectoryHandle || "documents"
             });
+
+            // If it's a different file, clear the chat
+            const isSame = this.fileHandle && await this.fileHandle.isSameEntry(handle);
+            if (!isSame) {
+                this.clearChat(false);
+            }
+
             this.fileHandle = handle;
             tabManager.lastDirectoryHandle = handle;
             const file = await handle.getFile();
@@ -700,7 +708,13 @@ class Tab {
         if (sender === 'ai' || sender === 'restored') {
             this.typeWriterEffect(bubble, text);
         } else {
-            bubble.textContent = text;
+            const pre = document.createElement("pre");
+            pre.style.whiteSpace = "pre-wrap";
+            pre.style.wordWrap = "break-word";
+            pre.style.margin = "0";
+            pre.style.fontFamily = "inherit";
+            pre.textContent = text;
+            bubble.appendChild(pre);
         }
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
     }
