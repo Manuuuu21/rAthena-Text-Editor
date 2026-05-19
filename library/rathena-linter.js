@@ -28,46 +28,64 @@ function runRathenaLinter(editor) {
         if (isHeaderCandidate) {
             const beforeBrace = line.split('{')[0];
             
-            // 1. Check for SPACE usage instead of TABs
-            const hasSpaces = beforeBrace.trim().includes(' ');
-            if (hasSpaces) {
-                annotations.push({
-                    row: index,
-                    column: 0,
-                    text: "rAthena Error: NPC header must use literal TABs as separators, not spaces. E.g: map,x,y,dir<TAB>script<TAB>NPC name<TAB>spriteID,{",
-                    type: "error"
-                });
-                break; // Show 1 error only
-            }
-
-            // 2. Structural Validation
+            // 1. Tab-based Segmentation
             const tabCount = (beforeBrace.match(/\t/g) || []).length;
-            const rawComponents = beforeBrace.split('\t');
-            const componentsByTab = rawComponents.map(p => p.trim().replace(/,$/, '').trim());
+            const components = beforeBrace.split('\t');
             
-            // Intelligence: Try space-split if tab-split feels empty
-            let validationComponents = componentsByTab;
-            if (tabCount === 0 && hasSpaces) {
-                validationComponents = beforeBrace.split(/\s+/).map(p => p.trim().replace(/,$/, '').trim());
-            }
-
-            const locPart = validationComponents[0] || "";
+            const locPart = (components[0] || "").trim();
             const isFloating = locPart === '-';
             const isFunction = locPart.toLowerCase() === 'function';
-
-            // Check for missing TABs (if no spaces, this is the primary error)
             const requiredTabs = isFunction ? 2 : 3;
-            if (tabCount < requiredTabs && !hasSpaces) {
+
+            // 2. Structural Validation
+            // Check for missing TABs - rAthena requires TABs as primary separators
+            if (tabCount < requiredTabs) {
                 annotations.push({
                     row: index,
                     column: 0,
-                    text: "rAthena Error: Missing TAB separators in header. Expected TABs between location, type, name, and spriteID. E.g: map,x,y,dir<TAB>script<TAB>NPC name<TAB>spriteID,{",
+                    text: `rAthena Error: NPC header requires literal TABs as separators. Found ${tabCount} TABs, expected at least ${requiredTabs}. E.g: map,x,y,dir<TAB>script<TAB>NPC name<TAB>spriteID,{`,
                     type: "error"
                 });
-                break; // Show 1 error only
+                break; 
             }
 
-            // 3. Granular Structure Check
+            // 3. Component Integrity (Check for illegal spaces in non-name fields)
+            // Part 0: Location/Function (Example: map,x,y,dir) - No spaces allowed
+            if (components[0].trim().includes(' ')) {
+                annotations.push({
+                    row: index, column: 0,
+                    text: "rAthena Error: Spaces are not allowed in the location field (Part 1). Use a TAB to separate it from the NPC type.",
+                    type: "error"
+                });
+                break;
+            }
+
+            // Part 1: Type (Example: script, shop, warp) - No spaces allowed
+            if (components[1] && components[1].trim().includes(' ')) {
+                annotations.push({
+                    row: index, column: 0,
+                    text: "rAthena Error: Spaces are not allowed in the NPC type field (Part 2). Use a TAB to separate it from the NPC name.",
+                    type: "error"
+                });
+                break;
+            }
+            
+            // Note: components[2] is the NPC Name, which IS allowed to have spaces.
+
+            // Part 3: Sprite ID (or Market Info) - No spaces allowed
+            if (!isFunction && components[3] && components[3].trim().includes(' ')) {
+                annotations.push({
+                    row: index, column: 0,
+                    text: "rAthena Error: Spaces are not allowed in the Sprite ID field (Part 4).",
+                    type: "error"
+                });
+                break;
+            }
+
+            // Map components for the remainder of the validation
+            const validationComponents = components.map(p => p.trim().replace(/,$/, '').trim());
+
+            // 4. Granular Structure Check (inherited logic)
             // Location (map,x,y,dir)
             if (!isFloating && !isFunction) {
                 const locSubParts = locPart.split(',');
