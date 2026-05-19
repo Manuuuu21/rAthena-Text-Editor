@@ -277,6 +277,25 @@ html, body {
     gap: 10px;
 }
 
+/* Custom Ace Tooltip Styling */
+.ace_tooltip {
+    max-width: 600px;
+    max-height: 300px;
+    overflow-y: auto !important;
+    pointer-events: auto !important;
+    white-space: normal !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 12px;
+    line-height: 1.5 !important;
+    background-color: #1e1e1e !important;
+    color: #d4d4d4 !important;
+    border: 1px solid #454545 !important;
+    border-radius: 4px;
+    padding: 10px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+    z-index: 9999 !important;
+}
+
 #clear-chat-btn, .clear-chat-btn {
     position: absolute;
     right: 10px;

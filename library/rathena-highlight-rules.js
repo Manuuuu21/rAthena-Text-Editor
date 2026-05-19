@@ -28,7 +28,7 @@ const supportFunctionKeywords = [
   "showdigit", "showevent", "showscript", "sit", "skill", "skilleffect", "skillpointcount", "sleep", "sleep2", "soundeffect", "soundeffectall", "specialeffect", "specialeffect2", "sprintf", "sqrt", "sscanf", "stand", "statusup", "statusup2", "stopnpctimer",
   "storagecountitem", "storagecountitem2", "storagedelitem", "storagedelitem2", "strcmp", "strcharinfo", "strmobinfo", "strnpcinfo", "strpos", "strtol", "strtolower", "strtoupper", "substr", "successrefitem", "successremovecards", "summon", "traitstatusup", "traitstatusup2", "transform", "unbindatcmd",
   "unequip", "unitattack", "unitblockskill", "unitexists", "unitkill", "unitskilluseid", "unitskillusepos", "unitstopattack", "unitstopwalk", "unittalk", "unitwalk", "unitwalkto", "unitwarp", "unloadnpc", "unrefine", "useatcmd", "viewpoint", "vip_status", "vip_time", "waitingroom",
-  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin", "getstatus", "getareaunits", "isdead"
+  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin", "getstatus", "getareaunits", "isdead", "removemapflag","getmapflag"
 ];
 
 // Red highlight - Control flow and declarations
@@ -411,7 +411,8 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
     		{ token: "constant.numeric", regex: "\\b\\d+\\b" },
     		{ token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
         // { token: "variable.other", regex: "\\b\\w+\\b" } // General variable rule color green
-		// Function names like player()
+
+        // Function names like player()
         { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
 		  ],
 		  comment: [

@@ -189,10 +189,18 @@ window.onclick = function(event) {
   if (event.target.id == 'clearChatModal') closeClearChatModal();
 }
 
+let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
+
 document.getElementById("toggleReadOnly").addEventListener("change", function () {
   if (tabManager.activeTab) {
     tabManager.activeTab.editor.setReadOnly(this.checked);
   }
+});
+
+document.getElementById("toggleTooltip").checked = documentationTooltipEnabled;
+document.getElementById("toggleTooltip").addEventListener("change", function () {
+  documentationTooltipEnabled = this.checked;
+  localStorage.setItem("documentationTooltipEnabled", documentationTooltipEnabled);
 });
 
 function toggleDisplayChatBotContainer() {
@@ -308,6 +316,8 @@ class Tab {
             enableLiveAutocompletion: true,
             fontSize: "14px",
         });
+
+        new TokenTooltip(this.editor);
 
         this.editor.setShowPrintMargin(false); // Hide the vertical print margin line
         this.editor.getSession().setUseSoftTabs(false);
@@ -608,7 +618,20 @@ class Tab {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error("AI API Error");
+            if (!response.ok) {
+                let errorDetails = "AI API Error";
+                try {
+                    const errorJson = await response.json();
+                    if (errorJson.error && errorJson.error.message) {
+                        errorDetails = errorJson.error.message;
+                    } else {
+                        errorDetails = `API Error ${response.status}: ${response.statusText}`;
+                    }
+                } catch (e) {
+                    errorDetails = `API Error ${response.status}: ${response.statusText}`;
+                }
+                throw new Error(errorDetails);
+            }
 
             const result = await response.json();
             const content = result.candidates[0].content.parts[0].text;
@@ -656,7 +679,7 @@ class Tab {
             this.chatHistory.push({ role: "model", parts: [{ text: responseText }] });
         } catch (err) {
             console.error(err);
-            this.addMessage("Error communicating with AI.", "ai");
+            this.addMessage("Error communicating with AI: " + (err.message || String(err)), "ai");
         } finally {
             this.chatSessionNum = 0;
             this.elements.loadingIndicator.classList.remove('active');
@@ -706,6 +729,203 @@ class Tab {
         type();
     }
 }
+
+/* Documentation Tooltips Logic */
+const rathenaDocMap = {};
+
+function parseRathenaDocs() {
+    if (typeof standard_rAthena_script === 'undefined') return;
+    
+    const lines = standard_rAthena_script.split('\n');
+    let currentCmd = null;
+    let currentSignature = "";
+    let currentContent = [];
+
+    const saveCommand = () => {
+        if (currentCmd) {
+            let rawContent = currentContent.join('\n').trim();
+            // Escape HTML characters before adding our own tags
+            rawContent = rawContent
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+
+            const content = rawContent.split('\n').map(line => {
+                const leadingSpaces = line.match(/^\s+/);
+                if (leadingSpaces) {
+                    const indent = leadingSpaces[0].length * 6; // roughly 6px per space
+                    return `<div style="padding-left: ${indent}px; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 11px; opacity: 0.9; margin: 2px 0;">${line.trim()}</div>`;
+                }
+                return `<div style="margin: 4px 0;">${line}</div>`;
+            }).join('');
+            
+            let formattedSignature = currentSignature
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+            
+            formattedSignature = formattedSignature.replace(new RegExp("^\\*" + currentCmd, "i"), "<strong>*"+currentCmd+"</strong>");
+
+            if (rathenaDocMap[currentCmd]) {
+                // Append signature and content if it's a variation
+                rathenaDocMap[currentCmd].signature += "<br/>" + formattedSignature;
+                // Add a divider if content is different
+                if (rathenaDocMap[currentCmd].description.indexOf(content.substring(0, 50)) === -1) {
+                    rathenaDocMap[currentCmd].description += "<br/><hr style='border:0; border-top:1px dashed #444; margin:8px 0;'/><br/>" + content;
+                }
+            } else {
+                rathenaDocMap[currentCmd] = {
+                    signature: formattedSignature,
+                    description: content
+                };
+            }
+        }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (trimmed.startsWith('*') && !trimmed.startsWith('**') && trimmed.length > 1 && /^\*[a-zA-Z]/.test(trimmed)) {
+            saveCommand();
+            const match = trimmed.match(/^\*([a-zA-Z0-9_]+)/);
+            if (match) {
+                currentCmd = match[1];
+                currentSignature = trimmed;
+                currentContent = []; 
+            } else {
+                currentCmd = null;
+            }
+        } else if (currentCmd) {
+            currentContent.push(line);
+        }
+    }
+    saveCommand();
+}
+
+class TokenTooltip {
+    constructor(editor) {
+        if (editor.tokenTooltip) return;
+        editor.tokenTooltip = this;
+        this.editor = editor;
+        
+        let Tooltip;
+        try {
+            Tooltip = ace.require("ace/tooltip").Tooltip;
+        } catch (e) {
+            console.warn("Ace tooltip not found");
+            return;
+        }
+        
+        this.tooltip = new Tooltip(editor.container);
+        
+        this.onMouseMove = this.onMouseMove.bind(this);
+        this.onMouseOut = this.onMouseOut.bind(this);
+        
+        editor.on("mousemove", this.onMouseMove);
+        editor.on("mouseout", this.onMouseOut);
+    }
+
+    onMouseMove(e) {
+        if (!documentationTooltipEnabled) {
+            this.tooltip.hide();
+            return;
+        }
+        const editor = this.editor;
+        const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
+
+        // If mouse is already over the tooltip, don't hide it or update position
+        if (element && element.contains(e.domEvent.target)) {
+            return;
+        }
+
+        const pos = e.getDocumentPosition();
+        const token = editor.session.getTokenAt(pos.row, pos.column);
+        
+        if (token && (token.type.indexOf("support.function") !== -1 || 
+                      token.type.indexOf("keyword") !== -1 || 
+                      token.type.indexOf("identifier") !== -1 || 
+                      token.type.indexOf("constant.language") !== -1)) {
+            const docData = rathenaDocMap[token.value];
+            if (docData) {
+                // If already showing this doc, don't re-show to avoid scroll reset
+                if (this.currentToken === token.value) return;
+                
+                this.currentToken = token.value;
+                
+                const html = `
+                    <div style="border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 8px; color: #66d9ef; font-size: 13px;">
+                        ${docData.signature}
+                    </div>
+                    <div style="line-height: 1.4;">
+                        ${docData.description.replace(/\n/g, '<br/>')}
+                    </div>
+                `;
+                
+                this.tooltip.show("", e.clientX, e.clientY);
+                const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
+                if (element) {
+                    element.innerHTML = html;
+                    element.scrollTop = 0; // Ensure scroll always starts at the top
+                    element.style.display = "block";
+                    const rect = element.getBoundingClientRect();
+                    
+                    // Reduced offset (5px) to make it easier to reach from the mouse
+                    let x = e.clientX + 5;
+                    let y = e.clientY + 5;
+
+                    // Bound checks
+                    if (x + rect.width > window.innerWidth) {
+                        x = e.clientX - rect.width - 5;
+                    }
+                    if (y + rect.height > window.innerHeight) {
+                        y = e.clientY - rect.height - 5;
+                    }
+                    
+                    if (x < 0) x = 5;
+                    if (y < 0) y = 5;
+
+                    element.style.left = x + "px";
+                    element.style.top = y + "px";
+
+                    if (!element._hasWheelEvent) {
+                        element.addEventListener('wheel', (evt) => {
+                            evt.stopPropagation();
+                        }, { passive: false });
+                        element._hasWheelEvent = true;
+                    }
+                }
+                return;
+            }
+        }
+
+        // If we have a tooltip active, check if mouse is moving towards it
+        if (element && this.currentToken) {
+            const rect = element.getBoundingClientRect();
+            // A small 10px buffer around the tooltip to allow the mouse to reach it
+            const buffer = 10;
+            if (e.clientX >= rect.left - buffer && e.clientX <= rect.right + buffer &&
+                e.clientY >= rect.top - buffer && e.clientY <= rect.bottom + buffer) {
+                return;
+            }
+        }
+
+        this.currentToken = null;
+        this.tooltip.hide();
+    }
+
+    onMouseOut(e) {
+        const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
+        if (element && e && e.domEvent && element.contains(e.domEvent.relatedTarget)) {
+            return;
+        }
+        this.currentToken = null;
+        this.tooltip.hide();
+    }
+}
+
+parseRathenaDocs();
 
 const tabManager = {
     tabs: [],
