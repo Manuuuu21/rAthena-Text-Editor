@@ -801,7 +801,7 @@ function parseRathenaDocs() {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmed = line.trim();
-        if (trimmed.startsWith('*') && !trimmed.startsWith('**') && trimmed.length > 1 && /^\*[a-zA-Z]/.test(trimmed)) {
+        if (trimmed.startsWith('*') && !trimmed.startsWith('**') && trimmed.length > 1 && /^\*[a-zA-Z0-9_]/.test(trimmed)) {
             saveCommand();
             const match = trimmed.match(/^\*([a-zA-Z0-9_]+)/);
             if (match) {
@@ -860,7 +860,8 @@ class TokenTooltip {
         if (token && (token.type.indexOf("support.function") !== -1 || 
                       token.type.indexOf("keyword") !== -1 || 
                       token.type.indexOf("identifier") !== -1 || 
-                      token.type.indexOf("constant.language") !== -1)) {
+                      token.type.indexOf("constant") !== -1 ||
+                      token.type.indexOf("variable") !== -1)) {
             const docData = rathenaDocMap[token.value];
             if (docData) {
                 // If already showing this doc, don't re-show to avoid scroll reset
