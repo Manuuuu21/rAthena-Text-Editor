@@ -6,7 +6,7 @@ function toggleTheme() {
 
   currentTheme = isLight ? "ace/theme/monokai" : "ace/theme/github_light_default";
   
-  if (isLight) {
+    if (isLight) {
     // Switching to DARK
     root.style.setProperty('--tabBarBg', '#2e2e2e');
     root.style.setProperty('--toolbarBg', '#3e3e3e');
@@ -14,6 +14,11 @@ function toggleTheme() {
     root.style.setProperty('--activeTabColor', '#fff');
     root.style.setProperty('--tabCloseColor', '#bbb');
     root.style.setProperty('--darkmodeColor', '#686868');
+    root.style.setProperty('--tooltipBg', '#1e1e1e');
+    root.style.setProperty('--tooltipColor', '#d4d4d4');
+    root.style.setProperty('--tooltipBorder', '#454545');
+    root.style.setProperty('--tooltipHeaderColor', '#66d9ef');
+    root.style.setProperty('--tooltipDivider', '#444');
   } else {
     // Switching to LIGHT
     root.style.setProperty('--tabBarBg', '#d8ccc6');
@@ -22,6 +27,11 @@ function toggleTheme() {
     root.style.setProperty('--activeTabColor', '#000');
     root.style.setProperty('--tabCloseColor', '#777');
     root.style.setProperty('--darkmodeColor', '#d9d9d9');
+    root.style.setProperty('--tooltipBg', '#fff');
+    root.style.setProperty('--tooltipColor', '#333');
+    root.style.setProperty('--tooltipBorder', '#ccc');
+    root.style.setProperty('--tooltipHeaderColor', '#0056b3');
+    root.style.setProperty('--tooltipDivider', '#eee');
   }
   
   tabManager.tabs.forEach(tab => {
@@ -787,7 +797,7 @@ function parseRathenaDocs() {
                 rathenaDocMap[currentCmd].signature += "<br/>" + formattedSignature;
                 // Add a divider if content is different
                 if (rathenaDocMap[currentCmd].description.indexOf(content.substring(0, 50)) === -1) {
-                    rathenaDocMap[currentCmd].description += "<br/><hr style='border:0; border-top:1px dashed #444; margin:8px 0;'/><br/>" + content;
+                    rathenaDocMap[currentCmd].description += "<br/><hr style='border:0; border-top:1px dashed var(--tooltipDivider); margin:8px 0;'/><br/>" + content;
                 }
             } else {
                 rathenaDocMap[currentCmd] = {
@@ -870,7 +880,7 @@ class TokenTooltip {
                 this.currentToken = token.value;
                 
                 const html = `
-                    <div style="border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 8px; color: #66d9ef; font-size: 13px;">
+                    <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 5px; margin-bottom: 8px; color: var(--tooltipHeaderColor); font-size: 13px;">
                         ${docData.signature}
                     </div>
                     <div style="line-height: 1.4;">
@@ -947,6 +957,7 @@ const tabManager = {
     activeTab: null,
     nextId: 1,
     lastDirectoryHandle: null,
+    draggedTabIndex: null,
     latestSelectedText: "",
     menuX: 0,
     menuY: 0,
@@ -995,15 +1006,96 @@ const tabManager = {
 
     renderTabs() {
         const container = document.getElementById("tabsContainer");
-        container.innerHTML = "";
-        this.tabs.forEach(tab => {
-            const btn = document.createElement("div");
-            btn.className = `tab-button ${this.activeTab && this.activeTab.id === tab.id ? 'active' : ''}`;
-            btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">×</span>`;
-            btn.onclick = () => this.switchTab(tab.id);
-            btn.querySelector(".tab-close").onclick = (e) => this.closeTab(tab.id, e);
-            container.appendChild(btn);
+        const existingButtons = Array.from(container.querySelectorAll('.tab-button'));
+        
+        // Remove surplus buttons or clear if count mismatch (simple approach for now)
+        if (existingButtons.length !== this.tabs.length) {
+            container.innerHTML = "";
+            this.tabs.forEach((tab, index) => {
+                const btn = this.createTabButton(tab, index);
+                container.appendChild(btn);
+            });
+            return;
+        }
+
+        // Update existing buttons
+        this.tabs.forEach((tab, index) => {
+            const btn = existingButtons.find(b => b.dataset.id === String(tab.id));
+            if (btn) {
+                btn.className = `tab-button ${this.activeTab && this.activeTab.id === tab.id ? 'active' : ''}`;
+                if (tabManager.draggedTabIndex === index) btn.classList.add("dragging");
+                
+                // Update text if changed
+                const label = btn.querySelector("span");
+                if (label.textContent !== tab.name) label.textContent = tab.name;
+                
+                // Update specific index for data transfer
+                btn.dataset.index = index;
+                
+                // Move to correct position in DOM if necessary
+                if (container.children[index] !== btn) {
+                    container.insertBefore(btn, container.children[index]);
+                }
+            } else {
+                // If button doesn't exist for some reason, re-render all
+                container.innerHTML = "";
+                this.tabs.forEach((t, i) => container.appendChild(this.createTabButton(t, i)));
+            }
         });
+    },
+
+    createTabButton(tab, index) {
+        const btn = document.createElement("div");
+        btn.className = `tab-button ${this.activeTab && this.activeTab.id === tab.id ? 'active' : ''}`;
+        btn.setAttribute("draggable", "true");
+        btn.dataset.id = tab.id;
+        btn.dataset.index = index;
+        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">×</span>`;
+        
+        btn.onclick = () => this.switchTab(tab.id);
+        btn.querySelector(".tab-close").onclick = (e) => {
+            e.stopPropagation();
+            this.closeTab(tab.id, e);
+        };
+
+        // Drag and Drop handlers
+        btn.ondragstart = (e) => {
+            e.dataTransfer.setData("text/plain", btn.dataset.index);
+            tabManager.draggedTabIndex = parseInt(btn.dataset.index);
+            setTimeout(() => btn.classList.add("dragging"), 0);
+            e.dataTransfer.effectAllowed = "move";
+        };
+
+        btn.ondragenter = (e) => {
+            e.preventDefault();
+            const fromIndex = tabManager.draggedTabIndex;
+            const toIndex = parseInt(btn.dataset.index);
+            
+            if (fromIndex !== null && fromIndex !== toIndex) {
+                const movedTab = this.tabs.splice(fromIndex, 1)[0];
+                this.tabs.splice(toIndex, 0, movedTab);
+                tabManager.draggedTabIndex = toIndex;
+                this.renderTabs();
+            }
+        };
+
+        btn.ondragover = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+        };
+
+        btn.ondrop = (e) => {
+            e.preventDefault();
+            this.renderTabs();
+        };
+
+        btn.ondragend = () => {
+            btn.classList.remove("dragging");
+            tabManager.draggedTabIndex = null;
+            this.renderTabs();
+        };
+
+        return btn;
     }
 };
 

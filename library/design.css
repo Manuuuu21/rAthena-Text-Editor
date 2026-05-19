@@ -6,6 +6,11 @@
   --textColor: #ddd;
   --activeTabColor: #fff;
   --tabCloseColor: #bbb;
+  --tooltipBg: #1e1e1e;
+  --tooltipColor: #d4d4d4;
+  --tooltipBorder: #454545;
+  --tooltipHeaderColor: #66d9ef;
+  --tooltipDivider: #444;
 }
 
 html, body {
@@ -54,13 +59,22 @@ html, body {
   gap: 15px;
   white-space: nowrap;
   color: var(--textColor);
-  transition: all 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s ease, opacity 0.2s ease;
   min-width: 150px;
   justify-content: space-between;
 }
 
 .tab-button:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.dragging {
+    opacity: 0.1;
+    background: transparent;
+}
+
+.tab-button.drag-over {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .tab-button.active {
@@ -287,9 +301,9 @@ html, body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     font-size: 12px;
     line-height: 1.5 !important;
-    background-color: #1e1e1e !important;
-    color: #d4d4d4 !important;
-    border: 1px solid #454545 !important;
+    background-color: var(--tooltipBg) !important;
+    color: var(--tooltipColor) !important;
+    border: 1px solid var(--tooltipBorder) !important;
     border-radius: 4px;
     padding: 10px !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
