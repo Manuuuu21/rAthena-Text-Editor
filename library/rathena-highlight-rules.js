@@ -414,7 +414,8 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
 
         // Function names like player()
         { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
-		  ],
+        { token: "keyword.control", regex: "(?<=\\b(?:goto|callsub)[ \\t]+)[a-zA-Z_][a-zA-Z0-9_]*\\b" },
+		  ],  
 		  comment: [
 		    { token: "comment.block.end", regex: "\\*/", next: "start" },
 		    { defaultToken: "comment.block" }
