@@ -28,7 +28,7 @@ const supportFunctionKeywords = [
   "showdigit", "showevent", "showscript", "sit", "skill", "skilleffect", "skillpointcount", "sleep", "sleep2", "soundeffect", "soundeffectall", "specialeffect", "specialeffect2", "sprintf", "sqrt", "sscanf", "stand", "statusup", "statusup2", "stopnpctimer",
   "storagecountitem", "storagecountitem2", "storagedelitem", "storagedelitem2", "strcmp", "strcharinfo", "strmobinfo", "strnpcinfo", "strpos", "strtol", "strtolower", "strtoupper", "substr", "successrefitem", "successremovecards", "summon", "traitstatusup", "traitstatusup2", "transform", "unbindatcmd",
   "unequip", "unitattack", "unitblockskill", "unitexists", "unitkill", "unitskilluseid", "unitskillusepos", "unitstopattack", "unitstopwalk", "unittalk", "unitwalk", "unitwalkto", "unitwarp", "unloadnpc", "unrefine", "useatcmd", "viewpoint", "vip_status", "vip_time", "waitingroom",
-  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin", "getstatus", "getareaunits", "isdead", "removemapflag","getmapflag"
+  "waitingroom2bg", "waitingroom2bg_single", "warp", "warpwaitingpc", "wedding", "heal", "isloggedin", "getstatus", "getareaunits", "isdead", "removemapflag","startnpctimer","changecharsex"
 ];
 
 // Red highlight - Control flow and declarations
@@ -40,9 +40,9 @@ const controlFlowKeywords = [
 // Orange highlight - Named constants and parameters
 const constantLibraryKeywords = [
   // Original equipmentLocConstant
-	"EQI_HEAD_LOW", "EQI_HEAD_MID", "EQI_HEAD_TOP", "EQI_ARMOR", "EQI_HAND_L", "EQI_HAND_R", "EQI_GARMENT", "EQI_SHOES", "EQI_ACC_L", "EQI_ACC_R", 
-	"EQI_COSTUME_HEAD_TOP", "EQI_COSTUME_HEAD_MID", "EQI_COSTUME_HEAD_LOW", "EQI_COSTUME_GARMENT", "EQI_COSTUME_ROBE", "EQI_SHADOW_ARMOR", 
-	"EQI_SHADOW_WEAPON", "EQI_SHADOW_SHIELD", "EQI_SHADOW_SHOES", "EQI_SHADOW_ACC_R", "EQI_SHADOW_ACC_L", "EQI_COMPOUND_ON", "EQI_AMMO",
+  "EQI_HEAD_LOW", "EQI_HEAD_MID", "EQI_HEAD_TOP", "EQI_ARMOR", "EQI_HAND_L", "EQI_HAND_R", "EQI_GARMENT", "EQI_SHOES", "EQI_ACC_L", "EQI_ACC_R", 
+  "EQI_COSTUME_HEAD_TOP", "EQI_COSTUME_HEAD_MID", "EQI_COSTUME_HEAD_LOW", "EQI_COSTUME_GARMENT", "EQI_COSTUME_ROBE", "EQI_SHADOW_ARMOR", 
+  "EQI_SHADOW_WEAPON", "EQI_SHADOW_SHIELD", "EQI_SHADOW_SHOES", "EQI_SHADOW_ACC_R", "EQI_SHADOW_ACC_L", "EQI_COMPOUND_ON", "EQI_AMMO",
   // Original emotionConstants
   "ET_SURPRISE", "ET_QUESTION", "ET_DELIGHT", "ET_THROB", "ET_SWEAT", "ET_AHA", "ET_FRET", "ET_ANGER", "ET_MONEY", "ET_THINK",
   "ET_SCISSOR", "ET_ROCK", "ET_WRAP", "ET_FLAG", "ET_BIGTHROB", "ET_THANKS", "ET_KEK", "ET_SORRY", "ET_SMILE", "ET_PROFUSELY_SWEAT",
@@ -57,7 +57,7 @@ const constantLibraryKeywords = [
   "RDMOPT_VAR_STRAMOUNT", "RDMOPT_VAR_AGIAMOUNT", "RDMOPT_VAR_VITAMOUNT", "RDMOPT_VAR_INTAMOUNT", "RDMOPT_VAR_DEXAMOUNT", "RDMOPT_VAR_LUKAMOUNT",
   // Original boundVars
   "BOUND_CHAR", "BOUND_ACCOUNT", "BOUND_GUILD", "BOUND_PARTY", "LOOK_BASE", "LOOK_HAIR", "LOOK_WEAPON", "LOOK_HEAD_BOTTOM", "LOOK_HEAD_TOP", 
-	"LOOK_HEAD_MID", "LOOK_HAIR_COLOR", "LOOK_CLOTHES_COLOR", "LOOK_SHIELD", "LOOK_SHOES", "LOOK_BODY2",
+  "LOOK_HEAD_MID", "LOOK_HAIR_COLOR", "LOOK_CLOTHES_COLOR", "LOOK_SHIELD", "LOOK_SHOES", "LOOK_BODY2",
   // Original broadcastTargets
   "bc_all", "bc_map", "bc_self", "bc_area", "self", "SELF", "area", "AREA", "bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
   // Original mapNames
@@ -72,7 +72,7 @@ const constantLibraryKeywords = [
   "pay_fild05","pay_fild06","pay_fild07","pay_dun00","pay_dun01","pay_dun02","pay_dun03","pay_dun04",
   "alberta", "izlude","izlude_in","iz_dun00","iz_dun01","iz_dun02","iz_dun03","iz_dun04","iz_dun05",
   "aldebaran","aldeba_in","alde_alche","alde_gld","alde_dun01","alde_dun02","alde_dun03","alde_dun04","c_tower1","c_tower2","c_tower3","c_tower4","alde_tt02","alde_tt03", 
-  "xmas","xmas_in","xmas_fild01","xmas_dun01","xmas_dun02", 
+  "xmas","xmas_in","xmas_fild01","xmas_dun01","xmas_dun02","pvp_n_1-2",
   "comodo","cmd_in01","cmd_in02","cmd_fild01","cmd_fild02","cmd_fild03","cmd_fild04","cmd_fild05","cmd_fild06","cmd_fild07",
   "cmd_fild08","cmd_fild09","beach_dun","beach_dun2","beach_dun3", 
   "yuno","yuno_in01","yuno_in02","yuno_in03","yuno_in04","yuno_fild01","yuno_fild02","yuno_fild03","yuno_fild04","yuno_fild05",
@@ -80,7 +80,7 @@ const constantLibraryKeywords = [
   "amatsu","ama_in01","ama_fild01","ama_dun01","ama_dun02","ama_dun03", 
   "gonryun","gon_in","gon_fild01","gon_dun01","gon_dun02","gon_dun03",
   "umbala","um_in","um_fild01","um_fild02","um_fild03","um_fild04","um_dun01","um_dun02", 
-  "niflheim","nif_fild01","nif_fild02",
+  "niflheim","nif_fild01","nif_fild02","quiz_01",
   "louyang", "lou_in01", "lou_in02", "lou_fild01", "lou_dun01", "lou_dun02", "lou_dun03", 
   "ayothaya", "ayo_in01", "ayo_fild01", "ayo_fild02", "ayo_dun01", "ayo_dun02", 
   "jawaii", "jawaii_in01", 
@@ -94,13 +94,14 @@ const constantLibraryKeywords = [
   "new_1-1", "new_1-2", "turbo_room", "moc_ruins", "thor_camp", "ecl_in01", "kame_house",
   // Original mapflagConstant
   "mf_restricted", "mf_noskill", "mf_novending", "mf_nocommand", "mf_nomemo", "mf_noteleport", "mf_nowarp", "mf_nosave", "mf_nobranch",
-	"mf_nopenalty", "mf_nozenypenalty", "mf_pvp","mf_gvg", "mf_battleground", "mf_nightenabled", "mf_snow","mf_fog", "mf_sakura", "mf_leaves",
-	"mf_rain", "mf_clouds", "mf_fireworks", "mf_skill_damage", "mf_skill_duration", "mf_loadevent", "mf_instakill", "MF_RESTRICTED",
+  "mf_nopenalty", "mf_nozenypenalty", "mf_pvp","mf_gvg", "mf_battleground", "mf_nightenabled", "mf_snow","mf_fog", "mf_sakura", "mf_leaves",
+  "mf_rain", "mf_clouds", "mf_fireworks", "mf_skill_damage", "mf_skill_duration", "mf_loadevent", "mf_instakill", "MF_RESTRICTED",
+  "mf_nodrop","mf_nomobloot","mf_nomvploot","mf_nowarpto",
   // Original optionsConstant
   "Option_Nothing","Option_Sight","Option_Hide","Option_Cloak","Option_Falcon","Option_Riding","Option_Invisible",
-	"Option_Orcish","Option_Wedding","Option_Chasewalk","Option_Flying","Option_Xmas","Option_Transform","Option_Summer",
-	"Option_Dragon1","Option_Wug","Option_Wugrider","Option_Madogear","Option_Dragon2","Option_Dragon3","Option_Dragon4",
-	"Option_Dragon5","Option_Hanbok","Option_Oktoberfest","Option_Dragon","Option_Costume",
+  "Option_Orcish","Option_Wedding","Option_Chasewalk","Option_Flying","Option_Xmas","Option_Transform","Option_Summer",
+  "Option_Dragon1","Option_Wug","Option_Wugrider","Option_Madogear","Option_Dragon2","Option_Dragon3","Option_Dragon4",
+  "Option_Dragon5","Option_Hanbok","Option_Oktoberfest","Option_Dragon","Option_Costume",
   // Other constants from documentation
   "ITEMINFO_BUY", "ITEMINFO_SELL", "ITEMINFO_TYPE", "ITEMINFO_MAXCHANCE", "ITEMINFO_GENDER", "ITEMINFO_LOCATIONS", "ITEMINFO_WEIGHT", "ITEMINFO_ATTACK",
   "ITEMINFO_DEFENSE", "ITEMINFO_RANGE", "ITEMINFO_SLOT", "ITEMINFO_VIEW", "ITEMINFO_EQUIPLEVELMIN", "ITEMINFO_WEAPONLEVEL", "ITEMINFO_ALIASNAME",
@@ -183,8 +184,8 @@ const constantLibraryKeywords = [
   "ELEM_CLASS", "ELEM_NAME", "ELEM_LIFETIME", "ELEM_MODE", "ELEM_LEVEL",
   // BC Type
   "bc_all", "bc_map", "bc_self", "bc_area", "self", "SELF", "area", "AREA",
-	"bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
-	// Start of SC_ constants
+  "bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
+  // Start of SC_ constants
   "SC_STONE", "SC_FREEZE", "SC_STUN", "SC_SLEEP", "SC_POISON", "SC_CURSE", "SC_SILENCE", "SC_CONFUSION",
   "SC_BLIND", "SC_BLEEDING", "SC_DPOISON", "SC_PROVOKE", "SC_ENDURE", "SC_TWOHANDQUICKEN", "SC_CONCENTRATE",
   "SC_HIDING", "SC_CLOAKING", "SC_ENCPOISON", "SC_POISONREACT", "SC_QUAGMIRE", "SC_ANGELUS", "SC_BLESSING",
@@ -308,42 +309,42 @@ const constantLibraryKeywords = [
 
 // Green highlight - Variables and variable manipulation
 const variableLanguageKeywords = [
-	// Original varHolderKeywords
-	"set", "killedrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", // Added from commands
-	// Original specialVarKeywords
-	"Zeny", "Hp", "MaxHp", "Sp", "MaxSp", "StatusPoint", "SkillPoint", "BaseLevel",
-	"JobLevel", "BaseExp", "JobExp", "NextBaseExp", "NextJobExp", "Weight", "MaxWeight",
-	"Sex", "Class", "Upper", "BaseClass", "BaseJob", "Karma", "Manner", "Ap", "MaxAp",
-	// Original inventoryVar as prefixed vars - rule will handle prefix
-	"getarg", "getargcount", "strcharinfo", "strnpcinfo", "readparam", "getarraysize",
-	"bStr", "bAgi", "bVit", "bInt", "bDex", "bLuk", "bPow", "bSta", "bWis", "bSpl", "bCon", "bCrt" // base stats and traits
+  // Original varHolderKeywords
+  "set", "killedrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", // Added from commands
+  // Original specialVarKeywords
+  "Zeny", "Hp", "MaxHp", "Sp", "MaxSp", "StatusPoint", "SkillPoint", "BaseLevel",
+  "JobLevel", "BaseExp", "JobExp", "NextBaseExp", "NextJobExp", "Weight", "MaxWeight",
+  "Sex", "Class", "Upper", "BaseClass", "BaseJob", "Karma", "Manner", "Ap", "MaxAp",
+  // Original inventoryVar as prefixed vars - rule will handle prefix
+  "getarg", "getargcount", "strcharinfo", "strnpcinfo", "readparam", "getarraysize",
+  "bStr", "bAgi", "bVit", "bInt", "bDex", "bLuk", "bPow", "bSta", "bWis", "bSpl", "bCon", "bCrt" // base stats and traits
 ];
 
 const inventoryVarNames = [ // Just the names, prefix handled by regex
-	"inventorylist_id", "inventorylist_idx", "inventorylist_amount", "inventorylist_equip", "inventorylist_refine", 
-	"inventorylist_identify", "inventorylist_attribute", "inventorylist_card1", "inventorylist_card2", "inventorylist_card3", 
-	"inventorylist_card4", "inventorylist_expire", "inventorylist_bound", "inventorylist_enchantgrade", "inventorylist_count", 
-	"inventorylist_option_id1", "inventorylist_option_value1", "inventorylist_option_parameter1", "inventorylist_option_id2", 
-	"inventorylist_option_value2", "inventorylist_option_parameter2", "inventorylist_option_id3", "inventorylist_option_value3", 
-	"inventorylist_option_parameter3", "inventorylist_option_id4", "inventorylist_option_value4", "inventorylist_option_parameter4", 
-	"inventorylist_option_id5", "inventorylist_option_value5", "inventorylist_option_parameter5", "inventorylist_tradable", "inventorylist_favorite",
-	// from getpartymember / getguildmember
-	"partymembername", "partymembercid", "partymemberaid", "partymembercount",
-	"guildmembername", "guildmembercid", "guildmemberaid", "guildmembercount",
-	// from getmobdrops
-	"MobDrop_item", "MobDrop_rate", "MobDrop_nosteal", "MobDrop_randomopt", "MobDrop_count",
-	// from getskilllist
-	"skilllist_id", "skilllist_lv", "skilllist_flag", "skilllist_count",
-	// from warpwaitingpc
-	"warpwaitingpc", "warpwaitingpcnum",
-	// from bg_get_data
-	"arenamembers", "arenamemberscount",
-	// from countbound
-	"bound_items", "bound_amount",
-	// from getwaitingroomusers
-	"waitingroom_users", "waitingroom_usercount",
-	// from @atcmd_
-	"atcmd_command", "atcmd_parameters", "atcmd_numparameters"
+  "inventorylist_id", "inventorylist_idx", "inventorylist_amount", "inventorylist_equip", "inventorylist_refine", 
+  "inventorylist_identify", "inventorylist_attribute", "inventorylist_card1", "inventorylist_card2", "inventorylist_card3", 
+  "inventorylist_card4", "inventorylist_expire", "inventorylist_bound", "inventorylist_enchantgrade", "inventorylist_count", 
+  "inventorylist_option_id1", "inventorylist_option_value1", "inventorylist_option_parameter1", "inventorylist_option_id2", 
+  "inventorylist_option_value2", "inventorylist_option_parameter2", "inventorylist_option_id3", "inventorylist_option_value3", 
+  "inventorylist_option_parameter3", "inventorylist_option_id4", "inventorylist_option_value4", "inventorylist_option_parameter4", 
+  "inventorylist_option_id5", "inventorylist_option_value5", "inventorylist_option_parameter5", "inventorylist_tradable", "inventorylist_favorite",
+  // from getpartymember / getguildmember
+  "partymembername", "partymembercid", "partymemberaid", "partymembercount",
+  "guildmembername", "guildmembercid", "guildmemberaid", "guildmembercount",
+  // from getmobdrops
+  "MobDrop_item", "MobDrop_rate", "MobDrop_nosteal", "MobDrop_randomopt", "MobDrop_count",
+  // from getskilllist
+  "skilllist_id", "skilllist_lv", "skilllist_flag", "skilllist_count",
+  // from warpwaitingpc
+  "warpwaitingpc", "warpwaitingpcnum",
+  // from bg_get_data
+  "arenamembers", "arenamemberscount",
+  // from countbound
+  "bound_items", "bound_amount",
+  // from getwaitingroomusers
+  "waitingroom_users", "waitingroom_usercount",
+  // from @atcmd_
+  "atcmd_command", "atcmd_parameters", "atcmd_numparameters"
 ];
 
 // Violet Highlight - Language constants
@@ -358,13 +359,13 @@ const operators = [
 
 /* Declare the keywords here and to RathenaHighlightRules to display on autocomplete except operators */
 const keywords = [
-	...supportFunctionKeywords, 
-	...controlFlowKeywords, 
-	...constantLibraryKeywords,
-	...variableLanguageKeywords, // Add base names of special vars
-	...inventoryVarNames, // Add prefixed special array names
-	...inventoryVarNames, // Add prefixed special global array names
-	...constantLanguageKeywords
+  ...supportFunctionKeywords, 
+  ...controlFlowKeywords, 
+  ...constantLibraryKeywords,
+  ...variableLanguageKeywords, // Add base names of special vars
+  ...inventoryVarNames, // Add prefixed special array names
+  ...inventoryVarNames, // Add prefixed special global array names
+  ...constantLanguageKeywords
 ];
 
 const langTools = ace.require("ace/ext/language_tools");
@@ -392,14 +393,14 @@ document.getElementById("toggleLocalCompletion").addEventListener("change", func
 });
 
 ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
-	const oop = require("ace/lib/oop");
-	const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
-	const RathenaHighlightRules = function () {
+  const oop = require("ace/lib/oop");
+  const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+  const RathenaHighlightRules = function () {
     const createKeywordMapper = this.createKeywordMapper;
-		this.$rules = {
-		  start: [
-		  	{ token: "comment.line", regex: "//.*$" },
-		    { token: "comment.block.start", regex: "/\\*", next: "comment" },
+    this.$rules = {
+      start: [
+        { token: "comment.line", regex: "//.*$" },
+        { token: "comment.block.start", regex: "/\\*", next: "comment" },
         { token: "string", regex: '".*?"' },
         { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
@@ -408,35 +409,34 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
         { token: "variable.language", regex: "(@(?:" + inventoryVarNames.join("|") + "))\\b" },
         { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
-    		{ token: "constant.numeric", regex: "\\b\\d+\\b" },
-    		{ token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
+        { token: "constant.numeric", regex: "\\b\\d+\\b" },
+        { token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
         // { token: "variable.other", regex: "\\b\\w+\\b" } // General variable rule color green
-
         // Function names like player()
         { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
-        { token: "keyword.control", regex: "(?<=\\b(?:goto|callsub)[ \\t]+)[a-zA-Z_][a-zA-Z0-9_]*\\b" },
-		  ],  
-		  comment: [
-		    { token: "comment.block.end", regex: "\\*/", next: "start" },
-		    { defaultToken: "comment.block" }
-		  ]
-		};
+        { token: "keyword.control", regex: "(?<=\\b(?:goto|callsub)[ \\t]*\\(?[ \\t]*|,[ \\t]*)[a-zA-Z_][a-zA-Z0-9_]*\\b(?=[ \\t]*(?:,|;|\\)|))" },
+      ],
+      comment: [
+        { token: "comment.block.end", regex: "\\*/", next: "start" },
+        { defaultToken: "comment.block" }
+      ]
+    };
         this.normalizeRules();
-	};
+  };
 
-	oop.inherits(RathenaHighlightRules, TextHighlightRules);
-	exports.RathenaHighlightRules = RathenaHighlightRules;
+  oop.inherits(RathenaHighlightRules, TextHighlightRules);
+  exports.RathenaHighlightRules = RathenaHighlightRules;
 });
 
 ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_highlight_rules", "ace/mode/behaviour/cstyle"], function (require, exports) {
-	const oop = require("ace/lib/oop");
-	const TextMode = require("ace/mode/text").Mode;
-	const RathenaHighlightRules = require("ace/mode/rathena_highlight_rules").RathenaHighlightRules;
-	const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour; // Added CstyleBehaviour
-	const Mode = function () {
-		this.HighlightRules = RathenaHighlightRules;
-		this.$behaviour = new CstyleBehaviour(); // Instantiate CstyleBehaviour
-	};
-	oop.inherits(Mode, TextMode);
-	exports.Mode = Mode;
+  const oop = require("ace/lib/oop");
+  const TextMode = require("ace/mode/text").Mode;
+  const RathenaHighlightRules = require("ace/mode/rathena_highlight_rules").RathenaHighlightRules;
+  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour; // Added CstyleBehaviour
+  const Mode = function () {
+    this.HighlightRules = RathenaHighlightRules;
+    this.$behaviour = new CstyleBehaviour(); // Instantiate CstyleBehaviour
+  };
+  oop.inherits(Mode, TextMode);
+  exports.Mode = Mode;
 });
