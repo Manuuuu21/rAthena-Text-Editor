@@ -445,7 +445,26 @@ class Tab {
     recordChange(oldCode, newCode, timestamp = new Date()) {
         if (oldCode === newCode) return null;
         const diffIndex = this.diffHistory.length;
-        this.diffHistory.push({old: oldCode, new: newCode, timestamp: timestamp});
+        let additions = 0;
+        let removals = 0;
+        try {
+            if (typeof Diff !== 'undefined' && Diff.diffLines) {
+                const diff = Diff.diffLines(oldCode, newCode);
+                diff.forEach(part => {
+                    if (part.added) additions += part.count;
+                    if (part.removed) removals += part.count;
+                });
+            }
+        } catch (e) {
+            console.error("Error calculating diff in recordChange:", e);
+        }
+        this.diffHistory.push({
+            old: oldCode,
+            new: newCode,
+            timestamp: timestamp,
+            additions: additions,
+            removals: removals
+        });
         return diffIndex;
     }
 
@@ -545,8 +564,12 @@ class Tab {
 
             if (diffIndex !== null) {
                 this.addMessage("I made some changes", 'user');
+                const diffData = this.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                const additions = diffData.additions || 0;
+                const removals = diffData.removals || 0;
                 let aiMessage = `<p>Here are the changes in your code.<br/><br/>
-                                <span style="font-size:10px">Time Edited: <b>${saveDate.toLocaleString()}</b></span></p>`;
+                                <span style="font-size:10px"><b>Time Edited:</b> ${saveDate.toLocaleString()}<br/>
+                                <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
                 aiMessage += `<div class="diff-actions">
                                 <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
                                 <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
@@ -677,8 +700,12 @@ class Tab {
                 // Add View Changes and Restore buttons if a change was made
                 if (diffIndex !== null) {
                     const genTime = new Date();
+                    const diffData = this.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                    const additions = diffData.additions || 0;
+                    const removals = diffData.removals || 0;
                     chatDisplayMessageValue += `
-                        <p style="font-size:10px; margin-top:20px;">Time generated: <b>${genTime.toLocaleString()}</b></p>
+                        <p style="font-size:10px; margin-top:20px;"><b>Time generated:</b> ${genTime.toLocaleString()}<br/>
+                        <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></p>
                         <div class="diff-actions">
                             <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
                             <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
