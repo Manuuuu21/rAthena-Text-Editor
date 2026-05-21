@@ -19,6 +19,16 @@ function toggleTheme() {
     root.style.setProperty('--tooltipBorder', '#454545');
     root.style.setProperty('--tooltipHeaderColor', '#66d9ef');
     root.style.setProperty('--tooltipDivider', '#444');
+    root.style.setProperty('--diffAddedBg', '#1e3a1e');
+    root.style.setProperty('--diffAddedColor', '#a3d9a3');
+    root.style.setProperty('--diffRemovedBg', '#4a1e1e');
+    root.style.setProperty('--diffRemovedColor', '#e6a3a3');
+    root.style.setProperty('--scrollbarTrack', '#252525');
+    root.style.setProperty('--scrollbarThumb', '#666');
+    root.style.setProperty('--scrollbarThumbHover', '#555');
+    root.style.setProperty('--btnBg', '#444');
+    root.style.setProperty('--btnText', '#fff');
+    root.style.setProperty('--closeBtnColor', '#bbb');
   } else {
     // Switching to LIGHT
     root.style.setProperty('--tabBarBg', '#d8ccc6');
@@ -32,11 +42,20 @@ function toggleTheme() {
     root.style.setProperty('--tooltipBorder', '#ccc');
     root.style.setProperty('--tooltipHeaderColor', '#0056b3');
     root.style.setProperty('--tooltipDivider', '#eee');
+    root.style.setProperty('--diffAddedBg', '#d4edda');
+    root.style.setProperty('--diffAddedColor', '#155724');
+    root.style.setProperty('--diffRemovedBg', '#f8d7da');
+    root.style.setProperty('--diffRemovedColor', '#721c24');
+    root.style.setProperty('--scrollbarTrack', '#f1f1f1');
+    root.style.setProperty('--scrollbarThumb', '#888');
+    root.style.setProperty('--scrollbarThumbHover', '#555');
   }
   
   tabManager.tabs.forEach(tab => {
     if (tab.editor) tab.editor.setTheme(currentTheme);
   });
+  if (diffOldEditor) diffOldEditor.setTheme(currentTheme);
+  if (diffNewEditor) diffNewEditor.setTheme(currentTheme);
 }
 
 /* Diff Modal handling */
@@ -51,7 +70,7 @@ let currentDiffTab = null;
 
 function setupDiffEditor(id, readOnly = true) {
     const editor = ace.edit(id);
-    editor.setTheme("ace/theme/github_light_default");
+    editor.setTheme(currentTheme);
     editor.session.setMode("ace/mode/rathena");
     editor.setReadOnly(readOnly);
     editor.setShowPrintMargin(false);
@@ -977,7 +996,62 @@ class TokenTooltip {
     }
 }
 
+
+// Set theme on load
+if (currentTheme) {
+    if (currentTheme === "ace/theme/github_light_default") {
+        // Apply light mode (but theme is already set, just need to set variables)
+        // Need to simulate switching to light mode or just setting properties
+        const root = document.documentElement;
+        root.style.setProperty('--tabBarBg', '#d8ccc6');
+        root.style.setProperty('--toolbarBg', '#f8f1ef');
+        root.style.setProperty('--textColor', '#333');
+        root.style.setProperty('--activeTabColor', '#000');
+        root.style.setProperty('--tabCloseColor', '#777');
+        root.style.setProperty('--darkmodeColor', '#d9d9d9');
+        root.style.setProperty('--tooltipBg', '#fff');
+        root.style.setProperty('--tooltipColor', '#333');
+        root.style.setProperty('--tooltipBorder', '#ccc');
+        root.style.setProperty('--tooltipHeaderColor', '#0056b3');
+        root.style.setProperty('--tooltipDivider', '#eee');
+        root.style.setProperty('--diffAddedBg', '#d4edda');
+        root.style.setProperty('--diffAddedColor', '#155724');
+        root.style.setProperty('--diffRemovedBg', '#f8d7da');
+        root.style.setProperty('--diffRemovedColor', '#721c24');
+        root.style.setProperty('--scrollbarTrack', '#f1f1f1');
+        root.style.setProperty('--scrollbarThumb', '#888');
+        root.style.setProperty('--scrollbarThumbHover', '#555');
+        root.style.setProperty('--btnBg', '#e9ecef');
+        root.style.setProperty('--btnText', '#333');
+        root.style.setProperty('--closeBtnColor', '#777');
+    } else {
+        // Already dark mode (monokai)
+        const root = document.documentElement;
+        root.style.setProperty('--tabBarBg', '#2e2e2e');
+        root.style.setProperty('--toolbarBg', '#3e3e3e');
+        root.style.setProperty('--textColor', '#ddd');
+        root.style.setProperty('--activeTabColor', '#fff');
+        root.style.setProperty('--tabCloseColor', '#bbb');
+        root.style.setProperty('--darkmodeColor', '#686868');
+        root.style.setProperty('--tooltipBg', '#1e1e1e');
+        root.style.setProperty('--tooltipColor', '#d4d4d4');
+        root.style.setProperty('--tooltipBorder', '#454545');
+        root.style.setProperty('--tooltipHeaderColor', '#66d9ef');
+        root.style.setProperty('--tooltipDivider', '#444');
+        root.style.setProperty('--diffAddedBg', '#1e3a1e');
+        root.style.setProperty('--diffAddedColor', '#a3d9a3');
+        root.style.setProperty('--diffRemovedBg', '#4a1e1e');
+        root.style.setProperty('--diffRemovedColor', '#e6a3a3');
+        root.style.setProperty('--scrollbarTrack', '#252525');
+        root.style.setProperty('--scrollbarThumb', '#666');
+        root.style.setProperty('--scrollbarThumbHover', '#555');
+        root.style.setProperty('--btnBg', '#444');
+        root.style.setProperty('--btnText', '#fff');
+        root.style.setProperty('--closeBtnColor', '#bbb');
+    }
+}
 parseRathenaDocs();
+
 
 const tabManager = {
     tabs: [],

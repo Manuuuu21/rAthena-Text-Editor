@@ -11,6 +11,16 @@
   --tooltipBorder: #454545;
   --tooltipHeaderColor: #66d9ef;
   --tooltipDivider: #444;
+  --diffAddedBg: #1e3a1e;
+  --diffAddedColor: #a3d9a3;
+  --diffRemovedBg: #4a1e1e;
+  --diffRemovedColor: #e6a3a3;
+  --scrollbarTrack: #f1f1f1;
+  --scrollbarThumb: #888;
+  --scrollbarThumbHover: #555;
+  --btnBg: #a0a0a0;
+  --btnText: #000;
+  --closeBtnColor: #bbb;
 }
 
 html, body {
@@ -243,9 +253,8 @@ html, body {
 }
 
 .diff-btn.restore {
-    background: #e9ecef;
-    color: #333;
-    border: 1px solid #ced4da;
+    background: #fff;
+    color: #000000;
 }
 
 .diff-btn.restore:hover {
@@ -384,7 +393,7 @@ background: none;
 border: none;
 font-size: 20px;
 cursor: pointer;
-color: #333;
+color: var(--closeBtnColor);
 }
 
 .close-btn:hover {
@@ -394,7 +403,7 @@ color: red;
 button {
 font-size: 18px;
 background: none;
-border: 1px solid gray;
+border: 1px solid #d2d2d2;
 cursor: pointer;
 border-radius: 10px;
 }
@@ -467,7 +476,8 @@ opacity: 0;
 }
 
 .diff-modal-box {
-  background: white;
+  background: var(--toolbarBg);
+  color: var(--textColor);
   padding: 20px;
   border-radius: 8px;
   max-width: 90%;
@@ -488,7 +498,7 @@ opacity: 0;
 .diff-pane {
   flex: 1;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--tooltipBorder);
   font-family: monospace;
   white-space: pre-wrap;
 }
@@ -499,12 +509,33 @@ opacity: 0;
     margin-top: -2px !important;
 }
 
-.added { background-color: #d4edda; color: #155724; }
-.removed { background-color: #f8d7da; color: #721c24; text-decoration: line-through; }
+.added { background-color: var(--diffAddedBg); color: var(--diffAddedColor); }
+.removed { background-color: var(--diffRemovedBg); color: var(--diffRemovedColor); text-decoration: line-through; }
 
 /* ACE markers */
-.ace_added { background-color: #d4edda !important; position: absolute; }
-.ace_removed { background-color: #f8d7da !important; position: absolute; }
+.ace_added { background-color: var(--diffAddedBg) !important; position: absolute; }
+.ace_removed { background-color: var(--diffRemovedBg) !important; position: absolute; }
+
+/* Generic scrollbar for all containers */
+.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
+}
+.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track {
+    background: var(--scrollbarTrack);
+    border-radius: 4px;
+}
+.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb {
+    background: var(--scrollbarThumb);
+    border-radius: 4px;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbarThumbHover);
+}
 
 .chat-section, .editor-section {
     display: flex;
@@ -527,6 +558,16 @@ opacity: 0;
     padding: 1rem;
     overflow-y: auto;
     background-color: #e6e6e6; /* bg-gray-50 */
+    scrollbar-color: #888 #f1f1f1 !important;
+}
+.chat-messages::-webkit-scrollbar-track {
+    background: #f1f1f1 !important;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #888 !important;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #555 !important;
 }
 .message {
     margin-bottom: 0.25rem; /* Reduced from 0.75rem (mb-1 instead of mb-3) */
@@ -646,21 +687,6 @@ opacity: 0;
 .loading-indicator.active {
     display: block;
 }
-/* Scrollbar styles */
-.chat-messages::-webkit-scrollbar {
-    width: 8px;
-}
-.chat-messages::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-.chat-messages::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 10px;
-}
-.chat-messages::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
 
 .modal-api-overlay {
   position: fixed;
@@ -728,4 +754,8 @@ opacity: 0;
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
+}
+.restore-button {
+    background: var(--btnBg);
+    color: var(--btnText);
 }
