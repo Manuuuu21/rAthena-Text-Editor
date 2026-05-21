@@ -368,6 +368,7 @@ class Tab {
             if (typeof runRathenaLinter === "function") {
                 runRathenaLinter(this.editor);
             }
+            this.updateTabIcon();
         });
 
         this.editor.getSelection().on("changeSelection", () => {
@@ -460,6 +461,21 @@ class Tab {
         this.elements.content.classList.remove("active");
     }
 
+    isDirty() {
+        return this.editor.getValue() !== this.lastSavedCode;
+    }
+
+    updateTabIcon() {
+        const dirty = this.isDirty();
+        const btn = document.querySelector(`.tab-button[data-id="${this.id}"]`);
+        if (!btn) return;
+        const closeIcon = btn.querySelector('.tab-close');
+        if (!closeIcon) return;
+        
+        closeIcon.textContent = dirty ? '●' : '×';
+        closeIcon.classList.toggle('dirty', dirty);
+    }
+
     // Methods ported from init.js
     recordChange(oldCode, newCode, timestamp = new Date()) {
         if (oldCode === newCode) return null;
@@ -548,10 +564,10 @@ class Tab {
             const contents = await file.text();
             this.editor.setValue(contents, -1);
             this.name = file.name;
-            tabManager.renderTabs();
-            this.activate();
             this.saveCurrentCodeToHistory();
             this.lastSavedCode = contents;
+            tabManager.renderTabs();
+            this.activate();
         } catch (err) {
             console.error("Open failed:", err);
         }
@@ -580,6 +596,7 @@ class Tab {
             if (this.lastSavedCode !== currentCode) {
                 this.lastSavedCode = currentCode;
             }
+            this.updateTabIcon();
 
             if (diffIndex !== null) {
                 this.addMessage("I made some changes", 'user');
@@ -1130,6 +1147,12 @@ const tabManager = {
                 const label = btn.querySelector("span");
                 if (label.textContent !== tab.name) label.textContent = tab.name;
                 
+                // Update close icon
+                const closeIcon = btn.querySelector(".tab-close");
+                const isDirty = tab.isDirty();
+                closeIcon.textContent = isDirty ? '●' : '×';
+                closeIcon.classList.toggle('dirty', isDirty);
+                
                 // Update specific index for data transfer
                 btn.dataset.index = index;
                 
@@ -1151,10 +1174,22 @@ const tabManager = {
         btn.setAttribute("draggable", "true");
         btn.dataset.id = tab.id;
         btn.dataset.index = index;
-        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">×</span>`;
         
+        const isDirty = tab.isDirty();
+        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">${isDirty ? '●' : '×'}</span>`;
+        
+        const closeIcon = btn.querySelector(".tab-close");
+        if(isDirty) closeIcon.classList.add('dirty');
+        
+        closeIcon.onmouseover = () => {
+            if (tab.isDirty()) closeIcon.textContent = '✖';
+        };
+        closeIcon.onmouseout = () => {
+            if (tab.isDirty()) closeIcon.textContent = '●';
+        };
+
         btn.onclick = () => this.switchTab(tab.id);
-        btn.querySelector(".tab-close").onclick = (e) => {
+        closeIcon.onclick = (e) => {
             e.stopPropagation();
             this.closeTab(tab.id, e);
         };
