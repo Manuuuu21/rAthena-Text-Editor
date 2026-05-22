@@ -154,6 +154,14 @@ function openDiff(index, tabId) {
         diffNewEditor.resize();
         if (firstAddedLine !== -1) diffNewEditor.scrollToLine(firstAddedLine, true, true, function () {});
         if (firstRemovedLine !== -1) diffOldEditor.scrollToLine(firstRemovedLine, true, true, function () {});
+        
+        // Ensure scroll positions inside the Diff Modal and its editors are reset to the left
+        diffOldEditor.getSession().setScrollLeft(0);
+        diffNewEditor.getSession().setScrollLeft(0);
+        const splitContainer = document.querySelector('.diff-split-container');
+        if (splitContainer) splitContainer.scrollLeft = 0;
+        const modalBox = document.querySelector('.diff-modal-box');
+        if (modalBox) modalBox.scrollLeft = 0;
     }, 100);
 }
 
