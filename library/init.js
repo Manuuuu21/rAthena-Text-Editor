@@ -480,7 +480,7 @@ class Tab {
         const closeIcon = btn.querySelector('.tab-close');
         if (!closeIcon) return;
         
-        closeIcon.textContent = dirty ? '●' : '×';
+        closeIcon.textContent = dirty ? '●' : '✖';
         closeIcon.classList.toggle('dirty', dirty);
     }
 
@@ -1158,7 +1158,7 @@ const tabManager = {
                 // Update close icon
                 const closeIcon = btn.querySelector(".tab-close");
                 const isDirty = tab.isDirty();
-                closeIcon.textContent = isDirty ? '●' : '×';
+                closeIcon.textContent = isDirty ? '●' : '✖';
                 closeIcon.classList.toggle('dirty', isDirty);
                 
                 // Update specific index for data transfer
@@ -1184,7 +1184,7 @@ const tabManager = {
         btn.dataset.index = index;
         
         const isDirty = tab.isDirty();
-        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">${isDirty ? '●' : '×'}</span>`;
+        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">${isDirty ? '●' : '✖'}</span>`;
         
         const closeIcon = btn.querySelector(".tab-close");
         if(isDirty) closeIcon.classList.add('dirty');
