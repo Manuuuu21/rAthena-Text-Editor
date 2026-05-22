@@ -74,6 +74,7 @@ function setupDiffEditor(id, readOnly = true) {
     editor.session.setMode("ace/mode/rathena");
     editor.setReadOnly(readOnly);
     editor.setShowPrintMargin(false);
+    editor.renderer.setScrollMargin(0, 0, 0, 80);
     return editor;
 }
 
@@ -353,6 +354,7 @@ class Tab {
             enableLiveAutocompletion: true,
             fontSize: "14px",
         });
+        this.editor.renderer.setScrollMargin(0, 0, 0, 80);
 
         new TokenTooltip(this.editor);
 
