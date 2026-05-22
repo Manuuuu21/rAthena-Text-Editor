@@ -429,14 +429,124 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
   exports.RathenaHighlightRules = RathenaHighlightRules;
 });
 
-ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_highlight_rules", "ace/mode/behaviour/cstyle"], function (require, exports) {
+ace.define("ace/mode/folding/cstyle", ["require", "exports", "module", "ace/lib/oop", "ace/range", "ace/mode/folding/fold_mode"], function(require, exports, module) {
+"use strict";
+
+var oop = require("ace/lib/oop");
+var Range = require("ace/range").Range;
+var BaseFoldMode = require("ace/mode/folding/fold_mode").FoldMode;
+
+var FoldMode = exports.FoldMode = function(commentRegex) {
+    if (commentRegex) {
+        this.foldingStartMarker = new RegExp(
+            this.foldingStartMarker.source + "|" + commentRegex.start
+        );
+        this.foldingStopMarker = new RegExp(
+            this.foldingStopMarker.source + "|" + commentRegex.end
+        );
+    }
+};
+oop.inherits(FoldMode, BaseFoldMode);
+
+(function() {
+    this.foldingStartMarker = /(\{|\[)(?=[^}\]]*$)|^\s*(\/\*)/;
+    this.foldingStopMarker = /^[^\[\{]*(\}|\])|^[\s\*]*(\*\/)/;
+    this.singleLineBlockCommentRe= /^\s*(\/\*).*\*\/\s*$/;
+    this.tripleStarBlockCommentRe = /^\s*(\/\*\*\*).*\*\/\s*$/;
+    this.startRegionRe = /^\s*(\/\*#region\b)/;
+    this._getFoldWidgetBase = this.getFoldWidget;
+    
+    this.getFoldWidget = function(session, foldStyle, row) {
+        var line = session.getLine(row);
+    
+        if (this.singleLineBlockCommentRe.test(line)) {
+            if (!this.startRegionRe.test(line) && !this.tripleStarBlockCommentRe.test(line))
+                return "";
+        }
+    
+        var fw = this._getFoldWidgetBase(session, foldStyle, row);
+    
+        if (!fw && this.startRegionRe.test(line))
+            return "start"; // support for #region
+    
+        return fw;
+    };
+
+    this.getFoldWidgetRange = function(session, foldStyle, row, forceFold) {
+        var line = session.getLine(row);
+        
+        if (this.startRegionRe.test(line))
+            return this.getSectionRange(session, row);
+        
+        var match = line.match(this.foldingStartMarker);
+        if (match) {
+            var i = match.index;
+            if (match[1])
+                return this.openingBracketBlock(session, match[1], row, i);
+                
+            var range = session.getCommentFoldRange(row, i + match[0].length, 1);
+            
+            if (range && !range.isMultiLine()) {
+                if (forceFold) {
+                    range = this.getSectionRange(session, row);
+                } else {
+                    range = null;
+                }
+            }
+            
+            return range;
+        }
+
+        if (foldStyle === "markbeginend")
+            return;
+
+        var match = line.match(this.foldingStopMarker);
+        if (match) {
+            var i = match.index + match[0].length;
+
+            if (match[1])
+                return this.closingBracketBlock(session, match[1], row, i);
+
+            return session.getCommentFoldRange(row, i, -1);
+        }
+    };
+    
+    this.getSectionRange = function(session, row) {
+        var line = session.getLine(row);
+        var startIndent = line.search(/\S/);
+        var startRow = row;
+        var maxRow = session.getLength();
+        row += 1;
+        
+        var endRow = startRow;
+        while (row < maxRow) {
+            line = session.getLine(row);
+            var indent = line.search(/\S/);
+            if (indent !== -1) {
+                if (indent < startIndent)
+                    break;
+                endRow = row;
+            }
+            row++;
+        }
+        
+        return new Range(startRow, session.getLine(startRow).length, endRow, session.getLine(endRow).length);
+    };
+
+}).call(FoldMode.prototype);
+
+});
+
+ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_highlight_rules", "ace/mode/behaviour/cstyle", "ace/mode/folding/cstyle"], function (require, exports) {
   const oop = require("ace/lib/oop");
   const TextMode = require("ace/mode/text").Mode;
   const RathenaHighlightRules = require("ace/mode/rathena_highlight_rules").RathenaHighlightRules;
-  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour; // Added CstyleBehaviour
+  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour;
+  const FoldMode = require("ace/mode/folding/cstyle").FoldMode;
   const Mode = function () {
     this.HighlightRules = RathenaHighlightRules;
-    this.$behaviour = new CstyleBehaviour(); // Instantiate CstyleBehaviour
+    this.$behaviour = new CstyleBehaviour();
+    this.foldingRules = new FoldMode();
   };
   oop.inherits(Mode, TextMode);
   exports.Mode = Mode;
