@@ -759,3 +759,9 @@ opacity: 0;
     background: var(--btnBg);
     color: var(--btnText);
 }
+
+.ace_content {
+    box-sizing: content-box !important;
+    padding-right: 50px !important;
+}
+
