@@ -350,7 +350,15 @@ class Tab {
         }
 
         this.elements.modelSelect.addEventListener('change', (e) => {
-            localStorage.setItem("lastSelectedModel", e.target.value);
+            const newModel = e.target.value;
+            localStorage.setItem("lastSelectedModel", newModel);
+            
+            // Update all tabs
+            tabManager.tabs.forEach(tab => {
+                if (tab.elements.modelSelect) {
+                    tab.elements.modelSelect.value = newModel;
+                }
+            });
         });
     }
 
