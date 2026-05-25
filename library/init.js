@@ -343,6 +343,15 @@ class Tab {
         this.elements.loadingIndicator = content.querySelector(`#loading-indicator-${this.id}`);
         this.elements.clearChatBtn = content.querySelector(`#clear-chat-${this.id}`);
         this.elements.modelSelect = content.querySelector(`#model-select-${this.id}`);
+
+        const savedModel = localStorage.getItem("lastSelectedModel");
+        if (savedModel) {
+            this.elements.modelSelect.value = savedModel;
+        }
+
+        this.elements.modelSelect.addEventListener('change', (e) => {
+            localStorage.setItem("lastSelectedModel", e.target.value);
+        });
     }
 
     initEditor() {
@@ -385,7 +394,7 @@ class Tab {
              tabManager.latestSelectedText = this.editor.getSelectedText();
         });
 
-        // Restore CTRL+S functionality
+        // CTRL+S functionality
         this.editor.commands.addCommand({
             name: 'saveToFileSystem',
             bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
@@ -441,7 +450,7 @@ class Tab {
         });
         this.elements.clearChatBtn.addEventListener('click', () => openClearChatModal());
         
-        // Initial AI logic connection
+        // lazy loading
         const firstDot = this.elements.loadingIndicator.querySelector('.first_dot');
         const secondDot = this.elements.loadingIndicator.querySelector('.second_dot');
         const thirdDot = this.elements.loadingIndicator.querySelector('.third_dot');
@@ -486,7 +495,6 @@ class Tab {
         closeIcon.classList.toggle('dirty', dirty);
     }
 
-    // Methods ported from init.js
     recordChange(oldCode, newCode, timestamp = new Date()) {
         if (oldCode === newCode) return null;
         const diffIndex = this.diffHistory.length;
