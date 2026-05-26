@@ -364,7 +364,6 @@ const keywords = [
   ...controlFlowKeywords, 
   ...constantLibraryKeywords,
   ...variableLanguageKeywords, // Add base names of special vars
-  ...inventoryVarNames, // Add prefixed special array names
   ...inventoryVarNames, // Add prefixed special global array names
   ...constantLanguageKeywords
 ];

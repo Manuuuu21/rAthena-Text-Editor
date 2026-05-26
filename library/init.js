@@ -661,7 +661,7 @@ class Tab {
                 role: "user",
                 parts: [
                     { text: `This is your **DOCUMENTATION** that you must follow to provide accurate data to user question: `+ standard_rAthena_script + `.\n\n` },
-                    { text: `Strictly follow this **INSTRUCTIONS** all the times: `+ instructionPromt2 + `.\n\n` }
+                    { text: `Strictly follow this **SYSTEM INSTRUCTIONS** all the times: `+ instructionPromt2 + `.\n\n` }
                 ]
             }
         ];
@@ -686,13 +686,13 @@ class Tab {
         this.editor.container.style.pointerEvents = "none";
         const editorContent = this.editor.getValue();
 
-        const userInstructionalPrompt = `This is the code inside the editor as your context if the user ask: \`\`\`${editorContent}\`\`\`. Just Ignore if the Code inside the editor has no code or value.`.trim();
+        const userInstructionalPrompt = `This is the code in the main editor as your context if the user ask: \`\`\`${editorContent}\`\`\`. Just Ignore the main editor if it has no code or value.`.trim();
 
         this.chatHistory.push({
             role: "user",
             parts: [
                 { text: userInstructionalPrompt + `.\n\n` },
-                { text: `This is user input/question: ` + userMessage + `. do not repeat the user instructions.` }
+                { text: `This is user input/question: ` + userMessage + `. do not repeat the user instructions in your response.` }
             ]
         });
 
@@ -1096,6 +1096,18 @@ if (currentTheme) {
 parseRathenaDocs();
 
 
+// API Key persistence
+const apiKeyInput = document.getElementById("APIKey");
+if (apiKeyInput) {
+    const savedApiKey = localStorage.getItem("geminiApiKey");
+    if (savedApiKey) {
+        apiKeyInput.value = savedApiKey;
+    }
+    apiKeyInput.addEventListener("input", (e) => {
+        localStorage.setItem("geminiApiKey", e.target.value);
+    });
+}
+
 const tabManager = {
     tabs: [],
     activeTab: null,
@@ -1459,7 +1471,7 @@ Follow these guidelines at all times:
 5.3 \`response\` field:
     1. **Response**  
       1. You have already created the following plan to guide your response base on 'thinking'. Please execute the thinking plan now.
-      2. Start with a brief answer to user first followed by a detailed answer to user input/question. use proper NPC structure code script if requested.
+      2. Start with a brief answer to user first followed by answer to user input/question. use proper NPC structure code script if requested.
     2. **Detailed Format Summarize Explanation**  
       1. Use **paragraphs** to explain the answer thoroughly.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
