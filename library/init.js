@@ -584,6 +584,10 @@ class Tab {
                 this.clearChat(false);
             }
 
+            // Reset code history for this specific tab on opening a new file
+            this.codeHistory = [];
+            this.currentHistoryIndex = -1;
+
             this.fileHandle = handle;
             tabManager.lastDirectoryHandle = handle;
             const file = await handle.getFile();
