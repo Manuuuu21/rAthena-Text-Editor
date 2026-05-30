@@ -676,6 +676,12 @@ class Tab {
         const userMessage = this.elements.chatInput.value.trim();
         if (!userMessage || !this.typeWriterStatusForChatDone || this.chatSessionNum > 0) return;
 
+        if (/^i made some change(s|d)?\.?$/i.test(userMessage)) {
+            this.elements.chatInput.value = '';
+            await this.saveToFile();
+            return;
+        }
+
         this.chatSessionNum++;
         this.timerCounterForGlobal = 0;
         let timer = setInterval(() => this.timerCounterForGlobal++, 1000);
