@@ -807,7 +807,7 @@ class Tab {
             clearInterval(timer);
             let combined = '';
             if (thinking) {
-                combined += `<p class="ai_thought_textDesign" onclick="toggleThinking(this)">🤖 Thought in ${this.timerCounterForGlobal} seconds <span class="toggle-arrow" style="display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; transition: transform 0.2s ease; margin-left: 4px; pointer-events: none;"><svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></p><div class="ai_thinking" style="display: none;"><thinking>${thinking}</thinking><p style="color:gray;position:relative;left:-40px;">Done</p></div>`;
+                combined += `<p class="ai_thought_textDesign" onclick="toggleThinking(this)">🤖 Thought in ${this.timerCounterForGlobal} seconds <span class="toggle-arrow" style="display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; transition: transform 0.2s ease; margin-left: 4px; pointer-events: none;"><svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></p>\n<div class="ai_thinking" style="display: none;">\n<thinking>\n${thinking}\n</thinking>\n<p style="color:gray;margin-top:6px;">Done</p>\n</div>`;
             }
             combined += chatDisplayMessageValue;
             this.addMessage(combined, 'ai');
@@ -1396,6 +1396,12 @@ function markdownToHtmlForChat(markdownText) {
         if (inCodeBlock) continue;
         if (trimmedLine === '') { closeAllOpenElements(); continue; }
 
+        if (trimmedLine.startsWith('<') && trimmedLine.endsWith('>')) {
+            closeAllOpenElements();
+            outputHtml.push(originalLine);
+            continue;
+        }
+
         const headingMatch = trimmedLine.match(/^(#{1,6})\s(.+)/);
         if (headingMatch) {
             closeAllOpenElements();
@@ -1496,6 +1502,7 @@ Follow these guidelines at all times:
 5.2 \`thinking\` field:
   1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
   2. Use **ordered bullet** to explain in summarize the step-by-step guides or concepts when necessary.
+  3. Do not include the "Done" indicator inside the nested list.
 
 5.3 \`response\` field:
     1. **Response**:
