@@ -83,8 +83,6 @@ const constantLibraryKeywords = [
   // Original boundVars
   "BOUND_CHAR", "BOUND_ACCOUNT", "BOUND_GUILD", "BOUND_PARTY", "LOOK_BASE", "LOOK_HAIR", "LOOK_WEAPON", "LOOK_HEAD_BOTTOM", "LOOK_HEAD_TOP", 
   "LOOK_HEAD_MID", "LOOK_HAIR_COLOR", "LOOK_CLOTHES_COLOR", "LOOK_SHIELD", "LOOK_SHOES", "LOOK_BODY2",
-  // Original broadcastTargets
-  "bc_all", "bc_map", "bc_self", "bc_area", "self", "SELF", "area", "AREA", "bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
   // Original mapNames
   "prontera","prt_castle","prt_church","prt_in","prt_weapon","prt_tool","prt_gld","prt_sewb1","prt_sewb2","prt_sewb3","prt_sewb4","prt_fild00",
   "prt_fild01","prt_fild02","prt_fild03","prt_fild04","prt_fild05","prt_fild06","prt_fild07","prt_fild08","prt_fild09","prt_fild10",
@@ -155,11 +153,15 @@ const constantLibraryKeywords = [
   "CHAN_OPT_BASE", "CHAN_OPT_ANNOUNCE_SELF", "CHAN_OPT_ANNOUNCE_JOIN", "CHAN_OPT_ANNOUNCE_LEAVE", "CHAN_OPT_MSG_DELAY",
   "CHAN_OPT_COLOR_OVERRIDE", "CHAN_OPT_CAN_CHAT", "CHAN_OPT_CAN_LEAVE", "CHAN_OPT_AUTOJOIN",
   "SKILL_PERM", "SKILL_TEMP", "SKILL_TEMPLEVEL", "SKILL_PERM_GRANT",
+  "RC2_NONE", "RC2_GOBLIN", "RC2_KOBOLD", "RC2_ORC", "RC2_GOLEM", "RC2_NINJA", "RC2_GVG", "RC2_TREASURE", "RC2_BIOLAB", "RC2_MANUK", "RC2_SPLENDIDE", "RC2_SCARABA", "RC2_OGH_ATK_DEF", 
+  "RC2_OGH_HIDDEN", "RC2_BIO5_SWORDMAN_THIEF", "RC2_BIO5_ACOLYTE_MERCHANT", "RC2_BIO5_MAGE_ARCHER", "RC2_BIO5_MVP", "RC2_CLOCKTOWER", "RC2_THANATOS",
+  "RC2_FACEWORM", "RC2_HEARTHUNTER", "RC2_ROCKRIDGE", "RC2_WERNER_LAB", "RC2_TEMPLE_DEMON", "RC2_ILLUSION_VAMPIRE", "RC2_MALANGDO", "RC2_EP172ALPHA", "RC2_EP172BETA", "RC2_EP172BATH", 
+  "RC2_ILLUSION_TURTLE", "RC2_RACHEL_SANCTUARY", "RC2_ILLUSION_LUANDA", "RC2_ILLUSION_FROZEN", "RC2_ILLUSION_MOONLIGHT", "RC2_EP16_DEF", "RC2_EDDA_ARUNAFELTZ", "RC2_MAX",
   "SCSTART_NOAVOID", "SCSTART_NOTICKDEF", "SCSTART_LOADED", "SCSTART_NORATEDEF", "SCSTART_NOICON",
-  "BF_SHORT", "BF_LONG", "BF_WEAPON", "BF_MAGIC", "BF_MISC", "BF_NORMAL", "BF_SKILL",
+  "BF_SHORT", "BF_LONG", "BF_NONE", "BF_WEAPON", "BF_MAGIC", "BF_MISC", "BF_NORMAL", "BF_SKILL",
   "USW_NONE", "USW_FIXPOS", "USW_MOVE_ONCE", "USW_MOVE_FULL_CELL", "USW_FORCE_STOP",
   "NAV_NONE", "NAV_AIRSHIP_ONLY", "NAV_SCROLL_ONLY", "NAV_AIRSHIP_AND_SCROLL", "NAV_KAFRA_ONLY", "NAV_KAFRA_AND_AIRSHIP",
-  "NAV_KAFRA_AND_SCROLL", "NAV_ALL",
+  "NAV_KAFRA_AND_SCROLL", "NAV_ALL", "ATF_SELF", "ATF_TARGET", "ATF_SHORT", "ATF_LONG", "ATF_WEAPON", "ATF_MAGIC", "ATF_MISC",
   "DIR_NORTH", "DIR_NORTHEAST", "DIR_EAST", "DIR_SOUTHEAST", "DIR_SOUTH", "DIR_SOUTHWEST", "DIR_WEST", "DIR_NORTHWEST",
   "DT_SECOND", "DT_MINUTE", "DT_HOUR", "DT_DAYOFWEEK", "DT_DAYOFMONTH", "DT_MONTH", "DT_YEAR", "DT_DAYOFYEAR", "DT_YYYYMMDD",
   "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
@@ -207,8 +209,7 @@ const constantLibraryKeywords = [
   "MERC_CLASS", "MERC_NAME", "MERC_FAITH", "MERC_CALLS", "MERC_KILLS", "MERC_LIFETIME", "MERC_LEVEL",
   "ELEM_CLASS", "ELEM_NAME", "ELEM_LIFETIME", "ELEM_MODE", "ELEM_LEVEL",
   // BC Type
-  "bc_all", "bc_map", "bc_self", "bc_area", "self", "SELF", "area", "AREA",
-  "bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
+  "bc_all", "bc_map", "bc_self", "bc_area", "SELF", "AREA", "bc_pc", "bc_npc", "bc_yellow", "bc_blue", "bc_woe",
   // Start of SC_ constants
   "SC_STONE", "SC_FREEZE", "SC_STUN", "SC_SLEEP", "SC_POISON", "SC_CURSE", "SC_SILENCE", "SC_CONFUSION",
   "SC_BLIND", "SC_BLEEDING", "SC_DPOISON", "SC_PROVOKE", "SC_ENDURE", "SC_TWOHANDQUICKEN", "SC_CONCENTRATE",
@@ -354,19 +355,81 @@ const constantLibraryKeywords = [
   "EF_PARTY", "EF_RAIN", "EF_SNOW", "EF_SAKURA", "EF_STATUS_STATE", "EF_BANJJAKII", "EF_MAKEBLUR", "EF_TAMINGSUCCESS", "EF_TAMINGFAILED", "EF_ENERGYCOAT", "EF_CARTREVOLUTION", "EF_VENOMDUST2", "EF_CHANGEDARK", "EF_CHANGEFIRE", "EF_CHANGECOLD", "EF_CHANGEWIND", "EF_CHANGEFLAME", "EF_CHANGEEARTH", "EF_CHAINGEHOLY", "EF_CHANGEPOISON",
   "EF_HITDARK", "EF_MENTALBREAK", "EF_MAGICALATTHIT", "EF_SUI_EXPLOSION", "EF_DARKATTACK", "EF_SUICIDE", "EF_COMBOATTACK1", "EF_COMBOATTACK2", "EF_COMBOATTACK3", "EF_COMBOATTACK4", "EF_COMBOATTACK5", "EF_GUIDEDATTACK", "EF_POISONATTACK", "EF_SILENCEATTACK", "EF_STUNATTACK", "EF_PETRIFYATTACK", "EF_CURSEATTACK", "EF_SLEEPATTACK", "EF_TELEKHIT", "EF_PONG",
   "EF_LEVEL99", "EF_LEVEL99_2", "EF_LEVEL99_3", "EF_GUMGANG", "EF_POTION1","EF_INCREASEAGI","EF_HEAL2",
+  // ITEM SCRIPT CONSTANT
+  "ELE_NEUTRAL", "ELE_WATER", "ELE_EARTH", "ELE_FIRE", "ELE_WIND", "ELE_POISON", "ELE_HOLY", "ELE_DARK", "ELE_GHOST", "ELE_UNDEAD", "ELE_ALL", "ELE_WEAPON", 
+  "ELE_ENDOWED", "ELE_RANDOM", "RC_FORMLESS", "RC_UNDEAD", "RC_BRUTE", "RC_PLANT", "RC_INSECT", "RC_FISH", "RC_DEMON", "RC_DEMIHUMAN", "RC_ANGEL", "RC_DRAGON", 
+  "RC_PLAYER_HUMAN", "RC_PLAYER_DORAM", "RC_ALL", "CLASS_NONE", "CLASS_NORMAL", "CLASS_BOSS", "CLASS_GUARDIAN", "CLASS_BATTLEFIELD", 
+  "CLASS_EVENT", "CLASS_ALL", "CLASS_MAX", "Size_Small", "SZ_SMALL", "Size_Medium", "SZ_MEDIUM", "Size_Large", "SZ_BIG", "Size_All", "SZ_ALL", "Eff_Stone", "SC_STONEWAIT", 
+  "Eff_Freeze", "SC_FREEZE", "Eff_Stun", "SC_STUN", "Eff_Sleep", "SC_SLEEP", "Eff_Poison", "SC_POISON", "Eff_Curse", "SC_CURSE", 
+  "Eff_Silence", "SC_SILENCE", "Eff_Confusion", "SC_CONFUSION", "Eff_Blind", "SC_BLIND", "Eff_Bleeding", "SC_BLEEDING", "Eff_DPoison", "SC_DPOISON", "Eff_Fear", "SC_FEAR", 
+  "Eff_Burning", "SC_BURNING", "Eff_Crystalize", "SC_CRYSTALIZE", "Eff_Freezing", "SC_FREEZING", "Eff_Heat", "SC_BURNT", "Eff_Deepsleep", "SC_DEEPSLEEP", "Eff_WhiteImprison", 
+  "SC_WHITEIMPRISON", "Eff_Hallucination", "SC_HALLUCINATION", "SC_ALL", "SC_NONE", "EAJL_2_1", "JOBL_2_1", "EAJL_2_2", "JOBL_2_2", "EAJL_2", "JOBL_2", "EAJL_UPPER", "JOBL_UPPER", "EAJL_THIRD", "JOBL_THIRD", "EAJL_FOURTH", "JOBL_FOURTH", "EAJ_BASEMASK", "MAPID_BASEMASK", "EAJ_UPPERMASK", "MAPID_UPPERMASK", "EAJ_THIRDMASK", "MAPID_THIRDMASK", "EAJ_FOURTHMASK", "MAPID_FOURTHMASK",
+  "MAPID_FOURTHMASK", "EAJ_NOVICE", "MAPID_NOVICE", "EAJ_SWORDMAN", "MAPID_SWORDMAN", "EAJ_MAGE", "MAPID_MAGE", "EAJ_ARCHER", "MAPID_ARCHER", "EAJ_ACOLYTE", "MAPID_ACOLYTE", "EAJ_MERCHANT", "MAPID_MERCHANT", "EAJ_THIEF", "MAPID_THIEF", "EAJ_TAEKWON", "MAPID_TAEKWON", "EAJ_GUNSLINGER", "MAPID_GUNSLINGER",
+  "EAJ_NINJA", "MAPID_NINJA", "EAJ_GANGSI", "MAPID_GANGSI", "EAJ_KNIGHT", "MAPID_KNIGHT", "EAJ_WIZARD", "MAPID_WIZARD", "EAJ_HUNTER", "MAPID_HUNTER", "EAJ_PRIEST", "MAPID_PRIEST", "EAJ_BLACKSMITH", "MAPID_BLACKSMITH", "EAJ_ASSASSIN", "MAPID_ASSASSIN", "EAJ_STAR_GLADIATOR", "MAPID_STAR_GLADIATOR", "EAJ_STARGLADIATOR", "EAJ_REBELLION",
+  "MAPID_REBELLION", "EAJ_KAGEROUOBORO", "MAPID_KAGEROUOBORO", "EAJ_DEATH_KNIGHT", "MAPID_DEATH_KNIGHT", "EAJ_DEATHKNIGHT", "EAJ_CRUSADER", "MAPID_CRUSADER", "EAJ_SAGE", "MAPID_SAGE", "EAJ_BARDDANCER", "MAPID_BARDDANCER", "EAJ_MONK", "MAPID_MONK", "EAJ_ALCHEMIST", "MAPID_ALCHEMIST", "EAJ_ROGUE", "MAPID_ROGUE", "EAJ_SOUL_LINKER", "MAPID_SOUL_LINKER", "EAJ_SOULLINKER", "MAPID_SOUL_LINKER", "EAJ_DARK_COLLECTOR", "MAPID_DARK_COLLECTOR", "EAJ_DARKCOLLECTOR", "MAPID_DARK_COLLECTOR",
+  "EAJ_NOVICE_HIGH", "MAPID_NOVICE_HIGH", "EAJ_SWORDMAN_HIGH", "MAPID_SWORDMAN_HIGH", "EAJ_MAGE_HIGH", "MAPID_MAGE_HIGH", "EAJ_ARCHER_HIGH", "MAPID_ARCHER_HIGH", "EAJ_ACOLYTE_HIGH", "MAPID_ACOLYTE_HIGH", "EAJ_MERCHANT_HIGH", "MAPID_MERCHANT_HIGH", "EAJ_THIEF_HIGH", "MAPID_THIEF_HIGH", "EAJ_LORD_KNIGHT", "MAPID_LORD_KNIGHT", "EAJ_HIGH_WIZARD", "MAPID_HIGH_WIZARD", "EAJ_SNIPER", "MAPID_SNIPER",
+  "EAJ_HIGH_PRIEST", "MAPID_HIGH_PRIEST", "EAJ_WHITESMITH", "MAPID_WHITESMITH", "EAJ_ASSASSIN_CROSS", "MAPID_ASSASSIN_CROSS", "EAJ_PALADIN", "MAPID_PALADIN", "EAJ_PROFESSOR", "MAPID_PROFESSOR", "EAJ_CLOWNGYPSY", "MAPID_CLOWNGYPSY", "EAJ_CHAMPION", "MAPID_CHAMPION", "EAJ_CREATOR", "MAPID_CREATOR", "EAJ_STALKER", "MAPID_STALKER", "EAJ_BABY", "MAPID_BABY",
+  "EAJ_BABY_SWORDMAN", "MAPID_BABY_SWORDMAN", "EAJ_BABY_MAGE", "MAPID_BABY_MAGE", "EAJ_BABY_ARCHER", "MAPID_BABY_ARCHER", "EAJ_BABY_ACOLYTE", "MAPID_BABY_ACOLYTE", "EAJ_BABY_MERCHANT", "MAPID_BABY_MERCHANT", "EAJ_BABY_THIEF", "MAPID_BABY_THIEF", "EAJ_BABY_TAEKWON", "MAPID_BABY_TAEKWON", "EAJ_BABY_GUNSLINGER", "MAPID_BABY_GUNSLINGER", "EAJ_BABY_NINJA", "MAPID_BABY_NINJA", "EAJ_BABY_SUMMONER", "MAPID_BABY_SUMMONER",
+  "EAJ_BABY_KNIGHT", "MAPID_BABY_KNIGHT", "EAJ_BABY_WIZARD", "MAPID_BABY_WIZARD", "EAJ_BABY_HUNTER", "MAPID_BABY_HUNTER", "EAJ_BABY_PRIEST", "MAPID_BABY_PRIEST", "EAJ_BABY_BLACKSMITH", "MAPID_BABY_BLACKSMITH", "EAJ_BABY_ASSASSIN", "MAPID_BABY_ASSASSIN", "EAJ_BABY_STAR_GLADIATOR", "MAPID_BABY_STAR_GLADIATOR", "EAJ_BABY_REBELLION", "MAPID_BABY_REBELLION", "EAJ_BABY_KAGEROUOBORO", "MAPID_BABY_KAGEROUOBORO", "EAJ_BABY_CRUSADER", "MAPID_BABY_CRUSADER",
+  "EAJ_BABY_SAGE", "MAPID_BABY_SAGE", "EAJ_BABY_BARDDANCER", "MAPID_BABY_BARDDANCER", "EAJ_BABY_MONK", "MAPID_BABY_MONK", "EAJ_BABY_ALCHEMIST", "MAPID_BABY_ALCHEMIST", "EAJ_BABY_ROGUE", "MAPID_BABY_ROGUE", "EAJ_BABY_SOUL_LINKER", "MAPID_BABY_SOUL_LINKER", "EAJ_RUNE_KNIGHT", "MAPID_RUNE_KNIGHT", "EAJ_WARLOCK", "MAPID_WARLOCK", "EAJ_RANGER", "MAPID_RANGER", "EAJ_ARCH_BISHOP", "MAPID_ARCH_BISHOP",
+  "EAJ_MECHANIC", "MAPID_MECHANIC", "EAJ_GUILLOTINE_CROSS", "MAPID_GUILLOTINE_CROSS", "EAJ_STAR_EMPEROR", "MAPID_STAR_EMPEROR", "EAJ_ROYAL_GUARD", "MAPID_ROYAL_GUARD", "EAJ_SORCERER", "MAPID_SORCERER", "EAJ_MINSTRELWANDERER", "MAPID_MINSTRELWANDERER", "EAJ_SURA", "MAPID_SURA", "EAJ_GENETIC", "MAPID_GENETIC", "EAJ_SHADOW_CHASER", "MAPID_SHADOW_CHASER", "EAJ_SOUL_REAPER", "MAPID_SOUL_REAPER",
+  "EAJ_RUNE_KNIGHT_T", "MAPID_RUNE_KNIGHT_T", "EAJ_WARLOCK_T", "MAPID_WARLOCK_T", "EAJ_RANGER_T", "MAPID_RANGER_T", "EAJ_ARCH_BISHOP_T", "MAPID_ARCH_BISHOP_T", "EAJ_MECHANIC_T", "MAPID_MECHANIC_T", "EAJ_GUILLOTINE_CROSS_T", "MAPID_GUILLOTINE_CROSS_T", "EAJ_ROYAL_GUARD_T", "MAPID_ROYAL_GUARD_T", "EAJ_SORCERER_T", "MAPID_SORCERER_T", "EAJ_MINSTRELWANDERER_T", "MAPID_MINSTRELWANDERER_T", "EAJ_SURA_T", "MAPID_SURA_T",
+  "EAJ_GENETIC_T", "MAPID_GENETIC_T", "EAJ_SHADOW_CHASER_T", "MAPID_SHADOW_CHASER_T", "EAJ_BABY_RUNE_KNIGHT", "MAPID_BABY_RUNE_KNIGHT", "EAJ_BABY_WARLOCK", "MAPID_BABY_WARLOCK", "EAJ_BABY_RANGER", "MAPID_BABY_RANGER", "EAJ_BABY_ARCH_BISHOP", "MAPID_BABY_ARCH_BISHOP", "EAJ_BABY_MECHANIC", "MAPID_BABY_MECHANIC", "EAJ_BABY_GUILLOTINE_CROSS", "MAPID_BABY_GUILLOTINE_CROSS", "EAJ_BABY_STAR_EMPEROR", "MAPID_BABY_STAR_EMPEROR", "EAJ_BABY_ROYAL_GUARD", "MAPID_BABY_ROYAL_GUARD",
+  "EAJ_BABY_SORCERER", "MAPID_BABY_SORCERER", "EAJ_BABY_MINSTRELWANDERER", "MAPID_BABY_MINSTRELWANDERER", "EAJ_BABY_SURA", "MAPID_BABY_SURA", "EAJ_BABY_GENETIC", "MAPID_BABY_GENETIC", "EAJ_BABY_SHADOW_CHASER", "MAPID_BABY_SHADOW_CHASER", "EAJ_BABY_SOUL_REAPER", "MAPID_BABY_SOUL_REAPER", "EAJ_SUPER_NOVICE", "MAPID_SUPER_NOVICE", "EAJ_SUPERNOVICE", "EAJ_SUPER_BABY", "MAPID_SUPER_BABY", "EAJ_SUPER_NOVICE_E", "MAPID_SUPER_NOVICE_E", "EAJ_SUPER_BABY_E",
+  "MAPID_SUPER_BABY_E", "EAJ_SUMMONER", "MAPID_SUMMONER", "EAJ_SPIRIT_HANDLER", "MAPID_SPIRIT_HANDLER", "EAJ_HYPER_NOVICE", "MAPID_HYPER_NOVICE", "EAJ_DRAGON_KNIGHT", "MAPID_DRAGON_KNIGHT", "EAJ_ARCH_MAGE", "MAPID_ARCH_MAGE", "EAJ_WINDHAWK", "MAPID_WINDHAWK", "EAJ_CARDINAL", "MAPID_CARDINAL", "EAJ_MEISTER", "MAPID_MEISTER", "EAJ_SHADOW_CROSS", "MAPID_SHADOW_CROSS", "EAJ_SKY_EMPEROR",
+  "MAPID_SKY_EMPEROR", "EAJ_NIGHT_WATCH", "MAPID_NIGHT_WATCH", "EAJ_SHINKIRO_SHIRANUI", "MAPID_SHINKIRO_SHIRANUI", "EAJ_IMPERIAL_GUARD", "MAPID_IMPERIAL_GUARD", "EAJ_ELEMENTAL_MASTER", "MAPID_ELEMENTAL_MASTER", "EAJ_TROUBADOURTROUVERE", "MAPID_TROUBADOURTROUVERE", "EAJ_INQUISITOR", "MAPID_INQUISITOR", "EAJ_BIOLO", "MAPID_BIOLO", "EAJ_ABYSS_CHASER", "MAPID_ABYSS_CHASER", "EAJ_SOUL_ASCETIC", "MAPID_SOUL_ASCETIC",
 ];
 
 // Green highlight - Variables and variable manipulation
 const variableLanguageKeywords = [
   // Original varHolderKeywords
-  "set", "killedrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", // Added from commands
+  "set", "killedrid", "killerrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", // Added from commands
   // Original specialVarKeywords
   "Zeny", "Hp", "MaxHp", "Sp", "MaxSp", "StatusPoint", "SkillPoint", "BaseLevel",
   "JobLevel", "BaseExp", "JobExp", "NextBaseExp", "NextJobExp", "Weight", "MaxWeight",
   "Sex", "Class", "Upper", "BaseClass", "BaseJob", "Karma", "Manner", "Ap", "MaxAp",
   // Original inventoryVar as prefixed vars - rule will handle prefix
-  "getarg", "getargcount",
-  "bStr", "bAgi", "bVit", "bInt", "bDex", "bLuk", "bPow", "bSta", "bWis", "bSpl", "bCon", "bCrt" // base stats and traits
+  "getarg", "getargcount", "strcharinfo", "strnpcinfo", "readparam", "getarraysize",
+  "bStr", "bAgi", "bVit", "bInt", "bDex", "bLuk", "bPow", "bSta", "bWis", "bSpl", "bCon", "bCrt", // base stats and traits
+  // Item Scripting
+  "bMaxHP", "bMaxSP", "bMaxAP", "bStr", "bAgi", "bVit", "bInt", "bDex", 
+  "bLuk", "bPow", "bSta", "bWis", "bSpl", "bCon", "bCrt", "bAtk", 
+  "bAtk2", "bDef", "bDef2", "bMdef", "bMdef2", "bHit", "bFlee", "bFlee2", 
+  "bCritical", "bAspd", "bFame", "bUnbreakable", "bPatk", "bSmatk", "bHplus", 
+  "bCrate", "bRes", "bMres", "bAtkRange", "bAtkEle", "bDefEle", "bCastrate", "bMaxHPrate", "bMaxSPrate", 
+  "bMaxAPrate", "bUseSPrate", "bAddEle", "bAddRace", "bAddSize", "bSubEle", 
+  "bSubRace", "bAddEff", "bResEff", "bBaseAtk", "bAspdRate", "bHPrecovRate", 
+  "bSPrecovRate", "bSpeedRate", "bCriticalDef", "bNearAtkDef", "bLongAtkDef", "bDoubleRate", 
+  "bDoubleAddRate", "bSkillHeal", "bMatkRate", "bWeaponMatkRate", "bIgnoreDefEle", "bIgnoreDefRace", 
+  "bAtkRate", "bWeaponAtkRate", "bSpeedAddRate", "bSPRegenRate", "bMagicAtkDef", "bMiscAtkDef", 
+  "bIgnoreMdefEle", "bIgnoreMdefRace", "bMagicAddEle", "bMagicAddRace", "bMagicAddSize", "bPerfectHitRate", 
+  "bPerfectHitAddRate", "bCriticalRate", "bGetZenyNum", "bAddGetZenyNum", "bAddDamageClass", "bAddMagicDamageClass", 
+  "bAddDefMonster", "bAddMdefMonster", "bAddMonsterDropItem", "bDefRatioAtkEle", "bDefRatioAtkRace", "bUnbreakableGarment", 
+  "bHitRate", "bFleeRate", "bFlee2Rate", "bDefRate", "bDef2Rate", "bMdefRate", 
+  "bMdef2Rate", "bPAtkRate", "bSMatkRate", "bResRate", "bMResRate", "bHPlusRate", 
+  "bCRateRate", "bSplashRange", "bSplashAddRange", "bAutoSpell", "bHPDrainRate", "bSPDrainRate", 
+  "bShortWeaponDamageReturn", "bLongWeaponDamageReturn", "bWeaponComaEle", "bWeaponComaRace", "bAddEff2", "bBreakWeaponRate", 
+  "bBreakArmorRate", "bAddStealRate", "bMagicDamageReturn", "bAllStats", "bAllTraitStats", "bAgiVit", 
+  "bAgiDexStr", "bPerfectHide", "bNoKnockback", "bClassChange", "bHPDrainValue", "bSPDrainValue", 
+  "bWeaponAtk", "bWeaponDamageRate", "bDelayrate", "bHPDrainValueRace", "bSPDrainValueRace", "bIgnoreMdefRaceRate", 
+  "bIgnoreDefRaceRate", "bSkillHeal2", "bAddEffOnSkill", "bHealPower", "bHealPower2", "bIgnoreResRaceRate", 
+  "bIgnoreMResRaceRate", "bRestartFullRecover", "bNoCastCancel", "bNoSizeFix", "bNoMagicDamage", "bNoWeaponDamage", "bNoGemStone", 
+  "bNoCastCancel2", "bNoMiscDamage", "bUnbreakableWeapon", "bUnbreakableArmor", "bUnbreakableHelm", "bUnbreakableShield", 
+  "bShortAtkRate", "bLongAtkRate", "bCritAtkRate", "bCriticalAddRace", "bNoRegen", "bAddEffWhenHit", 
+  "bAutoSpellWhenHit", "bSkillAtk", "bUnstripable", "bAutoSpellOnSkill", "bSPGainValue", "bHPRegenRate", 
+  "bHPLossRate", "bAddRace2", "bHPGainValue", "bSubSize", "bHPDrainValueClass", "bAddItemHealRate", 
+  "bSPDrainValueClass", "bExpAddRace", "bSPGainRace", "bSubRace2", "bUnbreakableShoes", "bUnstripableWeapon", 
+  "bUnstripableArmor", "bUnstripableHelm", "bUnstripableShield", "bIntravision", "bAddMonsterDropItemGroup", "bSPLossRate", 
+  "bAddSkillBlow", "bSPVanishRate", "bMagicSPGainValue", "bMagicHPGainValue", "bAddMonsterIdDropItem", "bMatk", 
+  "bComaClass", "bComaRace", "bSkillUseSPrate", "bSkillCooldown", "bSkillFixedCast", "bSkillVariableCast", 
+  "bFixedCastrate", "bVariableCastrate", "bSkillUseSP", "bMagicAtkEle", "bFixedCast", "bVariableCast", 
+  "bSetDefRace", "bSetMDefRace", "bHPVanishRate", "bIgnoreDefClass", "bDefRatioAtkClass", "bAddClass", 
+  "bSubClass", "bMagicAddClass", "bWeaponComaClass", "bIgnoreMdefClassRate", "bExpAddClass", "bAddClassDropItem", 
+  "bAddClassDropItemGroup", "bAddMaxWeight", "bAddItemGroupHealRate", "bHPVanishRaceRate", "bSPVanishRaceRate", "bAbsorbDmgMaxHP", 
+  "bSubSkill", "bSubDefEle", "bStateNoRecoverRace", "bCriticalLong", "bMagicAddRace2", "bIgnoreMdefRace2Rate", 
+  "bDropAddRace", "bDropAddClass", "bNoMadoFuel", "bIgnoreDefClassRate", "bRegenPercentHP", "bRegenPercentSP", 
+  "bSkillDelay", "bNoWalkDelay", "bLongSPGainValue", "bLongHPGainValue", "bMagicSubSize", "bCritDefRate", 
+  "bMagicSubDefEle", "bReduceDamageReturn", "bAbsorbDmgMaxHP2", "bAddItemSPHealRate", "bAddItemGroupSPHealRate", "bWeaponSubSize"
 ];
 
 const inventoryVarNames = [ // Just the names, prefix handled by regex
@@ -453,7 +516,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
-        { token: "variable.parameter", regex: "(?<![@\\w\\.])\\b(?:" + constantLibraryKeywords.join("|") + ")\\b" }, // Using constant.library for map names, item IDs etc.
+        { token: "variable.parameter", regex: "\\b(?:" + constantLibraryKeywords.join("|") + ")\\b", caseInsensitive: true}, // Using constant.library for map names, item IDs etc.
         { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
         { token: "variable.language", regex: "(@(?:" + inventoryVarNames.join("|") + "))\\b" },
         { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
@@ -594,6 +657,52 @@ ace.define("ace/mode/rathena", ["require", "exports", "ace/lib/oop", "ace/mode/t
     this.HighlightRules = RathenaHighlightRules;
     this.$behaviour = new CstyleBehaviour();
     this.foldingRules = new FoldMode();
+    this.lineCommentStart = "//";
+    this.blockComment = { start: "/*", end: "*/" };
+  };
+  oop.inherits(Mode, TextMode);
+  exports.Mode = Mode;
+});
+
+ace.define("ace/mode/rathena_yaml_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+  const RathenaYamlHighlightRules = function () {
+    this.$rules = {
+      start: [
+        { token: "comment.line", regex: "#.*$" },
+        { token: "string", regex: '".*?"' },
+        { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
+        { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
+        { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
+        { token: "variable.parameter", regex: "\\b(?:" + constantLibraryKeywords.join("|") + ")\\b", caseInsensitive: true},
+        { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
+        { token: "variable.language", regex: "(@(?:" + inventoryVarNames.join("|") + "))\\b" },
+        { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
+        { token: "constant.numeric", regex: "\\b\\d+\\b" },
+        { token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
+        { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
+        { token: "keyword.control", regex: "(?<=\\b(?:goto|callsub)[ \\t]*\\(?[ \\t]*|,[ \\t]*)[a-zA-Z_][a-zA-Z0-9_]*\\b(?=[ \\t]*(?:,|;|\\)|))" },
+      ]
+    };
+    this.normalizeRules();
+  };
+
+  oop.inherits(RathenaYamlHighlightRules, TextHighlightRules);
+  exports.RathenaYamlHighlightRules = RathenaYamlHighlightRules;
+});
+
+ace.define("ace/mode/rathena_yaml", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_yaml_highlight_rules", "ace/mode/behaviour/cstyle", "ace/mode/folding/cstyle"], function (require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextMode = require("ace/mode/text").Mode;
+  const RathenaYamlHighlightRules = require("ace/mode/rathena_yaml_highlight_rules").RathenaYamlHighlightRules;
+  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour;
+  const FoldMode = require("ace/mode/folding/cstyle").FoldMode;
+  const Mode = function () {
+    this.HighlightRules = RathenaYamlHighlightRules;
+    this.$behaviour = new CstyleBehaviour();
+    this.foldingRules = new FoldMode();
+    this.lineCommentStart = "#";
   };
   oop.inherits(Mode, TextMode);
   exports.Mode = Mode;

@@ -117,6 +117,11 @@ function openDiff(index, tabId) {
     if (!diffNewEditor) {
         diffNewEditor = setupDiffEditor('diffNew');
     }
+
+    const isYml = tab.name.toLowerCase().endsWith(".yml") || tab.name.toLowerCase().endsWith(".yaml");
+    const diffMode = isYml ? "ace/mode/rathena_yaml" : "ace/mode/rathena";
+    diffOldEditor.session.setMode(diffMode);
+    diffNewEditor.session.setMode(diffMode);
     
     diffOldEditor.setValue(oldCode, -1);
     diffNewEditor.setValue(newCode, -1);
@@ -380,10 +385,20 @@ class Tab {
         });
     }
 
+    updateEditorMode() {
+        if (!this.editor) return;
+        const name = (this.name || "").toLowerCase();
+        if (name.endsWith(".yml") || name.endsWith(".yaml")) {
+            this.editor.session.setMode("ace/mode/rathena_yaml");
+        } else {
+            this.editor.session.setMode("ace/mode/rathena");
+        }
+    }
+
     initEditor() {
         this.editor = ace.edit(this.elements.editor.id);
         this.editor.setTheme(currentTheme);
-        this.editor.session.setMode("ace/mode/rathena");
+        this.updateEditorMode();
         this.editor.setOptions({
             enableBasicAutocompletion: true,
             enableLiveAutocompletion: true,
@@ -592,7 +607,15 @@ class Tab {
     async openFile() {
         try {
             const [handle] = await window.showOpenFilePicker({
-                types: [{ description: "Text Files", accept: { "text/plain": [".txt"] } }],
+                types: [
+                    {
+                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml)",
+                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml"] }
+                    },
+                    { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                    { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
+                    { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
+                ],
                 startIn: tabManager.lastDirectoryHandle || "documents"
             });
 
@@ -612,6 +635,7 @@ class Tab {
             const contents = await file.text();
             this.editor.setValue(contents, -1);
             this.name = file.name;
+            this.updateEditorMode();
             this.saveCurrentCodeToHistory();
             this.lastSavedCode = contents;
             tabManager.renderTabs();
@@ -626,11 +650,25 @@ class Tab {
         const saveDate = new Date();
         try {
             if (!this.fileHandle) {
+                let suggested = this.name;
+                const hasExt = [".txt", ".conf", ".yml", ".yaml"].some(ext => suggested.toLowerCase().endsWith(ext));
+                if (!hasExt) {
+                    suggested += ".txt";
+                }
                 this.fileHandle = await window.showSaveFilePicker({
-                    suggestedName: this.name.endsWith(".txt") ? this.name : this.name + ".txt",
-                    types: [{ description: "Text Files", accept: { "text/plain": [".txt"] } }]
+                    suggestedName: suggested,
+                    types: [
+                        {
+                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml)",
+                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml"] }
+                        },
+                        { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                        { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
+                        { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
+                    ]
                 });
                 this.name = this.fileHandle.name;
+                this.updateEditorMode();
                 tabManager.renderTabs();
                 this.activate();
             }
@@ -671,7 +709,8 @@ class Tab {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = this.name.endsWith(".txt") ? this.name : this.name + ".txt";
+        const hasExt = [".txt", ".conf", ".yml", ".yaml"].some(ext => this.name.toLowerCase().endsWith(ext));
+        a.download = hasExt ? this.name : this.name + ".txt";
         a.click();
         URL.revokeObjectURL(url);
     }
@@ -1355,7 +1394,7 @@ function markdownToHtmlForChat(markdownText) {
     const processInlineMarkdown = (text) => {
         text = text.replace(/`([^`]+)`/g, (_, code) => {
             const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<strong><code>${escapedCode}</code></strong>`;
+            return `<code>${escapedCode}</code>`;
         });
         text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
         text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -1398,7 +1437,7 @@ function markdownToHtmlForChat(markdownText) {
 
         if (trimmedLine.startsWith('<') && trimmedLine.endsWith('>')) {
             closeAllOpenElements();
-            outputHtml.push(originalLine);
+            outputHtml.push(processInlineMarkdown(originalLine));
             continue;
         }
 
@@ -1502,7 +1541,6 @@ Follow these guidelines at all times:
 5.2 \`thinking\` field:
   1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
   2. Use **ordered bullet** to explain in summarize the step-by-step guides or concepts when necessary.
-  3. Do not include the "Done" indicator inside the nested list.
 
 5.3 \`response\` field:
     1. **Response**:
