@@ -63,6 +63,24 @@ function closeDiffModal() {
     document.getElementById('diffModal').style.display = 'none';
 }
 
+function toggleThinking(element) {
+    const thinkingDiv = element.nextElementSibling;
+    if (thinkingDiv && (thinkingDiv.classList.contains('ai_thinking') || thinkingDiv.tagName.toLowerCase() === 'div')) {
+        const arrowSpan = element.querySelector('.toggle-arrow');
+        if (thinkingDiv.style.display === 'none') {
+            thinkingDiv.style.display = 'block';
+            if (arrowSpan) {
+                arrowSpan.style.transform = 'rotate(90deg)';
+            }
+        } else {
+            thinkingDiv.style.display = 'none';
+            if (arrowSpan) {
+                arrowSpan.style.transform = 'rotate(0deg)';
+            }
+        }
+    }
+}
+
 let diffOldEditor = null;
 let diffNewEditor = null;
 let currentDiffIndex = -1;
@@ -789,7 +807,7 @@ class Tab {
             clearInterval(timer);
             let combined = '';
             if (thinking) {
-                combined += `<p class="ai_thought_textDesign">🤖 Thought in ${this.timerCounterForGlobal} seconds</p><div class="ai_thinking"><thinking>${thinking}</thinking></div><p style="color:gray;font-size:10px;">Done</p>`;
+                combined += `<p class="ai_thought_textDesign" onclick="toggleThinking(this)">🤖 Thought in ${this.timerCounterForGlobal} seconds <span class="toggle-arrow" style="display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; transition: transform 0.2s ease; margin-left: 4px; pointer-events: none;"><svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></p><div class="ai_thinking" style="display: none;"><thinking>${thinking}</thinking><p style="color:gray;font-size:10px;margin-top:6px;display:flex;align-items:center;gap:4px;margin-left:-20px;"><svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>Done</p></div>`;
             }
             combined += chatDisplayMessageValue;
             this.addMessage(combined, 'ai');
@@ -1477,18 +1495,19 @@ Follow these guidelines at all times:
 
 5.2 \`thinking\` field:
   1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
+  2. Use **ordered bullet** to explain in summarize the step-by-step guides or concepts when necessary.
 
 5.3 \`response\` field:
-    1. **Response**  
+    1. **Response**:
       1. You have already created the following plan to guide your response base on 'thinking'. Please execute the thinking plan now.
       2. Start with a brief answer to user first followed by answer to user input/question. use proper NPC structure code script if requested.
-    2. **Detailed Format Summarize Explanation**  
+    2. **Detailed Format Summarize Explanation**:
       1. Use **paragraphs** to explain the answer thoroughly.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
-      3. Use **ordered/unordered lists** to explain in summarize the step-by-step guides or concepts when necessary.
-      4. inside <code></code> Do not use "<" or ">" instead use "&lt;" or "&gt;".
-      6. Alway provide to user a full/completed code/script response and wrap it in 1 codeblock if requested. 
-    3. **1 Code Blocks Generation for the script**  
+      3. inside <code></code> Do not use "<" or ">" instead use "&lt;" or "&gt;".
+      4. Alway provide to user a full/completed code/script response and wrap it in 1 codeblock if requested.
+      5. Use **ordered lists** to explain in summarize the step-by-step guides or concepts when necessary.
+    3. **1 Code Blocks Generation for the script**:
       1. If the user requests a full working script/code, **wrap it using triple backticks** (e.g., \`\`\`) inside the JSON Object "response" field.
       2. When generating script, wrap in triple backtick.
       3. *Never use triple backticks anywhere else except in the "response" field.*
@@ -1501,10 +1520,10 @@ Follow these guidelines at all times:
       3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
       3.3: Instead of saying *"Here is the script"*, always write or revise this:
         1. "<p>Please kindly look for the generated script inside editor.</p>" when you are generating script.
-    5. **End with a Follow-up**  
+    5. **End with a Follow-up**:
       1. <p>Always conclude a polite follow-up question or invitation based on the user's input.</p> Do not include this inside the nested list.
     ---
-    # 7.3 Special Rules/Instructions
+    # 7.3 Special Rules/Instructions:
       1. Use single backticks \` \` to refer to single **commands, code keywords**, or **parameters** during explanation.
       2. If the user's request is **unclear**, include a clarification question instead of assuming their intent.
       3. Strictly complete your explanation.

@@ -284,6 +284,14 @@ html, body {
   font-size: 10px;
   color: gray;
   margin-left: -2px;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai_thought_textDesign:hover {
+  color: #a8a8a8;
 }
 
 .model-container {
