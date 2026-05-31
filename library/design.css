@@ -33,6 +33,10 @@ html, body {
   font-family: sans-serif;
 }
 
+code {
+  font-weight: bold;
+}
+
 #container {
   display: flex;
   flex-direction: column;
