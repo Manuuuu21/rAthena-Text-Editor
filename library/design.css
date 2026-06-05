@@ -315,7 +315,7 @@ code {
 /* Custom Ace Tooltip Styling */
 .ace_tooltip {
     max-width: 600px;
-    max-height: 300px;
+    max-height: 500px;
     overflow-y: auto !important;
     pointer-events: auto !important;
     white-space: normal !important;
@@ -529,24 +529,30 @@ opacity: 0;
 .ace_removed { background-color: var(--diffRemovedBg) !important; position: absolute; }
 
 /* Generic scrollbar for all containers */
-.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h {
+.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
-.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track {
+.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track {
     background: var(--scrollbarTrack);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb {
     background: var(--scrollbarThumb);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbarThumbHover);
+}
+
+.rathena_highlight {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    width: 100% !important;
 }
 
 .chat-section, .editor-section {

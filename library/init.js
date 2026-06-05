@@ -29,6 +29,15 @@ function toggleTheme() {
     root.style.setProperty('--btnBg', '#444');
     root.style.setProperty('--btnText', '#fff');
     root.style.setProperty('--closeBtnColor', '#bbb');
+    
+    // rAthena Syntax Highlighting for Dark Mode
+    root.style.setProperty('--syntaxString', '#e6db74');
+    root.style.setProperty('--syntaxComment', '#75715e');
+    root.style.setProperty('--syntaxNumber', '#ae81ff');
+    root.style.setProperty('--syntaxKeyword', '#f92672');
+    root.style.setProperty('--syntaxFunction', '#66d9ef');
+    root.style.setProperty('--syntaxVariable', '#a6e22e');
+    root.style.setProperty('--syntaxConstant', '#fd971f');
   } else {
     // Switching to LIGHT
     root.style.setProperty('--tabBarBg', '#d8ccc6');
@@ -49,10 +58,30 @@ function toggleTheme() {
     root.style.setProperty('--scrollbarTrack', '#f1f1f1');
     root.style.setProperty('--scrollbarThumb', '#888');
     root.style.setProperty('--scrollbarThumbHover', '#555');
+    
+    // rAthena Syntax Highlighting for Light Mode
+    root.style.setProperty('--syntaxString', '#032f62');
+    root.style.setProperty('--syntaxComment', '#6a737d');
+    root.style.setProperty('--syntaxNumber', '#005cc5');
+    root.style.setProperty('--syntaxKeyword', '#d73a49');
+    root.style.setProperty('--syntaxFunction', '#6f42c1');
+    root.style.setProperty('--syntaxVariable', '#e36209');
+    root.style.setProperty('--syntaxConstant', '#b07d00');
   }
   
   tabManager.tabs.forEach(tab => {
-    if (tab.editor) tab.editor.setTheme(currentTheme);
+    if (tab.editor) {
+      tab.editor.setTheme(currentTheme);
+      if (tab.editor.tokenTooltip && tab.editor.tokenTooltip.activeEmbeddedEditors) {
+        tab.editor.tokenTooltip.activeEmbeddedEditors.forEach(embeddedEditor => {
+          try {
+            embeddedEditor.setTheme(currentTheme);
+          } catch (e) {
+            console.warn("Failed to update theme of embedded editor inside tooltip:", e);
+          }
+        });
+      }
+    }
   });
   if (diffOldEditor) diffOldEditor.setTheme(currentTheme);
   if (diffNewEditor) diffNewEditor.setTheme(currentTheme);
@@ -956,7 +985,7 @@ function parseRathenaDocs() {
                     } else {
                         // Otherwise, treat as an internal thin horizontal divider
                         processedLines.push({
-                            text: `<hr style="border: 0; border-top: 1px solid var(--tooltipDivider); margin: 10px 0; opacity: 0.35;" />`,
+                            text: `<div style="border-top: 1px solid var(--tooltipDivider); margin: 10px 0; opacity: 0.15;"></div>`,
                             isDivider: true,
                             originalText: line
                         });
@@ -976,13 +1005,15 @@ function parseRathenaDocs() {
                     return item.text;
                 }
                 
-                // Escape HTML tags while preserving our own structured formatting
+                // Escape HTML tags while preserving our own structured formatting and removing trailing dash/equals traces
                 let text = item.text
                     .replace(/&/g, "&amp;")
                     .replace(/</g, "&lt;")
                     .replace(/>/g, "&gt;")
                     .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
+                    .replace(/'/g, "&#039;")
+                    .replace(/-{3,}/g, "")
+                    .replace(/={3,}/g, "");
                 
                 const leadingSpaces = item.originalText.match(/^\s+/);
                 const indent = leadingSpaces ? leadingSpaces[0].length * 6 : 0;
@@ -1041,11 +1072,224 @@ function parseRathenaDocs() {
     saveCommand();
 }
 
+function highlightRathenaCode(code) {
+    if (!code) return "";
+    let i = 0;
+    let html = "";
+    
+    // Create sets for fast lookup of keyword lists from rathena-highlight-rules.js
+    const cfSet = new Set(typeof controlFlowKeywords !== 'undefined' ? controlFlowKeywords : []);
+    const sfSet = new Set(typeof supportFunctionKeywords !== 'undefined' ? supportFunctionKeywords : []);
+    const clSet = new Set(typeof constantLibraryKeywords !== 'undefined' ? constantLibraryKeywords : []);
+    const vlSet = new Set(typeof variableLanguageKeywords !== 'undefined' ? variableLanguageKeywords : []);
+    const ivSet = new Set(typeof inventoryVarNames !== 'undefined' ? inventoryVarNames : []);
+    const claSet = new Set(typeof constantLanguageKeywords !== 'undefined' ? constantLanguageKeywords : []);
+    
+    // Escape helper for safety inside other tokens
+    const escapeHTML = (text) => {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    };
+    
+    while (i < code.length) {
+        const remaining = code.substring(i);
+        
+        // 1. Block comment
+        if (remaining.startsWith("/*")) {
+            const endIdx = remaining.indexOf("*/");
+            if (endIdx !== -1) {
+                const commentContent = remaining.substring(0, endIdx + 2);
+                html += `<span style="color: var(--syntaxComment); font-style: italic;">${escapeHTML(commentContent)}</span>`;
+                i += endIdx + 2;
+                continue;
+            } else {
+                html += `<span style="color: var(--syntaxComment); font-style: italic;">${escapeHTML(remaining)}</span>`;
+                break;
+            }
+        }
+        
+        // 2. Line comment
+        if (remaining.startsWith("//")) {
+            const nlIdx = remaining.indexOf("\n");
+            const commentContent = nlIdx !== -1 ? remaining.substring(0, nlIdx) : remaining;
+            html += `<span style="color: var(--syntaxComment); font-style: italic;">${escapeHTML(commentContent)}</span>`;
+            i += commentContent.length;
+            continue;
+        }
+        
+        // 3. String literal
+        if (remaining.startsWith('"')) {
+            let strContent = '"';
+            let j = 1;
+            let esc = false;
+            while (j < remaining.length) {
+                const char = remaining[j];
+                strContent += char;
+                if (char === '\\') {
+                    esc = !esc;
+                } else if (char === '"' && !esc) {
+                    j++;
+                    break;
+                } else {
+                    esc = false;
+                }
+                j++;
+            }
+            html += `<span style="color: var(--syntaxString);">${escapeHTML(strContent)}</span>`;
+            i += j;
+            continue;
+        }
+        
+        // 4. Numbers (hex, numbers)
+        const numMatch = remaining.match(/^(?:0x[0-9a-fA-F]+\b|\d+\b)/);
+        if (numMatch) {
+            const numVal = numMatch[0];
+            html += `<span style="color: var(--syntaxNumber);">${escapeHTML(numVal)}</span>`;
+            i += numVal.length;
+            continue;
+        }
+        
+        // 5. Identifiers with possible rAthena prefixes (.@, @, $, ., #, ', $)
+        const idMatch = remaining.match(/^(?:(?:\.@|@|\$|#|'|\.)[a-zA-Z0-9_]+(?:\$|\b)|[a-zA-Z_][a-zA-Z0-9_]*(?:\$|\b))/);
+        if (idMatch) {
+            const idVal = idMatch[0];
+            const cleanId = idVal.replace(/^[\.@$#'.]+/, "").replace(/\$$/, "");
+            const cleanIdLower = cleanId.toLowerCase();
+            
+            if (cfSet.has(cleanId) || cfSet.has(cleanIdLower)) {
+                html += `<span style="color: var(--syntaxKeyword); font-weight: bold;">${idVal}</span>`;
+            } else if (sfSet.has(cleanId) || sfSet.has(cleanIdLower)) {
+                html += `<span style="color: var(--syntaxFunction);">${idVal}</span>`;
+            } else if (clSet.has(idVal) || clSet.has(cleanId) || clSet.has(cleanIdLower) || claSet.has(idVal) || claSet.has(cleanId) || claSet.has(cleanIdLower)) {
+                html += `<span style="color: var(--syntaxConstant);">${idVal}</span>`;
+            } else if (vlSet.has(idVal) || vlSet.has(cleanId) || vlSet.has(cleanIdLower) || ivSet.has(idVal) || ivSet.has(cleanId) || ivSet.has(cleanIdLower) || idVal.startsWith('@') || idVal.startsWith('.@') || idVal.startsWith('$') || idVal.startsWith('.') || idVal.startsWith('#') || idVal.startsWith("'") || idVal.endsWith('$')) {
+                html += `<span style="color: var(--syntaxVariable);">${idVal}</span>`;
+            } else {
+                html += escapeHTML(idVal);
+            }
+            i += idVal.length;
+            continue;
+        }
+        
+        // 6. Multi-character operators
+        const opMatch = remaining.match(/^(?:==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=)/);
+        if (opMatch) {
+            const opVal = opMatch[0];
+            html += `<span style="color: var(--tooltipColor); opacity: 0.85;">${escapeHTML(opVal)}</span>`;
+            i += opVal.length;
+            continue;
+        }
+        
+        // 7. Standard character fallback
+        const singleChar = remaining[0];
+        html += escapeHTML(singleChar);
+        i++;
+    }
+    
+    return html;
+}
+
+function parseNewTooltipDocs() {
+    if (typeof rathena_tooltip_doc === 'undefined') return;
+    
+    // Split by structured breakline
+    const blocks = rathena_tooltip_doc.split(/---------------------- Breakline ----------------------/);
+    
+    for (const block of blocks) {
+        if (!block || !block.trim()) continue;
+        
+        const syntaxMatch = block.match(/<syntax>([\s\S]*?)<\/syntax>/i);
+        const descriptionMatch = block.match(/<description>([\s\S]*?)<\/description>/i);
+        const exampleMatch = block.match(/<example_code>([\s\S]*?)<\/example_code>/i);
+        
+        if (!syntaxMatch) continue;
+        
+        const rawSyntax = syntaxMatch[1].trim();
+        const cmdMatch = rawSyntax.match(/^\*?([a-zA-Z0-9_]+)/);
+        if (!cmdMatch) continue;
+        const cmd = cmdMatch[1];
+        
+        let syntaxEscaped = rawSyntax
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+            
+        // Highlight active command name in syntax bold
+        const displaySyntax = syntaxEscaped.startsWith('*')
+            ? `<strong>*${cmd}</strong>` + syntaxEscaped.substring(cmd.length + 1)
+            : `<strong>${cmd}</strong>` + syntaxEscaped.substring(cmd.length);
+            
+        let rawDescription = descriptionMatch ? descriptionMatch[1].trim() : "";
+        let descriptionEscaped = rawDescription
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+            
+        // Keep precise text line breaks for description paragraph structuring
+        const formattedDescription = descriptionEscaped.replace(/\n/g, '<br/>');
+        
+        let formattedExample = "";
+        if (exampleMatch) {
+            const rawExample = exampleMatch[1].trim();
+            const safeRawExample = rawExample.replace(/<\/script>/gi, "</scrip_t_>");
+            
+            // Generate clean container for Ace editor integration with hidden raw code script tag
+            formattedExample = `
+                <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 15px; margin-bottom: 6px; font-family: 'Inter', sans-serif;">Example:</div>
+                <div class="tooltip-ace-wrapper" style="border: 1px solid var(--tooltipDivider); border-radius: 4px; overflow: hidden; margin: 4px 0; background: rgba(0, 0, 0, 0.1);">
+                    <div class="tooltip-ace-editor" style="width: 100%;"></div>
+                    <script type="text/plain" class="tooltip-ace-raw-code">${safeRawExample}</script>
+                </div>
+            `;
+        }
+
+        const explanationMatch = block.match(/<(code_explaination|code_explanation)>([\s\S]*?)<\/\1>/i);
+        let formattedExplanation = "";
+        if (explanationMatch && explanationMatch[2].trim() !== "") {
+            const rawExplanation = explanationMatch[2].trim();
+            const explanationEscaped = rawExplanation
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+            
+            const formattedExplanationText = explanationEscaped.replace(/\n/g, '<br/>');
+            formattedExplanation = `
+                <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 15px; margin-bottom: 6px; font-family: 'Inter', sans-serif;">Explanation:</div>
+                <div style="font-size: 11.5px; opacity: 0.85; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
+                    ${formattedExplanationText}
+                </div>
+            `;
+        }
+        
+        const finalDescription = `
+            <div style="font-size: 11.5px; opacity: 0.95; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
+                ${formattedDescription}
+            </div>
+            ${formattedExample}
+            ${formattedExplanation}
+        `;
+        
+        // Save the override / insertion entry
+        rathenaDocMap[cmd] = {
+            signature: displaySyntax,
+            description: finalDescription,
+            isNewStructured: true
+        };
+    }
+}
+
 class TokenTooltip {
     constructor(editor) {
         if (editor.tokenTooltip) return;
         editor.tokenTooltip = this;
         this.editor = editor;
+        this.activeEmbeddedEditors = [];
         
         let Tooltip;
         try {
@@ -1059,14 +1303,34 @@ class TokenTooltip {
         
         this.onMouseMove = this.onMouseMove.bind(this);
         this.onMouseOut = this.onMouseOut.bind(this);
+        this.hideTooltip = this.hideTooltip.bind(this);
         
         editor.on("mousemove", this.onMouseMove);
         editor.on("mouseout", this.onMouseOut);
     }
 
+    destroyActiveEmbeddedEditors() {
+        if (this.activeEmbeddedEditors) {
+            this.activeEmbeddedEditors.forEach(ed => {
+                try {
+                    ed.destroy();
+                } catch (e) {
+                    console.warn("Error destroying embedded editor:", e);
+                }
+            });
+        }
+        this.activeEmbeddedEditors = [];
+    }
+
+    hideTooltip() {
+        this.destroyActiveEmbeddedEditors();
+        this.currentToken = null;
+        this.tooltip.hide();
+    }
+
     onMouseMove(e) {
         if (!documentationTooltipEnabled) {
-            this.tooltip.hide();
+            this.hideTooltip();
             return;
         }
         const editor = this.editor;
@@ -1090,6 +1354,7 @@ class TokenTooltip {
                 // If already showing this doc, don't re-show to avoid scroll reset
                 if (this.currentToken === token.value) return;
                 
+                this.destroyActiveEmbeddedEditors();
                 this.currentToken = token.value;
                 
                 const html = `
@@ -1107,32 +1372,111 @@ class TokenTooltip {
                     element.innerHTML = html;
                     element.scrollTop = 0; // Ensure scroll always starts at the top
                     element.style.display = "block";
-                    const rect = element.getBoundingClientRect();
                     
-                    // Reduced offset (5px) to make it easier to reach from the mouse
-                    let x = e.clientX + 5;
-                    let y = e.clientY + 5;
-
-                    // Bound checks
-                    if (x + rect.width > window.innerWidth) {
-                        x = e.clientX - rect.width - 5;
-                    }
-                    if (y + rect.height > window.innerHeight) {
-                        y = e.clientY - rect.height - 5;
-                    }
-                    
-                    if (x < 0) x = 5;
-                    if (y < 0) y = 5;
-
-                    element.style.left = x + "px";
-                    element.style.top = y + "px";
-
                     if (!element._hasWheelEvent) {
                         element.addEventListener('wheel', (evt) => {
                             evt.stopPropagation();
                         }, { passive: false });
                         element._hasWheelEvent = true;
                     }
+
+                    // Dynamically initialize any embedded Ace Editor instances inside the tooltip first
+                    // so we can measure the ACTUAL final height after Ace renders.
+                    const editorContainers = element.querySelectorAll(".tooltip-ace-editor");
+                    const rawCodeScripts = element.querySelectorAll(".tooltip-ace-raw-code");
+                    for (let i = 0; i < editorContainers.length; i++) {
+                        const container = editorContainers[i];
+                        const scriptTag = rawCodeScripts[i];
+                        if (container && scriptTag) {
+                            const codeText = scriptTag.textContent || scriptTag.innerText;
+                            try {
+                                const embeddedEditor = ace.edit(container);
+                                embeddedEditor.setValue(codeText, -1);
+                                embeddedEditor.setTheme(currentTheme);
+                                embeddedEditor.session.setMode("ace/mode/rathena");
+                                embeddedEditor.setReadOnly(true);
+                                embeddedEditor.setShowPrintMargin(false);
+                                embeddedEditor.renderer.setShowGutter(true);
+                                embeddedEditor.setShowFoldWidgets(false);
+                                embeddedEditor.setOption("scrollPastEnd", 0);
+                                embeddedEditor.setOptions({
+                                    maxLines: 12,
+                                    minLines: 3,
+                                    fontSize: "11px",
+                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                    highlightActiveLine: false,
+                                    highlightGutterLine: false,
+                                    showLineNumbers: true,
+                                    showGutter: true,
+                                    showFoldWidgets: false,
+                                    fadeFoldWidgets: false
+                                });
+                                // Make the cursor/selection completely invisible to make it true read-only style
+                                embeddedEditor.renderer.$cursorLayer.element.style.opacity = 0;
+                                this.activeEmbeddedEditors.push(embeddedEditor);
+                            } catch (err) {
+                                console.error("Error creating embedded Ace editor inside tooltip:", err);
+                            }
+                        }
+                    }
+
+                    // Measure the exact bounding rect of the rendered tooltip with embedded code editor
+                    const rect = element.getBoundingClientRect();
+                    const tooltipWidth = rect.width || 450;
+                    const tooltipHeight = rect.height || 280;
+
+                    // Determine available space above, below, right and left
+                    const spaceAbove = e.clientY;
+                    const spaceBelow = window.innerHeight - e.clientY;
+
+                    let x = e.clientX + 15; // default 15px margin to prevent cursor overlap
+                    let y = e.clientY + 15;
+
+                    if (spaceBelow >= tooltipHeight + 25) {
+                        // Plenty of space below the hovered element
+                        y = e.clientY + 15;
+                    } else if (spaceAbove >= tooltipHeight + 25) {
+                        // Plenty of space above the hovered element
+                        y = e.clientY - tooltipHeight - 15;
+                    } else {
+                        // Neither above nor below has sufficient space to place it completely
+                        // We avoid vertical overlapping with the mouse (which blocks reading)
+                        // by placing the tooltip on the left/right side if there is space.
+                        const spaceRight = window.innerWidth - e.clientX;
+                        const spaceLeft = e.clientX;
+
+                        if (spaceRight >= tooltipWidth + 30) {
+                            x = e.clientX + 20;
+                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, e.clientY - tooltipHeight / 2));
+                        } else if (spaceLeft >= tooltipWidth + 30) {
+                            x = e.clientX - tooltipWidth - 20;
+                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, e.clientY - tooltipHeight / 2));
+                        } else {
+                            // Absolute fallback: share space vertically but clamp it off the mouse
+                            if (spaceBelow > spaceAbove) {
+                                y = e.clientY + 15;
+                            } else {
+                                y = Math.max(10, e.clientY - tooltipHeight - 15);
+                            }
+                        }
+                    }
+
+                    // Horizontal bounds fallback adjustment (if placed above or below)
+                    if (y === e.clientY + 15 || y === e.clientY - tooltipHeight - 15) {
+                        if (x + tooltipWidth > window.innerWidth - 10) {
+                            x = e.clientX - tooltipWidth - 15;
+                        }
+                        if (x < 10) {
+                            x = 10;
+                        }
+                    }
+
+                    // Safety boundaries clamping
+                    x = Math.max(10, Math.min(window.innerWidth - tooltipWidth - 10, x));
+                    y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, y));
+
+                    element.style.left = x + "px";
+                    element.style.top = y + "px";
                 }
                 return;
             }
@@ -1149,8 +1493,7 @@ class TokenTooltip {
             }
         }
 
-        this.currentToken = null;
-        this.tooltip.hide();
+        this.hideTooltip();
     }
 
     onMouseOut(e) {
@@ -1158,8 +1501,7 @@ class TokenTooltip {
         if (element && e && e.domEvent && element.contains(e.domEvent.relatedTarget)) {
             return;
         }
-        this.currentToken = null;
-        this.tooltip.hide();
+        this.hideTooltip();
     }
 }
 
@@ -1191,6 +1533,15 @@ if (currentTheme) {
         root.style.setProperty('--btnBg', '#e9ecef');
         root.style.setProperty('--btnText', '#333');
         root.style.setProperty('--closeBtnColor', '#777');
+        
+        // rAthena Syntax Highlighting for Light Mode
+        root.style.setProperty('--syntaxString', '#032f62');
+        root.style.setProperty('--syntaxComment', '#6a737d');
+        root.style.setProperty('--syntaxNumber', '#005cc5');
+        root.style.setProperty('--syntaxKeyword', '#d73a49');
+        root.style.setProperty('--syntaxFunction', '#6f42c1');
+        root.style.setProperty('--syntaxVariable', '#e36209');
+        root.style.setProperty('--syntaxConstant', '#b07d00');
     } else {
         // Already dark mode (monokai)
         const root = document.documentElement;
@@ -1215,9 +1566,19 @@ if (currentTheme) {
         root.style.setProperty('--btnBg', '#444');
         root.style.setProperty('--btnText', '#fff');
         root.style.setProperty('--closeBtnColor', '#bbb');
+        
+        // rAthena Syntax Highlighting for Dark Mode
+        root.style.setProperty('--syntaxString', '#e6db74');
+        root.style.setProperty('--syntaxComment', '#75715e');
+        root.style.setProperty('--syntaxNumber', '#ae81ff');
+        root.style.setProperty('--syntaxKeyword', '#f92672');
+        root.style.setProperty('--syntaxFunction', '#66d9ef');
+        root.style.setProperty('--syntaxVariable', '#a6e22e');
+        root.style.setProperty('--syntaxConstant', '#fd971f');
     }
 }
 parseRathenaDocs();
+parseNewTooltipDocs();
 
 
 // API Key persistence
