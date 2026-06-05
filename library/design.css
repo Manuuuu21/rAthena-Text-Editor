@@ -314,6 +314,7 @@ code {
 
 /* Custom Ace Tooltip Styling */
 .ace_tooltip {
+    width: 600px;
     max-width: 600px;
     max-height: 500px;
     overflow-y: auto !important;

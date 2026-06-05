@@ -1217,62 +1217,87 @@ function parseNewTooltipDocs() {
             .replace(/>/g, "&gt;");
             
         // Highlight active command name in syntax bold
-        const displaySyntax = syntaxEscaped.startsWith('*')
+        let displaySyntax = syntaxEscaped.startsWith('*')
             ? `<strong>*${cmd}</strong>` + syntaxEscaped.substring(cmd.length + 1)
             : `<strong>${cmd}</strong>` + syntaxEscaped.substring(cmd.length);
             
-        let rawDescription = descriptionMatch ? descriptionMatch[1].trim() : "";
-        let descriptionEscaped = rawDescription
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        displaySyntax = displaySyntax.replace(/\n/g, '<br/>');
             
-        // Keep precise text line breaks for description paragraph structuring
-        const formattedDescription = descriptionEscaped.replace(/\n/g, '<br/>');
+        // Strip syntax tag and retrieve all description content, removing description tags to remain robust
+        let contentBody = block.replace(/<syntax>[\s\S]*?<\/syntax>/i, "").trim();
+        contentBody = contentBody
+            .replace(/<description>/gi, "")
+            .replace(/<\/description>/gi, "")
+            .trim();
+            
+        let htmlOutput = "";
+        const tokenRegex = /(<example_code>[\s\S]*?<\/example_code>|<code_explanation>[\s\S]*?<\/code_explanation>|<code_explaination>[\s\S]*?<\/code_explaination>)/gi;
+        const parts = contentBody.split(tokenRegex);
         
-        let formattedExample = "";
-        if (exampleMatch) {
-            const rawExample = exampleMatch[1].trim();
-            const safeRawExample = rawExample.replace(/<\/script>/gi, "</scrip_t_>");
+        for (const part of parts) {
+            if (!part) continue;
             
-            // Generate clean container for Ace editor integration with hidden raw code script tag
-            formattedExample = `
-                <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 15px; margin-bottom: 6px; font-family: 'Inter', sans-serif;">Example:</div>
-                <div class="tooltip-ace-wrapper" style="border: 1px solid var(--tooltipDivider); border-radius: 4px; overflow: hidden; margin: 4px 0; background: rgba(0, 0, 0, 0.1);">
-                    <div class="tooltip-ace-editor" style="width: 100%;"></div>
-                    <script type="text/plain" class="tooltip-ace-raw-code">${safeRawExample}</script>
-                </div>
-            `;
-        }
-
-        const explanationMatch = block.match(/<(code_explaination|code_explanation)>([\s\S]*?)<\/\1>/i);
-        let formattedExplanation = "";
-        if (explanationMatch && explanationMatch[2].trim() !== "") {
-            const rawExplanation = explanationMatch[2].trim();
-            const explanationEscaped = rawExplanation
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-            
-            const formattedExplanationText = explanationEscaped.replace(/\n/g, '<br/>');
-            formattedExplanation = `
-                <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 15px; margin-bottom: 6px; font-family: 'Inter', sans-serif;">Explanation:</div>
-                <div style="font-size: 11.5px; opacity: 0.85; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
-                    ${formattedExplanationText}
-                </div>
-            `;
+            const partLower = part.toLowerCase();
+            if (partLower.startsWith("<example_code>")) {
+                const innerMatch = part.match(/<example_code>([\s\S]*?)<\/example_code>/i);
+                if (innerMatch) {
+                    const rawExample = innerMatch[1].trim();
+                    const safeRawExample = rawExample.replace(/<\/script>/gi, "</scrip_t_>");
+                    
+                    htmlOutput += `
+                        <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;">Example:</div>
+                        <div class="tooltip-ace-wrapper" style="border: 1px solid var(--tooltipDivider); border-radius: 4px; overflow: hidden; margin: 4px 0; background: rgba(0, 0, 0, 0.1);">
+                            <div class="tooltip-ace-editor" style="width: 100%;"></div>
+                            <script type="text/plain" class="tooltip-ace-raw-code">${safeRawExample}</script>
+                        </div>
+                    `;
+                }
+            } else if (partLower.startsWith("<code_explanation>") || partLower.startsWith("<code_explaination>")) {
+                const innerMatch = part.match(/<(code_explanation|code_explaination)>([\s\S]*?)<\/\1>/i);
+                if (innerMatch && innerMatch[2].trim() !== "") {
+                    const rawExplanation = innerMatch[2].trim();
+                    const explanationEscaped = rawExplanation
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#039;");
+                    
+                    const formattedExplanationText = explanationEscaped.replace(/\n/g, '<br/>');
+                    htmlOutput += `
+                        <div style="color: var(--tooltipHeaderColor); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;">Explanation:</div>
+                        <div style="font-size: 11.5px; opacity: 0.85; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
+                            ${formattedExplanationText}
+                        </div>
+                    `;
+                }
+            } else {
+                // This is a plain text portion of the description
+                let textEscaped = part
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+                
+                // Replace consecutive blank lines with a single blank line
+                let cleanedText = textEscaped.replace(/\n\s*\n+/g, '\n\n');
+                let formattedText = cleanedText.replace(/\n/g, '<br/>');
+                
+                if (formattedText.trim() !== "") {
+                    htmlOutput += `
+                        <div style="font-size: 11.5px; opacity: 0.95; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
+                            ${formattedText}
+                        </div>
+                    `;
+                }
+            }
         }
         
         const finalDescription = `
-            <div style="font-size: 11.5px; opacity: 0.95; line-height: 1.5; font-family: 'Inter', -apple-system, sans-serif;">
-                ${formattedDescription}
+            <div class="tooltip-description-content">
+                ${htmlOutput}
             </div>
-            ${formattedExample}
-            ${formattedExplanation}
         `;
         
         // Save the override / insertion entry
