@@ -523,6 +523,42 @@ perfectly equivalent.
 </description>
 ---------------------- Breakline ----------------------
 <syntax>
+*select("<option>"{,"<option>",...})
+</syntax>
+<description>
+This function is a handy replacement for 'menu' for some specific cases where
+you don't want a complex label structure - like, for example, asking simple yes-
+no questions. It will return the number of menu option picked, starting with 1.
+Like 'menu', it will also set the variable @menu to contain the option the user
+picked.
+
+<example_code>
+prontera,150,150,4	script	MenuNPC	115,{
+	mes "[Menu NPC]";
+	mes "Please choose an option:";
+	switch(select("Option 1:Option 2:Option 3")) {
+		case 1:
+			mes "You selected Option 1.";
+			break;
+		case 2:
+			mes "You selected Option 2.";
+			break;
+		case 3:
+			mes "You selected Option 3.";
+			break;
+	}
+	close;
+}
+</example_code>
+<code_explanation>
+The provided script creates a simple interactive menu for players. 
+The select() command is the core of this interaction; it displays a list of options separated by colons and pauses the script until the player makes a choice. 
+Once an option is selected, select() returns an integer representing the position of the chosen option (starting at 1 for the first item). 
+This returned value is then passed into the switch statement, which evaluates the number and executes the corresponding case block to provide specific feedback or actions for each choice.
+</code_explanation>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
 *prompt("<option>"{,"<option>",...})
 </syntax>
 <description>
@@ -3229,57 +3265,1939 @@ end;
 </example_code>
 </description>
 ---------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
-
----------------------- Breakline ----------------------
 <syntax>
-*select("<option>"{,"<option>",...})
+*getguildname(<guild id>)
 </syntax>
+
 <description>
-This function is a handy replacement for 'menu' for some specific cases where
-you don't want a complex label structure - like, for example, asking simple yes-
-no questions. It will return the number of menu option picked, starting with 1.
-Like 'menu', it will also set the variable @menu to contain the option the user
-picked.
+This function returns a guild's name given an ID number. If there is no such guild, "null" will be returned.
 
 <example_code>
-prontera,150,150,4	script	MenuNPC	115,{
-	mes "[Menu NPC]";
-	mes "Please choose an option:";
-	switch(select("Option 1:Option 2:Option 3")) {
-		case 1:
-			mes "You selected Option 1.";
-			break;
-		case 2:
-			mes "You selected Option 2.";
-			break;
-		case 3:
-			mes "You selected Option 3.";
-			break;
+mes "The guild " + getguildname(10007) + " are all nice people.";
+</example_code>
+<example_code>
+// Get the attached player's guild name
+.@guild_id = getcharid(2);
+if (.@guild_id)
+    mes "Your guild is: " + getguildname(.@guild_id);
+else
+    mes "You are not in a guild.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getguildmember <guild id>{,<type>{,<array_variable>}};
+</syntax>
+
+<description>
+This command will find all members of a specified guild and returns their names (or character id or account id depending on the value of type) into an array of temporary global variables.
+
+Upon executing this:
+- $@guildmembername$[] is a global temporary string array which contains all the names of these guild members (only set when type is 0 or not specified)
+- $@guildmembercid[] is a global temporary number array which contains the character id of these guild members (only set when type is 1)
+- $@guildmemberaid[] is a global temporary number array which contains the account id of these guild members (only set when type is 2)
+- $@guildmembercount is the number of guild members that were found.
+
+The guild members will be found regardless of whether they are online or offline. Note that the names come in no particular order.
+
+Be sure to use $@guildmembercount to go through this array, and not getarraysize, because it is not cleared between runs of getguildmember.
+
+If array_variable is set, the result will be stored to that variable instead using a global variable.
+
+For usage examples, see getpartymember.
+
+<example_code>
+// Get all member names of guild with ID 10007
+getguildmember 10007;
+mes "Guild has " + $@guildmembercount + " members.";
+for (.@i = 0; .@i < $@guildmembercount; .@i++)
+    mes "Member " + (.@i + 1) + ": " + $@guildmembername$[.@i];
+</example_code>
+<example_code>
+// Get character IDs of guild members using type 1
+getguildmember 10007, 1;
+for (.@i = 0; .@i < $@guildmembercount; .@i++)
+    mes "Character ID: " + $@guildmembercid[.@i];
+</example_code>
+<example_code>
+// Store result in custom array variable
+getguildmember 10007, 0, .@my_guild_members$;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getguildmaster(<guild id>)
+</syntax>
+
+<description>
+This function returns the name of the master of the guild which has the specified ID number. If there is no such guild, "null" will be returned.
+
+<example_code>
+// Prints the guild master of guild 10007, whoever that might be
+mes getguildmaster(10007) + " runs " + getguildname(10007);
+</example_code>
+<example_code>
+// Checks if the character is the guild master of the specified guild
+.@GID = getcharid(2);
+if (.@GID == 0) {
+    mes "Sorry, you are not in a guild.";
+    close;
+}
+if (strcharinfo(0) != getguildmaster(.@GID)) {
+    mes "Sorry, you don't own the guild you are in.";
+    close;
+}
+mes "Welcome, guild master of " + getguildname(.@GID);
+close;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getguildmasterid(<guild id>)
+</syntax>
+
+<description>
+This function will return the character ID number of the guild master of the guild specified by the ID. Returns 0 if the character is not a guild master of any guild.
+
+<example_code>
+// Get guild master's character ID for guild 10007
+.@master_cid = getguildmasterid(10007);
+mes "Guild master's character ID: " + .@master_cid;
+
+// Check if attached player is the guild master of their guild
+.@GID = getcharid(2);
+if (.@GID && getcharid(0) == getguildmasterid(.@GID))
+    mes "You are the guild master!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getguildinfo(<guild ID>, <type>);
+</syntax>
+
+<description>
+This function will look up and return the requested type of guild information.
+
+Types:
+<example_code>
+GUILDINFO_NAME              // Guild's Name
+GUILDINFO_LEVEL             // Guild's Level
+GUILDINFO_AVERAGELEVEL      // Guild's Average Level
+GUILDINFO_ONLINECOUNT       // Guild's Online Member Count
+GUILDINFO_MEMBERCOUNT       // Guild's Current Member Count
+GUILDINFO_MAXMEMBERCOUNT    // Guild's Max Member Count
+GUILDINFO_EXP               // Guild's Current EXP
+GUILDINFO_NEXTEXP           // Guild's Required EXP to Level
+GUILDINFO_MASTERID          // Guild Master Character ID
+GUILDINFO_MASTERNAME        // Guild Master Name
+</example_code>
+Note: Make sure to use the requestguildinfo script command to load the guild data from the char-server.
+
+<example_code>
+// Newly formed guild example
+.@gid = 1234;
+
+getguildinfo(.@gid, GUILDINFO_LEVEL); // Returns 0
+
+requestguildinfo(.@gid);
+getguildinfo(.@gid, GUILDINFO_LEVEL); // Returns current guild level
+</example_code>
+<example_code>
+// Get various guild info for attached player's guild
+.@gid = getcharid(2);
+if (.@gid) {
+    mes "Guild Name: " + getguildinfo(.@gid, GUILDINFO_NAME);
+    mes "Guild Level: " + getguildinfo(.@gid, GUILDINFO_LEVEL);
+    mes "Member Count: " + getguildinfo(.@gid, GUILDINFO_MEMBERCOUNT) + "/" + getguildinfo(.@gid, GUILDINFO_MAXMEMBERCOUNT);
+    mes "Online Members: " + getguildinfo(.@gid, GUILDINFO_ONLINECOUNT);
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*is_guild_leader({<guild ID>})
+</syntax>
+
+<description>
+This command will return true if the player attached to the script is the leader of his/her guild, or, if a guild ID is specified, of that guild.
+
+<example_code>
+// Check if attached player is their own guild's leader
+if (is_guild_leader())
+    mes "You are the leader of your guild!";
+else
+    mes "You are not the guild leader.";
+
+// Check if attached player is the leader of guild 10007
+if (is_guild_leader(10007))
+    mes "You are the leader of guild 10007!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getcastlename("<map name>")
+</syntax>
+
+<description>
+This function returns the name of the castle when given the map name for that castle. The data is read from db/castle_db.yml.
+
+<example_code>
+// Get castle name from map name
+.@castle_name$ = getcastlename("prontera");
+mes "The castle on this map is: " + .@castle_name$;
+
+// Get castle name for a specific map
+.@name$ = getcastlename("aldeg_cas01");
+mes "Castle name: " + .@name$;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getcastledata("<map name>",<type of data>)
+</syntax>
+
+<description>
+The getcastledata function returns the castle ownership information for the castle referred to by its map name. Castle information is stored in the guild_castle SQL table.
+
+The setcastledata command will behave identically, but instead of returning values for the specified types of accessible data, it will alter them and cause them to be sent to the char-server for storage.
+
+Changing Guild ID or Castle Defense will trigger additional actions, like recalculating guardians' HP.
+
+Types of data correspond to guild_castle table columns:
+<example_code>
+CD_GUILD_ID          // Guild ID.
+CD_CURRENT_ECONOMY   // Castle Economy score.
+CD_CURRENT_DEFENSE   // Castle Defense score.
+CD_INVESTED_ECONOMY  // Number of times the economy was invested in today.
+CD_INVESTED_DEFENSE  // Number of times the defense was invested in today.
+CD_NEXT_TIME         // unused
+CD_PAY_TIME          // unused
+CD_CREATE_TIME       // unused
+CD_ENABLED_KAFRA     // Is 1 if a Kafra was hired for this castle, 0 otherwise.
+CD_ENABLED_GUARDIAN0 // Is 1 if the 1st guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN1 // Is 1 if the 2nd guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN2 // Is 1 if the 3rd guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN3 // Is 1 if the 4th guardian is present (Archer Guardian)
+CD_ENABLED_GUARDIAN4 // Is 1 if the 5th guardian is present (Archer Guardian)
+CD_ENABLED_GUARDIAN5 // Is 1 if the 6th guardian is present (Knight Guardian)
+CD_ENABLED_GUARDIAN6 // Is 1 if the 7th guardian is present (Knight Guardian)
+CD_ENABLED_GUARDIAN7 // Is 1 if the 8th guardian is present (Knight Guardian)
+</example_code>
+All types of data have their meaning determined by War of Emperium scripts, with exception of:
+- CD_GUILD_ID that is always considered ID of the guild that owns the castle,
+- CD_CURRENT_DEFENSE that is used in Guardians & Emperium HP calculations,
+- CD_ENABLED_GUARDIANX that is always considered to hold guardian presence bits.
+
+<example_code>
+// Get guild ID that owns the castle on prontera map
+.@guild_id = getcastledata("prontera", CD_GUILD_ID);
+if (.@guild_id)
+    mes "Castle is owned by guild: " + getguildname(.@guild_id);
+else
+    mes "This castle is not owned by any guild.";
+
+// Get castle economy and defense
+.@economy = getcastledata("aldeg_cas01", CD_CURRENT_ECONOMY);
+.@defense = getcastledata("aldeg_cas01", CD_CURRENT_DEFENSE);
+mes "Economy: " + .@economy + ", Defense: " + .@defense;
+
+// Set castle data (enable Kafra for the castle)
+setcastledata "prontera", CD_ENABLED_KAFRA, 1;
+
+// Invest in economy
+.@invested = getcastledata("prontera", CD_INVESTED_ECONOMY);
+setcastledata "prontera", CD_INVESTED_ECONOMY, .@invested + 1;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setcastledata "<map name>",<type of data>,<value>;
+</syntax>
+
+<description>
+The getcastledata function returns the castle ownership information for the castle referred to by its map name. Castle information is stored in the guild_castle SQL table.
+
+The setcastledata command will behave identically, but instead of returning values for the specified types of accessible data, it will alter them and cause them to be sent to the char-server for storage.
+
+Changing Guild ID or Castle Defense will trigger additional actions, like recalculating guardians' HP.
+
+Types of data correspond to guild_castle table columns:
+<example_code>
+CD_GUILD_ID          // Guild ID.
+CD_CURRENT_ECONOMY   // Castle Economy score.
+CD_CURRENT_DEFENSE   // Castle Defense score.
+CD_INVESTED_ECONOMY  // Number of times the economy was invested in today.
+CD_INVESTED_DEFENSE  // Number of times the defense was invested in today.
+CD_NEXT_TIME         // unused
+CD_PAY_TIME          // unused
+CD_CREATE_TIME       // unused
+CD_ENABLED_KAFRA     // Is 1 if a Kafra was hired for this castle, 0 otherwise.
+CD_ENABLED_GUARDIAN0 // Is 1 if the 1st guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN1 // Is 1 if the 2nd guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN2 // Is 1 if the 3rd guardian is present (Soldier Guardian)
+CD_ENABLED_GUARDIAN3 // Is 1 if the 4th guardian is present (Archer Guardian)
+CD_ENABLED_GUARDIAN4 // Is 1 if the 5th guardian is present (Archer Guardian)
+CD_ENABLED_GUARDIAN5 // Is 1 if the 6th guardian is present (Knight Guardian)
+CD_ENABLED_GUARDIAN6 // Is 1 if the 7th guardian is present (Knight Guardian)
+CD_ENABLED_GUARDIAN7 // Is 1 if the 8th guardian is present (Knight Guardian)
+</example_code>
+All types of data have their meaning determined by War of Emperium scripts, with exception of:
+- CD_GUILD_ID that is always considered ID of the guild that owns the castle,
+- CD_CURRENT_DEFENSE that is used in Guardians & Emperium HP calculations,
+- CD_ENABLED_GUARDIANX that is always considered to hold guardian presence bits.
+
+<example_code>
+// Get guild ID that owns the castle on prontera map
+.@guild_id = getcastledata("prontera", CD_GUILD_ID);
+if (.@guild_id)
+    mes "Castle is owned by guild: " + getguildname(.@guild_id);
+else
+    mes "This castle is not owned by any guild.";
+
+// Get castle economy and defense
+.@economy = getcastledata("aldeg_cas01", CD_CURRENT_ECONOMY);
+.@defense = getcastledata("aldeg_cas01", CD_CURRENT_DEFENSE);
+mes "Economy: " + .@economy + ", Defense: " + .@defense;
+
+// Set castle data (enable Kafra for the castle)
+setcastledata "prontera", CD_ENABLED_KAFRA, 1;
+
+// Invest in economy
+.@invested = getcastledata("prontera", CD_INVESTED_ECONOMY);
+setcastledata "prontera", CD_INVESTED_ECONOMY, .@invested + 1;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getgdskilllv(<guild id>,<skill id>)
+*getgdskilllv(<guild id>,"<skill name>")
+</syntax>
+
+<description>
+This function returns the level of the skill <skill id> of the guild <guild id>. If the guild does not have that skill, 0 is returned. If the guild does not exist, -1 is returned.
+
+Refer to db/(pre-)re/skill_db.yml for the full list of skills. (GD_* are guild skills)
+
+<example_code>
+// Get guild ID of attached player
+.@guild_id = getcharid(2);
+if (.@guild_id) {
+    // Check guild skill level by ID (GD_EXTENSION = guild extension skill)
+    .@skill_lv = getgdskilllv(.@guild_id, 10001);
+    mes "Guild Extension level: " + .@skill_lv;
+
+    // Check by skill name
+    .@skill_lv = getgdskilllv(.@guild_id, "GD_EXTENSION");
+    mes "Guild Extension level (by name): " + .@skill_lv;
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*requestguildinfo <guild id>{,"<event label>"};
+</syntax>
+
+<description>
+This command requests the guild data from the char server and merrily continues with the execution. Whenever the guild information becomes available (which happens instantly if the guild information is already in memory, or later, if it isn't and the map server has to wait for the char server to reply) it will run the specified event as in a donpcevent call.
+
+<example_code>
+// Request guild info for guild 10007 with callback event
+requestguildinfo 10007, "GuildInfoCallback::OnGuildReady";
+
+// In the callback label:
+GuildInfoCallback:
+    .@guild_id = 10007;
+    mes "Guild Name: " + getguildinfo(.@guild_id, GUILDINFO_NAME);
+    mes "Guild Level: " + getguildinfo(.@guild_id, GUILDINFO_LEVEL);
+    mes "Member Count: " + getguildinfo(.@guild_id, GUILDINFO_MEMBERCOUNT);
+    end;
+
+// Request without event (just preloads data)
+requestguildinfo 10007;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getmapguildusers("<map name>",<guild id>)
+</syntax>
+
+<description>
+Returns the amount of characters from the specified guild on the given map.
+
+<example_code>
+mes "You have " + getmapguildusers("prontera", getcharid(2)) + " guild members in Prontera.";
+</example_code>
+<example_code>
+// Check how many guild members are on a PVP map
+.@guild_id = getcharid(2);
+.@count = getmapguildusers("pvp_room", .@guild_id);
+mes "There are " + .@count + " guild members in the PVP room.";
+
+// Check another guild's presence on a map
+.@count = getmapguildusers("aldeg_cas01", 10007);
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getskilllv(<skill id>)
+*getskilllv("<skill name>")
+</syntax>
+
+<description>
+This function returns the level of the specified skill that the invoking character has. If they don't have the skill, 0 will be returned. The full list of character skills is available in db/(pre-)re/skill_db.yml.
+
+There are two main uses for this function: it can check whether the character has a skill or not, and it can tell you if the level is high enough.
+
+<example_code>
+if (getskilllv(152))
+    mes "You have got the skill Throw Stone";
+else
+    mes "You don't have Throw Stone";
+close;
+</example_code>
+<example_code>
+if (getskilllv(28) >= 5)
+    mes "Your heal lvl is 5 or more";
+else if (getskilllv(28) == 10)
+    mes "Your heal lvl has been maxed";
+else
+    mes "Your heal skill is below lvl 5";
+close;
+</example_code>
+<example_code>
+// Check by skill name
+if (getskilllv("AL_HEAL") >= 5)
+    mes "You have Heal level 5 or higher";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getskilllist({<char_id>});
+</syntax>
+
+<description>
+This command sets a bunch of arrays with a complete list of skills the invoking character has. Here's what you get:
+
+<example_code>
+@skilllist_id[]   // skill ids.
+@skilllist_lv[]   // skill levels.
+@skilllist_flag[] // see skill for the meaning of skill flags.
+@skilllist_count  // number of skills in the above arrays.
+</example_code>
+While getskilllv is probably more useful for most situations, this is the easiest way to store all the skills and make the character something else for a while. Advanced job for a day? This could also be useful to see how many skills a character has.
+
+This command does not count skills which are set as flag 4 (permanent granted) (ALL_BUYING_STORE/ALL_INCCARRY).
+
+<example_code>
+// Get and display attached player's skill list
+getskilllist;
+mes "You have " + @skilllist_count + " skills.";
+for (.@i = 0; .@i < @skilllist_count; .@i++) {
+    mes "Skill " + (.@i + 1) + ": ID " + @skilllist_id[.@i] + " Level " + @skilllist_lv[.@i];
+}
+
+// Get skill list for another character
+getskilllist(150001);
+.@count = @skilllist_count;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getrandmobid(<type>{,<flag>{,<level>}})
+</syntax>
+
+<description>
+This command returns a random monster ID from the random monster group. With <flag> you can apply certain restrictions on which monsters of the group can be returned. Returns 0 if one of the parameters is invalid or no monster could be found with the given parameters.
+
+Valid <type> are:
+
+<example_code>
+MOBG_BRANCH_OF_DEAD_TREE
+MOBG_PORING_BOX
+MOBG_BLOODY_DEAD_BRANCH
+MOBG_RED_POUCH_OF_SURPRISE
+MOBG_CLASSCHANGE
+MOBG_TAEKWON_MISSION
+</example_code>
+Valid <flag> are:
+
+<example_code>
+RMF_NONE            // 0x00 - Apply no flags
+RMF_DB_RATE         // 0x01 - Apply the summon success chance found in the list (otherwise get any monster from the db)
+RMF_CHECK_MOB_LV    // 0x02 - Apply a monster level check
+RMF_MOB_NOT_BOSS    // 0x04 - Selected monster should not be a Boss type (default) (except those from MOBG_BLOODY_DEAD_BRANCH)
+RMF_MOB_NOT_SPAWN   // 0x08 - Selected monster must have normal spawn
+RMF_MOB_NOT_PLANT   // 0x10 - Selected monster should not be a Plant type
+RMF_ALL             // 0xFF - Apply all flags
+</example_code>
+<example_code>
+// Get a random monster from Dead Branch group with default flags
+.@mob_id = getrandmobid(MOBG_BRANCH_OF_DEAD_TREE);
+</example_code>
+<example_code>
+// Get a random monster with level check and no boss monsters
+.@mob_id = getrandmobid(MOBG_BLOODY_DEAD_BRANCH, RMF_CHECK_MOB_LV | RMF_MOB_NOT_BOSS, 50);
+</example_code>
+<example_code>
+// Summon a random monster from Poring Box
+.@mob_id = getrandmobid(MOBG_PORING_BOX);
+if (.@mob_id)
+    monster "prontera", 0, 0, "--ja--", .@mob_id, 1;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getmonsterinfo(<mob ID>,<type>)
+*getmonsterinfo(<mob name>,<type>)
+</syntax>
+
+<description>
+This function will look up the monster with the specified <mob ID> or <mob name> in the mob database and return the info set by <type> argument. It will return -1 if there is no such monster (or the type value is invalid), or "null" if you requested the monster's name.
+
+Valid types are:
+
+<example_code>
+MOB_NAME // monster's japanese name, if there is no such monster "null" is returned
+MOB_LV // monster's level
+MOB_MAXHP // monster's maximum hp
+MOB_BASEEXP // monster's base experience
+MOB_JOBEXP // monster's job experience
+MOB_ATK1 // monster's atk
+MOB_ATK2 // monster's atk2
+MOB_DEF // monster's def
+MOB_MDEF // monster's mdef
+MOB_RES // monster's res
+MOB_MRES // monster's mres
+MOB_STR // monster's str
+MOB_AGI // monster's agi
+MOB_VIT // monster's vit
+MOB_INT // monster's int
+MOB_DEX // monster's dex
+MOB_LUK // monster's luk
+MOB_RANGE // monster's range
+MOB_RANGE2 // monster's range2
+MOB_RANGE3 // monster's range3
+MOB_SIZE // monster's size
+MOB_RACE // monster's race
+MOB_ELEMENT // monster's element (doesn't return the element level, only the element ID)
+MOB_MODE // monster's mode
+MOB_MVPEXP // monster's mvp experience
+MOB_ID // monster's ID
+</example_code>
+For more details, see the sample in doc/sample/getmonsterinfo.txt.
+
+<example_code>
+// Get Poring's name
+.@name$ = getmonsterinfo(1002, MOB_NAME);
+mes "Monster name: " + .@name$;
+
+// Get Poring's level and HP
+.@lv = getmonsterinfo(1002, MOB_LV);
+.@hp = getmonsterinfo(1002, MOB_MAXHP);
+mes "Poring: Level " + .@lv + ", HP " + .@hp;
+
+// Get monster info by name
+.@exp = getmonsterinfo("Poring", MOB_BASEEXP);
+mes "Poring gives " + .@exp + " base EXP.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getmobdrops(<mob id>)
+</syntax>
+
+<description>
+This command will find all drops of the specified mob and return the item IDs and drop percentages into arrays of temporary global variables. getmobdrops returns 1 if successful and 0 if the mob ID doesn't exist.
+
+Upon executing this:
+
+<example_code>
+$@MobDrop_item[] // is a global temporary number array which contains the item IDs of the monster's drops.
+
+$@MobDrop_rate[] // is a global temporary number array which contains the drop percentages of each item. (1 = .01%)
+
+$@MobDrop_nosteal[] // is a global temporary number array which contains the StealProtected flag of each item. (default false)
+
+$@MobDrop_randomopt[] // is a global temporary number array which contains the random option group ID of each item. (default 0)
+
+$@MobDrop_count // is the number of item drops found.
+</example_code>
+Be sure to use $@MobDrop_count to go through the arrays, and not getarraysize, because the temporary global arrays are not cleared between runs of getmobdrops. If a mob with 7 item drops is looked up, the arrays would have 7 elements. But if another mob is looked up and it only has 5 item drops, the server will not clear the arrays for you, overwriting the values instead. So in addition to returning the 5 item drops, the 6th and 7th elements from the last call remain, and you will get 5+2 item drops, of which the last 2 don't belong to the new mob. $@MobDrop_count will always contain the correct number (5), unlike getarraysize() which would return 7 in this case.
+
+<example_code>
+// get a Mob ID from the user
+input .@mob_id;
+
+if (getmobdrops(.@mob_id)) {    // getmobdrops returns 1 on success
+    // immediately copy global temporary variables into scope variables,
+    // since we don't know when getmobdrops will get called again for
+    // another mob, overwriting your global temporary variables
+    .@count = $@MobDrop_count;
+    copyarray .@item[0], $@MobDrop_item[0], .@count;
+    copyarray .@rate[0], $@MobDrop_rate[0], .@count;
+
+    mes getmonsterinfo(.@mob_id, MOB_NAME) + " - " + .@count + " drops found:";
+    for (.@i = 0; .@i < .@count; .@i++) {
+        mes .@item[.@i] + " (" + getitemname(.@item[.@i]) + ") " + .@rate[.@i]/100 + ((.@rate[.@i]%100 < 10) ? ".0" : ".") + .@rate[.@i]%100 + "%";
+    }
+} else {
+    mes "Unknown monster ID.";
+}
+close;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*skillpointcount({<char_id>})
+</syntax>
+
+<description>
+Returns the total amount of skill points a character possesses (SkillPoint + SP's used in skills). This command can be used to check the currently attached character's total amount of skill points. This means the skill points used in skills are counted, and added to SkillPoints (number of skill points not used). This command does not count skills which are set as flag 4 (permanent granted) (ALL_BUYING_STORE/ALL_INCCARRY).
+
+<example_code>
+.@skillPoints = skillpointcount();
+mes "You have " + .@skillPoints + " skill points in total!";
+</example_code>
+<example_code>
+if (skillpointcount() > 20)
+    mes "Wow, you have more than 20 Skill Points in total!";
+</example_code>
+<example_code>
+// Get skill point count for another character
+.@total = skillpointcount(150001);
+mes "That character has " + .@total + " total skill points.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getscrate(<effect type>,<base rate>{,<GID>})
+</syntax>
+
+<description>
+This function will return the chance of a status effect affecting the invoking character, in percent, modified by their current defense against said status. The base rate is the base chance of the status effect being inflicted, in percent.
+
+You can see the full list of available effect types you can possibly inflict in src/map/script_constants.hpp under Eff_.
+
+<example_code>
+prontera,150,150,4	script	BlindNPC	111,{
+	mes "[Blind NPC]";
+	mes "Let's test your luck!";
+	next;
+
+	// User's logic: 50% base chance to apply blind
+	if (rand(100) > getscrate(Eff_Blind, 50)) {
+		goto BlindHimNow;
+	} else {
+		mes "You were lucky this time!";
+		close;
 	}
+
+BlindHimNow:
+	mes "You have been blinded!";
+	// Apply Blind status for 10 seconds (10000ms)
+	sc_start SC_BLIND, 10000, 0;
 	close;
 }
 </example_code>
-<code_explanation>
-The provided script creates a simple interactive menu for players. 
-The select() command is the core of this interaction; it displays a list of options separated by colons and pauses the script until the player makes a choice. 
-Once an option is selected, select() returns an integer representing the position of the chosen option (starting at 1 for the first item). 
-This returned value is then passed into the switch statement, which evaluates the number and executes the corresponding case block to provide specific feedback or actions for each choice.
-</code_explanation>
+<example_code>
+// Calculate actual chance to poison a player with base 30% chance
+.@chance = getscrate(Eff_Poison, 30);
+mes "Actual poison chance: " + .@chance + "%";
+
+// Check for another character
+.@chance = getscrate(Eff_Sleep, 25, 150001);
+</example_code>
 </description>
+---------------------- Breakline ----------------------
+<syntax>
+*playerattached()
+</syntax>
+
+<description>
+Returns the ID of the player currently attached to the script. It will return 0 if no one is attached, or if the attached player no longer exists on the map server. It is wise to check for the attached player in script functions that deal with timers as there's no guarantee the player will still be logged on when the timer triggers. Note that the ID of a player is actually their account ID.
+
+<example_code>
+// Check if a player is attached before proceeding
+if (!playerattached()) {
+    end;
+}
+
+// In a timer callback or function
+.@aid = playerattached();
+if (.@aid) {
+    // Player is still online, attach and continue
+    attachrid(.@aid);
+    mes "Welcome back!";
+} else {
+    // Player logged out
+    end;
+}
+</example_code>
+<example_code>
+prontera,150,150,4	script	RewardNPC	111,{
+	mes "[Reward NPC]";
+	mes "Wait 10 seconds and I will give you a gift!";
+	close2;
+	
+	// Start a timer for 10 seconds (10000ms)
+	addtimer 10000, strnpcinfo(3) + "::OnGiveReward";
+	end;
+
+OnGiveReward:
+	// Check if the player is still online and attached
+	.@aid = playerattached();
+	if (!.@aid) {
+		end;
+	}
+
+	// Re-attach the player to the script
+	attachrid(.@aid);
+	
+	// Grant the reward
+	getitem 501, 1; // Red Potion
+	dispbottom "You received a Red Potion as a reward!";
+	end;
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*getattachedrid()
+</syntax>
+
+<description>
+Returns RID from the running script. The script may not be attached to any RID (like a floating script or function) and will return 0.
+
+<example_code>
+// Check if script has an attached RID
+if (!getattachedrid()) {
+    mes "No player is attached to this script.";
+    end;
+}
+mes "RID: " + getattachedrid();
+
+// In a function that may be called with or without a player
+.@rid = getattachedrid();
+if (.@rid)
+    mes "Player is attached with RID: " + .@rid;
+else
+    mes "No player attached (floating script).";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*isloggedin(<account id>{,<char id>})
+</syntax>
+
+<description>
+This function returns 1 if the specified account is logged in and 0 if they aren't. You can also pass the char id to check for both account and char id.
+
+<example_code>
+// Check if account ID 2000000 is logged in
+if (isloggedin(2000000))
+    mes "That account is currently online.";
+else
+    mes "That account is offline.";
+
+// Check both account and character ID
+if (isloggedin(2000000, 150001))
+    mes "Both account and character are online and match.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkweight(<item id>,<amount>{,<item id>,<amount>,<item id>,<amount>,...});
+*checkweight("<item name>",<amount>{,"<item name>",<amount>,"<item name>",<amount>,...});
+*checkweight2(<id_array>,<amount_array>);
+</syntax>
+
+<description>
+These functions will compute and return 1 if the total weight of the specified number of specific items does not exceed the invoking character's carrying capacity, and 0 otherwise. It is important to see if a player can carry the items you expect to give them, failing to do that may open your script up to abuse or create some very unfair errors.
+
+The functions, in addition to checking to see if the player is capable of holding a set amount of items, also ensure the player has room in their inventory for the item(s) they will be receiving.
+
+The second function (checkweight2) will check an array of items and amounts, and also returns 1 on success and 0 on failure.
+
+Like getitem, this function will also accept an english name from the database as an argument.
+
+<example_code>
+if (checkweight(512, 10)) {
+    getitem 512, 10;
+} else {
+    mes "Sorry, you cannot hold this amount of apples!";
+}
+</example_code>
+<example_code>
+setarray .@item[0], 512, 513, 514;
+setarray .@amount[0], 10, 5, 5;
+if (!checkweight2(.@item, .@amount)) {
+    mes "Sorry, you cannot hold this amount of fruit!";
+}
+</example_code>
+<example_code>
+// Check multiple items with checkweight
+if (checkweight(512, 10, 513, 5, 514, 3)) {
+    getitem 512, 10;
+    getitem 513, 5;
+    getitem 514, 3;
+} else {
+    mes "You cannot carry all these items!";
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*basicskillcheck()
+</syntax>
+
+<description>
+This function will return the state of the configuration option basic_skill_check in battle_athena.conf. It returns 1 if the option is enabled and 0 if it isn't. If the basic_skill_check option is enabled, which it is by default, characters must have a certain number of basic skill levels to sit, request a trade, use emotions, etc. Making your script behave differently depending on whether the characters must actually have the skill to do all these things might in some cases be required.
+
+<example_code>
+if (basicskillcheck()) {
+    if (getskilllv("NV_BASIC") >= 1)
+        mes "You can perform basic actions.";
+    else
+        mes "You need Basic Skill level 1 to do that.";
+} else {
+    mes "Basic skill checking is disabled on this server.";
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkoption(<option number>{,<char_id>})
+*checkoption1(<option number>{,<char_id>})
+*checkoption2(<option number>{,<char_id>})
+*setoption <option number>{,<flag>{,<char_id>}};
+</syntax>
+
+<description>
+The checkoption series of functions check for a so-called option that is set on the invoking character. Options are used to store status conditions and a lot of other non-permanent character data of the yes-no kind. For most common cases, it is better to use checkcart, checkfalcon, checkriding and other similar functions, but there are some options which you cannot get at this way. They return 1 if the option is set and 0 if the option is not set.
+
+Option numbers valid for the first (option) version of this command are:
+
+0x1       - Sight in effect.
+0x2       - Hide in effect.
+0x4       - Cloaking in effect.
+0x8       - Cart number 1 present.
+0x10      - Falcon present.
+0x20      - Peco Peco present.
+0x40      - GM Perfect Hide in effect.
+0x80      - Cart number 2 present.
+0x100     - Cart number 3 present.
+0x200     - Cart number 4 present.
+0x400     - Cart number 5 present.
+0x800     - Orc head present.
+0x1000    - The character is wearing a wedding sprite.
+0x2000    - Ruwach is in effect.
+0x4000    - Chasewalk in effect.
+0x8000    - Flying or Xmas suit.
+0x10000   - Sighttrasher.
+0x100000  - Warg present.
+0x200000  - The character is riding a warg.
+
+Option numbers valid for the second version (opt1) of this command are:
+
+1 - Petrified.
+2 - Frozen.
+3 - Stunned.
+4 - Sleeping.
+6 - Petrifying (the state where you can still walk)
+
+Option numbers valid for the third version (opt2) of this command are:
+
+0x1  - Poisoned.
+0x2  - Cursed.
+0x4  - Silenced.
+0x8  - Signum Crucis (plays a howl-like sound effect, but otherwise no visible effects are displayed)
+0x10 - Blinded.
+0x80 - Deadly poisoned.
+
+Option numbers (except for opt1) are bit-masks - you can add them up to check for several states, but the functions will return true if at least one of them is in effect.
+
+setoption will set options on the invoking character. There are no second and third versions of this command, so you can only change the values in the first list (cloak, cart, ruwach, etc). If flag is 1 (default when omitted), the option will be added to what the character currently has; if 0, the option is removed.
+
+This is definitely not a complete list of available option flag numbers. Ask a core developer (or read the source: src/map/status.hpp) for the full list.
+
+<example_code>
+// Check if character has a cart
+if (checkoption(0x8))
+    mes "You have a cart!";
+</example_code>
+<example_code>
+// Check if character is poisoned
+if (checkoption2(0x1))
+    mes "You are poisoned!";
+</example_code>
+<example_code>
+// Check if character is frozen
+if (checkoption1(2))
+    mes "You are frozen!";
+</example_code>
+<example_code>
+// Add falcon to character
+setoption 0x10;
+// Remove falcon from character
+setoption 0x10, 0;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkoption1(<option number>{,<char_id>})
+</syntax>
+
+<description>
+The checkoption series of functions check for a so-called option that is set on the invoking character. Options are used to store status conditions and a lot of other non-permanent character data of the yes-no kind. For most common cases, it is better to use checkcart, checkfalcon, checkriding and other similar functions, but there are some options which you cannot get at this way. They return 1 if the option is set and 0 if the option is not set.
+
+Option numbers valid for the first (option) version of this command are:
+
+0x1       - Sight in effect.
+0x2       - Hide in effect.
+0x4       - Cloaking in effect.
+0x8       - Cart number 1 present.
+0x10      - Falcon present.
+0x20      - Peco Peco present.
+0x40      - GM Perfect Hide in effect.
+0x80      - Cart number 2 present.
+0x100     - Cart number 3 present.
+0x200     - Cart number 4 present.
+0x400     - Cart number 5 present.
+0x800     - Orc head present.
+0x1000    - The character is wearing a wedding sprite.
+0x2000    - Ruwach is in effect.
+0x4000    - Chasewalk in effect.
+0x8000    - Flying or Xmas suit.
+0x10000   - Sighttrasher.
+0x100000  - Warg present.
+0x200000  - The character is riding a warg.
+
+Option numbers valid for the second version (opt1) of this command are:
+
+1 - Petrified.
+2 - Frozen.
+3 - Stunned.
+4 - Sleeping.
+6 - Petrifying (the state where you can still walk)
+
+Option numbers valid for the third version (opt2) of this command are:
+
+0x1  - Poisoned.
+0x2  - Cursed.
+0x4  - Silenced.
+0x8  - Signum Crucis (plays a howl-like sound effect, but otherwise no visible effects are displayed)
+0x10 - Blinded.
+0x80 - Deadly poisoned.
+
+Option numbers (except for opt1) are bit-masks - you can add them up to check for several states, but the functions will return true if at least one of them is in effect.
+
+setoption will set options on the invoking character. There are no second and third versions of this command, so you can only change the values in the first list (cloak, cart, ruwach, etc). If flag is 1 (default when omitted), the option will be added to what the character currently has; if 0, the option is removed.
+
+This is definitely not a complete list of available option flag numbers. Ask a core developer (or read the source: src/map/status.hpp) for the full list.
+
+<example_code>
+// Check if character has a cart
+if (checkoption(0x8))
+    mes "You have a cart!";
+</example_code>
+<example_code>
+// Check if character is poisoned
+if (checkoption2(0x1))
+    mes "You are poisoned!";
+</example_code>
+<example_code>
+// Check if character is frozen
+if (checkoption1(2))
+    mes "You are frozen!";
+</example_code>
+<example_code>
+// Add falcon to character
+setoption 0x10;
+// Remove falcon from character
+setoption 0x10, 0;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkoption2(<option number>{,<char_id>})
+</syntax>
+
+<description>
+The checkoption series of functions check for a so-called option that is set on the invoking character. Options are used to store status conditions and a lot of other non-permanent character data of the yes-no kind. For most common cases, it is better to use checkcart, checkfalcon, checkriding and other similar functions, but there are some options which you cannot get at this way. They return 1 if the option is set and 0 if the option is not set.
+
+Option numbers valid for the first (option) version of this command are:
+
+0x1       - Sight in effect.
+0x2       - Hide in effect.
+0x4       - Cloaking in effect.
+0x8       - Cart number 1 present.
+0x10      - Falcon present.
+0x20      - Peco Peco present.
+0x40      - GM Perfect Hide in effect.
+0x80      - Cart number 2 present.
+0x100     - Cart number 3 present.
+0x200     - Cart number 4 present.
+0x400     - Cart number 5 present.
+0x800     - Orc head present.
+0x1000    - The character is wearing a wedding sprite.
+0x2000    - Ruwach is in effect.
+0x4000    - Chasewalk in effect.
+0x8000    - Flying or Xmas suit.
+0x10000   - Sighttrasher.
+0x100000  - Warg present.
+0x200000  - The character is riding a warg.
+
+Option numbers valid for the second version (opt1) of this command are:
+
+1 - Petrified.
+2 - Frozen.
+3 - Stunned.
+4 - Sleeping.
+6 - Petrifying (the state where you can still walk)
+
+Option numbers valid for the third version (opt2) of this command are:
+
+0x1  - Poisoned.
+0x2  - Cursed.
+0x4  - Silenced.
+0x8  - Signum Crucis (plays a howl-like sound effect, but otherwise no visible effects are displayed)
+0x10 - Blinded.
+0x80 - Deadly poisoned.
+
+Option numbers (except for opt1) are bit-masks - you can add them up to check for several states, but the functions will return true if at least one of them is in effect.
+
+setoption will set options on the invoking character. There are no second and third versions of this command, so you can only change the values in the first list (cloak, cart, ruwach, etc). If flag is 1 (default when omitted), the option will be added to what the character currently has; if 0, the option is removed.
+
+This is definitely not a complete list of available option flag numbers. Ask a core developer (or read the source: src/map/status.hpp) for the full list.
+
+<example_code>
+// Check if character has a cart
+if (checkoption(0x8))
+    mes "You have a cart!";
+</example_code>
+<example_code>
+// Check if character is poisoned
+if (checkoption2(0x1))
+    mes "You are poisoned!";
+</example_code>
+<example_code>
+// Check if character is frozen
+if (checkoption1(2))
+    mes "You are frozen!";
+</example_code>
+<example_code>
+// Add falcon to character
+setoption 0x10;
+// Remove falcon from character
+setoption 0x10, 0;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setoption <option number>{,<flag>{,<char_id>}};
+*checkoption(<option number>{,<char_id>})
+*checkoption1(<option number>{,<char_id>})
+*checkoption2(<option number>{,<char_id>})
+</syntax>
+
+<description>
+The checkoption series of functions check for a so-called option that is set on the invoking character. Options are used to store status conditions and a lot of other non-permanent character data of the yes-no kind. For most common cases, it is better to use checkcart, checkfalcon, checkriding and other similar functions, but there are some options which you cannot get at this way. They return 1 if the option is set and 0 if the option is not set.
+
+Option numbers valid for the first (option) version of this command are:
+
+0x1       - Sight in effect.
+0x2       - Hide in effect.
+0x4       - Cloaking in effect.
+0x8       - Cart number 1 present.
+0x10      - Falcon present.
+0x20      - Peco Peco present.
+0x40      - GM Perfect Hide in effect.
+0x80      - Cart number 2 present.
+0x100     - Cart number 3 present.
+0x200     - Cart number 4 present.
+0x400     - Cart number 5 present.
+0x800     - Orc head present.
+0x1000    - The character is wearing a wedding sprite.
+0x2000    - Ruwach is in effect.
+0x4000    - Chasewalk in effect.
+0x8000    - Flying or Xmas suit.
+0x10000   - Sighttrasher.
+0x100000  - Warg present.
+0x200000  - The character is riding a warg.
+
+Option numbers valid for the second version (opt1) of this command are:
+
+1 - Petrified.
+2 - Frozen.
+3 - Stunned.
+4 - Sleeping.
+6 - Petrifying (the state where you can still walk)
+
+Option numbers valid for the third version (opt2) of this command are:
+
+0x1  - Poisoned.
+0x2  - Cursed.
+0x4  - Silenced.
+0x8  - Signum Crucis (plays a howl-like sound effect, but otherwise no visible effects are displayed)
+0x10 - Blinded.
+0x80 - Deadly poisoned.
+
+Option numbers (except for opt1) are bit-masks - you can add them up to check for several states, but the functions will return true if at least one of them is in effect.
+
+setoption will set options on the invoking character. There are no second and third versions of this command, so you can only change the values in the first list (cloak, cart, ruwach, etc). If flag is 1 (default when omitted), the option will be added to what the character currently has; if 0, the option is removed.
+
+This is definitely not a complete list of available option flag numbers. Ask a core developer (or read the source: src/map/status.hpp) for the full list.
+
+<example_code>
+// Check if character has a cart
+if (checkoption(0x8))
+    mes "You have a cart!";
+</example_code>
+<example_code>
+// Check if character is poisoned
+if (checkoption2(0x1))
+    mes "You are poisoned!";
+</example_code>
+<example_code>
+// Check if character is frozen
+if (checkoption1(2))
+    mes "You are frozen!";
+</example_code>
+<example_code>
+// Add falcon to character
+setoption 0x10;
+// Remove falcon from character
+setoption 0x10, 0;
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setcart {<type>{,<char_id>}};
+*checkcart({<char_id>});
+</syntax>
+
+<description>
+If <type> is 0, this command will remove the cart from the character. Otherwise, it gives the invoking character a cart. The cart given will be cart number <type> and will work regardless of whether the character is a merchant class or not.
+
+Note: the character needs to have the skill MC_PUSHCART to gain a cart.
+
+The accompanying function checkcart will return 1 if the invoking character has a cart (any kind of cart) and 0 if they don't.
+
+<example_code>
+if (checkcart())
+    mes "But you already have a cart!";
+</example_code>
+<example_code>
+// Give the character a cart (type 1)
+setcart 1;
+
+// Give a specific cart type (type 3)
+setcart 3;
+
+// Remove the character's cart
+setcart 0;
+
+// Check another character's cart
+if (checkcart(150001))
+    mes "That character has a cart.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkcart({<char_id>});
+*setcart {<type>{,<char_id>}};
+</syntax>
+
+<description>
+If <type> is 0, this command will remove the cart from the character. Otherwise, it gives the invoking character a cart. The cart given will be cart number <type> and will work regardless of whether the character is a merchant class or not.
+
+Note: the character needs to have the skill MC_PUSHCART to gain a cart.
+
+The accompanying function checkcart will return 1 if the invoking character has a cart (any kind of cart) and 0 if they don't.
+
+<example_code>
+if (checkcart())
+    mes "But you already have a cart!";
+</example_code>
+<example_code>
+// Give the character a cart (type 1)
+setcart 1;
+
+// Give a specific cart type (type 3)
+setcart 3;
+
+// Remove the character's cart
+setcart 0;
+
+// Check another character's cart
+if (checkcart(150001))
+    mes "That character has a cart.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setfalcon {<flag>{,<char_id>}};
+*checkfalcon({<char_id>});
+</syntax>
+
+<description>
+If <flag> is 0, this command will remove the falcon from the character. Otherwise, it gives the invoking character a falcon. The falcon will be there regardless of whether the character is a hunter or not. It will (probably) not have any useful effects for non-hunters though.
+
+Note: the character needs to have the skill HT_FALCON to gain a falcon.
+
+The accompanying function checkfalcon will return 1 if the invoking character has a falcon and 0 if they don't.
+
+<example_code>
+if (checkfalcon())
+    mes "But you already have a falcon!";
+</example_code>
+<example_code>
+// Give the character a falcon
+setfalcon 1;
+
+// Remove the character's falcon
+setfalcon 0;
+
+// Check another character's falcon
+if (checkfalcon(150001))
+    mes "That character has a falcon.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkfalcon({<char_id>});
+*setfalcon {<flag>{,<char_id>}};
+</syntax>
+
+<description>
+If <flag> is 0, this command will remove the falcon from the character. Otherwise, it gives the invoking character a falcon. The falcon will be there regardless of whether the character is a hunter or not. It will (probably) not have any useful effects for non-hunters though.
+
+Note: the character needs to have the skill HT_FALCON to gain a falcon.
+
+The accompanying function checkfalcon will return 1 if the invoking character has a falcon and 0 if they don't.
+
+<example_code>
+if (checkfalcon())
+    mes "But you already have a falcon!";
+</example_code>
+<example_code>
+// Give the character a falcon
+setfalcon 1;
+
+// Remove the character's falcon
+setfalcon 0;
+
+// Check another character's falcon
+if (checkfalcon(150001))
+    mes "That character has a falcon.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setriding {<flag>{,<char_id>}};
+*checkriding({<char_id>});
+</syntax>
+
+<description>
+If <flag> is 0, this command will remove the mount from the character. Otherwise, it gives the invoking character a PecoPeco (if they are a Knight series class), a GrandPeco (if they are a Crusader series class), or a Gryphon (if they are a Royal Guard). Unlike setfalcon and setcart, this will not work at all if they aren't of a class which can ride.
+
+Note: the character needs to have the skill KN_RIDING to gain a mount.
+
+The accompanying function checkriding will return 1 if the invoking character is riding a bird and 0 if they aren't.
+
+<example_code>
+if (checkriding())
+    mes "PLEASE leave your bird outside! No riding birds on the floor here!";
+</example_code>
+<example_code>
+// Give the character a mount (if class allows)
+setriding 1;
+
+// Remove the character's mount
+setriding 0;
+
+// Check another character's mount
+if (checkriding(150001))
+    mes "That character is riding a mount.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkriding({<char_id>});
+*setriding {<flag>{,<char_id>}};
+</syntax>
+
+<description>
+If <flag> is 0, this command will remove the mount from the character. Otherwise, it gives the invoking character a PecoPeco (if they are a Knight series class), a GrandPeco (if they are a Crusader series class), or a Gryphon (if they are a Royal Guard). Unlike setfalcon and setcart, this will not work at all if they aren't of a class which can ride.
+
+Note: the character needs to have the skill KN_RIDING to gain a mount.
+
+The accompanying function checkriding will return 1 if the invoking character is riding a bird and 0 if they aren't.
+
+<example_code>
+if (checkriding())
+    mes "PLEASE leave your bird outside! No riding birds on the floor here!";
+</example_code>
+<example_code>
+// Give the character a mount (if class allows)
+setriding 1;
+
+// Remove the character's mount
+setriding 0;
+
+// Check another character's mount
+if (checkriding(150001))
+    mes "That character is riding a mount.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setdragon {<color>{,<char_id>}};
+*checkdragon({<char_id>});
+</syntax>
+
+<description>
+The setdragon function toggles mounting a dragon for the invoking character. It will return 1 if successful, 0 otherwise.
+
+The available colors are:
+1 - Green Dragon (default)
+2 - Brown Dragon
+3 - Gray Dragon
+4 - Blue Dragon
+5 - Red Dragon
+
+Note: the character must be a Rune Knight and have the skill RK_DRAGONTRAINING to gain a mount.
+
+The accompanying function checkdragon will return 1 if the invoking character is riding a dragon and 0 if they aren't.
+
+<example_code>
+// Mount a green dragon (color 1)
+setdragon;
+
+// Mount a red dragon
+setdragon 5;
+
+// Remove the dragon mount
+setdragon 0;
+
+// Check if character is riding a dragon
+if (checkdragon())
+    mes "You are riding a dragon!";
+else
+    mes "You are not riding a dragon.";
+
+// Check another character's dragon mount
+if (checkdragon(150001))
+    mes "That character is riding a dragon.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkdragon({<char_id>});
+*setdragon {<color>{,<char_id>}};
+</syntax>
+
+<description>
+The setdragon function toggles mounting a dragon for the invoking character. It will return 1 if successful, 0 otherwise.
+
+The available colors are:
+1 - Green Dragon (default)
+2 - Brown Dragon
+3 - Gray Dragon
+4 - Blue Dragon
+5 - Red Dragon
+
+Note: the character must be a Rune Knight and have the skill RK_DRAGONTRAINING to gain a mount.
+
+The accompanying function checkdragon will return 1 if the invoking character is riding a dragon and 0 if they aren't.
+
+<example_code>
+// Mount a green dragon (color 1)
+setdragon;
+
+// Mount a red dragon
+setdragon 5;
+
+// Remove the dragon mount
+setdragon 0;
+
+// Check if character is riding a dragon
+if (checkdragon())
+    mes "You are riding a dragon!";
+else
+    mes "You are not riding a dragon.";
+
+// Check another character's dragon mount
+if (checkdragon(150001))
+    mes "That character is riding a dragon.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setmadogear {<flag>{,<type>{,<char_id>}}};
+*checkmadogear({<char_id>});
+</syntax>
+
+<description>
+If <flag> is false, this command will remove the mount from the character. Otherwise, it gives the invoking character a Mado (if they are a Mechanic and have the skill NC_MADOLICENCE).
+
+When using client version PACKETVER_MAIN_NUM >= 20191120 or PACKETVER_RE_NUM >= 20191106, the <type> flag can be used to specify a specific madogear.
+
+Types:
+MADO_ROBOT (default)
+MADO_SUIT
+
+The accompanying function checkmadogear will return 1 if the invoking character has a Mado and 0 if they don't.
+
+<example_code>
+// Give the character a Mado (type ROBOT)
+setmadogear 1;
+
+// Give a Mado SUIT instead
+setmadogear 1, MADO_SUIT;
+
+// Remove the Mado
+setmadogear 0;
+
+// Check if character has a Mado
+if (checkmadogear())
+    mes "You are in a Mado!";
+else
+    mes "You are not in a Mado.";
+
+// Check another character's Mado
+if (checkmadogear(150001))
+    mes "That character has a Mado.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkmadogear({<char_id>});
+*setmadogear {<flag>{,<type>{,<char_id>}}};
+</syntax>
+
+<description>
+If <flag> is false, this command will remove the mount from the character. Otherwise, it gives the invoking character a Mado (if they are a Mechanic and have the skill NC_MADOLICENCE).
+
+When using client version PACKETVER_MAIN_NUM >= 20191120 or PACKETVER_RE_NUM >= 20191106, the <type> flag can be used to specify a specific madogear.
+
+Types:
+MADO_ROBOT (default)
+MADO_SUIT
+
+The accompanying function checkmadogear will return 1 if the invoking character has a Mado and 0 if they don't.
+
+<example_code>
+// Give the character a Mado (type ROBOT)
+setmadogear 1;
+
+// Give a Mado SUIT instead
+setmadogear 1, MADO_SUIT;
+
+// Remove the Mado
+setmadogear 0;
+
+// Check if character has a Mado
+if (checkmadogear())
+    mes "You are in a Mado!";
+else
+    mes "You are not in a Mado.";
+
+// Check another character's Mado
+if (checkmadogear(150001))
+    mes "That character has a Mado.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*setmounting {<char_id>};
+*ismounting({<char_id>});
+</syntax>
+
+<description>
+The setmounting function toggles cash mount for the invoking character. It will return 1 if successful, 0 otherwise.
+
+Note: Character must not be mounting a non-cash mount (eg. dragon, peco, wug, etc.)
+
+The accompanying function ismounting will return 1 if the invoking character has a cash mount and 0 if they don't.
+
+<example_code>
+// Toggle cash mount for attached player
+setmounting;
+
+// Toggle cash mount for another character
+setmounting(150001);
+
+// Check if attached player has a cash mount
+if (ismounting())
+    mes "You are using a cash mount!";
+else
+    mes "You are not using a cash mount.";
+
+// Check another character's cash mount
+if (ismounting(150001))
+    mes "That character has a cash mount.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*ismounting({<char_id>});
+*setmounting {<char_id>};
+</syntax>
+
+<description>
+The setmounting function toggles cash mount for the invoking character. It will return 1 if successful, 0 otherwise.
+
+Note: Character must not be mounting a non-cash mount (eg. dragon, peco, wug, etc.)
+
+The accompanying function ismounting will return 1 if the invoking character has a cash mount and 0 if they don't.
+
+<example_code>
+// Toggle cash mount for attached player
+setmounting;
+
+// Toggle cash mount for another character
+setmounting(150001);
+
+// Check if attached player has a cash mount
+if (ismounting())
+    mes "You are using a cash mount!";
+else
+    mes "You are not using a cash mount.";
+
+// Check another character's cash mount
+if (ismounting(150001))
+    mes "That character has a cash mount.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkwug({<char_id>})
+</syntax>
+
+<description>
+This function will return 1 if the invoking character has a warg and 0 if they don't.
+
+<example_code>
+if (checkwug())
+    mes "You have a warg!";
+else
+    mes "You do not have a warg.";
+</example_code>
+<example_code>
+// Check another character's warg
+if (checkwug(150001))
+    mes "That character has a warg.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkvending({"<Player Name>"})
+</syntax>
+
+<description>
+Checks if the player is vending or has a buying store. Additionally, it gives you information about whether the player uses autotrade or not. Name is optional, and defaults to the attached player if omitted.
+
+The returned value is a bitmask of:
+0 = doesn't have a vending or buying store (which also means he can't use autotrade)
+1 = normal vending
+2 = using @autotrade
+4 = has a buying store
+
+<example_code>
+// This will check Aaron's state
+.@state = checkvending("Aaron");
+if (.@state & 1)
+    mes "Aaron is currently vending!";
+if (.@state & 4)
+    mes "Aaron has a buying store!";
+if (.@state & 2)
+    mes "Aaron is autotrading!";
+</example_code>
+<example_code>
+// Check attached player's vending state
+.@state = checkvending();
+if (.@state)
+    mes "You are currently using a shop feature.";
+else
+    mes "You have no vending or buying store active.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkchatting({"<Player Name>"})
+</syntax>
+
+<description>
+Checks if the player is in a chatroom. Name is optional, and defaults to the attached player if omitted. Returns 1 if they are in a chat room, 0 if they are not.
+
+<example_code>
+// This will check if the attached player is in a chat room or not
+if (checkchatting())
+    mes "You are currently in a chat room!";
+</example_code>
+<example_code>
+// Check another player
+if (checkchatting("Aaron"))
+    mes "Aaron is in a chat room.";
+else
+    mes "Aaron is not in a chat room.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkidle({"<Player Name>"})
+</syntax>
+
+<description>
+Returns the time, in seconds, that the specified player has been idle. Name is optional, and defaults to the attached player if omitted.
+
+<example_code>
+// Check attached player's idle time
+.@idle = checkidle();
+mes "You have been idle for " + .@idle + " seconds.";
+
+// Check another player's idle time
+.@idle = checkidle("Aaron");
+if (.@idle > 300)
+    mes "Aaron has been idle for over 5 minutes!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkidlehom({"<Player Name>"})
+</syntax>
+
+<description>
+Returns the time, in seconds, that the specified player has been idle for homunculus item/exp share. Name is optional, and defaults to the attached player if omitted.
+
+This will only work if hom_idle_no_share and idletime_hom_option are enabled (see conf/battle/homunc.conf).
+
+<example_code>
+// Check attached player's homunculus idle time
+.@idle = checkidlehom();
+mes "Your homunculus has been idle for " + .@idle + " seconds.";
+
+// Check another player's homunculus idle time
+.@idle = checkidlehom("Aaron");
+if (.@idle > 60)
+    mes "Aaron's homunculus has been idle for over a minute.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkidlemer({"<Player Name>"})
+</syntax>
+
+<description>
+Returns the time, in seconds, that the specified player has been idle for mercenary item share. Name is optional, and defaults to the attached player if omitted.
+
+This will only work if mer_idle_no_share and idletime_mer_option are enabled (see conf/battle/drops.conf).
+
+<example_code>
+// Check attached player's mercenary idle time
+.@idle = checkidlemer();
+mes "Your mercenary has been idle for " + .@idle + " seconds.";
+
+// Check another player's mercenary idle time
+.@idle = checkidlemer("Aaron");
+if (.@idle > 120)
+    mes "Aaron's mercenary has been idle for over 2 minutes.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*agitcheck()
+*agitcheck2()
+*agitcheck3()
+</syntax>
+
+<description>
+These functions will let you check whether the server is currently in WoE:FE mode (agitcheck()), WoE:SE mode (agitcheck2()), or WoE:TE mode (agitcheck3()) and will return true if War of Emperium is on and false if it isn't.
+
+<example_code>
+if (agitcheck())
+    mes "War of Emperium (FE) is currently active!";
+else if (agitcheck2())
+    mes "War of Emperium (SE) is currently active!";
+else if (agitcheck3())
+    mes "War of Emperium (TE) is currently active!";
+else
+    mes "No War of Emperium is active at this time.";
+</example_code>
+<example_code>
+// Grant special access only during WoE
+if (agitcheck() || agitcheck2() || agitcheck3()) {
+    mes "Welcome, defender! Special WoE services available.";
+} else {
+    mes "Come back during War of Emperium.";
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*agitcheck2()
+</syntax>
+
+<description>
+These functions will let you check whether the server is currently in WoE:FE mode (agitcheck()), WoE:SE mode (agitcheck2()), or WoE:TE mode (agitcheck3()) and will return true if War of Emperium is on and false if it isn't.
+
+<example_code>
+if (agitcheck())
+    mes "War of Emperium (FE) is currently active!";
+else if (agitcheck2())
+    mes "War of Emperium (SE) is currently active!";
+else if (agitcheck3())
+    mes "War of Emperium (TE) is currently active!";
+else
+    mes "No War of Emperium is active at this time.";
+</example_code>
+<example_code>
+// Grant special access only during WoE
+if (agitcheck() || agitcheck2() || agitcheck3()) {
+    mes "Welcome, defender! Special WoE services available.";
+} else {
+    mes "Come back during War of Emperium.";
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*agitcheck3()
+</syntax>
+
+<description>
+These functions will let you check whether the server is currently in WoE:FE mode (agitcheck()), WoE:SE mode (agitcheck2()), or WoE:TE mode (agitcheck3()) and will return true if War of Emperium is on and false if it isn't.
+
+<example_code>
+if (agitcheck())
+    mes "War of Emperium (FE) is currently active!";
+else if (agitcheck2())
+    mes "War of Emperium (SE) is currently active!";
+else if (agitcheck3())
+    mes "War of Emperium (TE) is currently active!";
+else
+    mes "No War of Emperium is active at this time.";
+</example_code>
+<example_code>
+// Grant special access only during WoE
+if (agitcheck() || agitcheck2() || agitcheck3()) {
+    mes "Welcome, defender! Special WoE services available.";
+} else {
+    mes "Come back during War of Emperium.";
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*isnight()
+*isday()
+</syntax>
+
+<description>
+These functions will return 1 or 0 depending on whether the server is in night mode or day mode. isnight returns 1 if it's night and 0 if it isn't, isday returns 1 if it's day and 0 if it isn't. They can be used interchangeably, pick the one you like more.
+
+<example_code>
+// These two are equivalent
+if (isday())
+    mes "I only prowl in the night.";
+if (isnight() != 1)
+    mes "I only prowl in the night.";
+</example_code>
+<example_code>
+if (isnight())
+    mes "The moon is out. Beware of monsters!";
+else
+    mes "The sun is shining. A beautiful day!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*isday()
+*isnight()
+</syntax>
+
+<description>
+These functions will return 1 or 0 depending on whether the server is in night mode or day mode. isnight returns 1 if it's night and 0 if it isn't, isday returns 1 if it's day and 0 if it isn't. They can be used interchangeably, pick the one you like more.
+
+<example_code>
+// These two are equivalent
+if (isday())
+    mes "I only prowl in the night.";
+if (isnight() != 1)
+    mes "I only prowl in the night.";
+</example_code>
+<example_code>
+if (isnight())
+    mes "The moon is out. Beware of monsters!";
+else
+    mes "The sun is shining. A beautiful day!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkre(<type>)
+</syntax>
+
+<description>
+Checks if a renewal feature is enabled or not in renewal.hpp, and returns 1 if enabled and 0 for disabled.
+
+The renewal feature to check is determined by the number <type>:
+0 - RENEWAL enabled (game renewal server mode)
+1 - RENEWAL_CAST (renewal cast time)
+2 - RENEWAL_DROP (renewal drop rate algorithms)
+3 - RENEWAL_EXP (renewal exp rate algorithms)
+4 - RENEWAL_LVDMG (renewal level modifier on damage)
+5 - RENEWAL_ASPD (renewal ASPD)
+
+<example_code>
+// Check if server is in renewal mode
+if (checkre(0))
+    mes "This is a Renewal server.";
+else
+    mes "This is a Pre-Renewal server.";
+
+// Check if renewal ASPD is enabled
+if (checkre(5))
+    mes "Renewal ASPD formulas are in use.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*isequipped(<id>{,<id>{,..}})
+</syntax>
+
+<description>
+This function will return 1 if the invoking character has all of the item IDs given equipped (if item/card IDs are passed, then it checks if the items/cards are inserted into slots in the equipment they are currently wearing). Theoretically there is no limit to the number of items that may be tested for at the same time. If even one of the items given is not equipped, 0 will be returned.
+
+The function was meant for item scripts to support the cards released by Gravity in February 2005, but it will work just fine in normal NPC scripts.
+
+<example_code>
+// (Poring, Santa Poring, Poporing, Marin)
+if (isequipped(4001, 4005, 4033, 4196))
+    mes "Wow! You're wearing a full complement of possible poring cards!";
+</example_code>
+<example_code>
+// (Poring)
+if (isequipped(4001))
+    mes "A poring card is useful, don't you think?";
+</example_code>
+<example_code>
+// Check if character has multiple specific cards equipped
+if (isequipped(4001, 4023))
+    mes "You have both Poring and Fabre cards equipped!";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*isequippedcnt(<id>{,<id>{,..}})
+</syntax>
+
+<description>
+This function is similar to isequipped, but instead of returning 1 or 0, it will return the amount of items/cards equipped that were found on the invoking character from the given list.
+
+<example_code>
+if (isequippedcnt(4001, 4005, 4033, 4196) == 4)
+    mes "Finally got all 4 cards from poring monster types?";
+</example_code>
+<example_code>
+// Count how many of the listed cards are equipped
+.@count = isequippedcnt(4001, 4023, 4045, 4067);
+mes "You have " + .@count + " out of 4 specified cards equipped.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*checkequipedcard(<item id>)
+</syntax>
+
+<description>
+This function will return 1 if the item/card specified by its item ID number is inserted into any equipment they have in their inventory, currently equipped or not.
+
+<example_code>
+// Check if player has a Poring card inserted in any of their equipment
+if (checkequipedcard(4001))
+    mes "You have a Poring card inserted in some piece of equipment!";
+else
+    mes "You don't have any Poring card inserted in your gear.";
+</example_code>
+<example_code>
+// Check multiple cards
+if (checkequipedcard(4001) && checkequipedcard(4023))
+    mes "You have both Poring and Fabre cards inserted somewhere.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*attachrid(<account ID>{,<force>})
+*detachrid;
+</syntax>
+
+<description>
+These commands allow the manipulation of the script's currently attached player. While attachrid allows attaching a different player by using their account ID for the parameter RID, detachrid makes the following commands run as if the script was never invoked by a player.
+
+The command returns false if the player cannot be attached (if the account is offline or does not exist), and true upon success.
+
+By default the command is executed with force, which causes it to attach the player even if they are currently attached to another script. Since this is not always the desired behavior, you can also specify false to the command and it will only return true if the player is online and was not attached to another script.
+
+<example_code>
+// Attach to another player by account ID (force mode, default)
+if (attachrid(2000000)) {
+    mes "You have been attached to account 2000000!";
+    detachrid;
+}
+</example_code>
+<example_code>
+// Attach only if player is not attached to another script
+if (attachrid(2000000, false)) {
+    mes "Successfully attached to offline player.";
+} else {
+    mes "Player is offline or attached to another script.";
+}
+</example_code>
+<example_code>
+// Detach the current player
+detachrid;
+mes "No player is now attached to this script.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+<syntax>
+*detachrid;
+*attachrid(<account ID>{,<force>})
+</syntax>
+
+<description>
+These commands allow the manipulation of the script's currently attached player. While attachrid allows attaching a different player by using their account ID for the parameter RID, detachrid makes the following commands run as if the script was never invoked by a player.
+
+The command returns false if the player cannot be attached (if the account is offline or does not exist), and true upon success.
+
+By default the command is executed with force, which causes it to attach the player even if they are currently attached to another script. Since this is not always the desired behavior, you can also specify false to the command and it will only return true if the player is online and was not attached to another script.
+
+<example_code>
+// Attach to another player by account ID (force mode, default)
+if (attachrid(2000000)) {
+    mes "You have been attached to account 2000000!";
+    detachrid;
+}
+</example_code>
+<example_code>
+// Attach only if player is not attached to another script
+if (attachrid(2000000, false)) {
+    mes "Successfully attached to offline player.";
+} else {
+    mes "Player is offline or attached to another script.";
+}
+</example_code>
+<example_code>
+// Detach the current player
+detachrid;
+mes "No player is now attached to this script.";
+</example_code>
+</description>
+---------------------- Breakline ----------------------
+
+
 ---------------------- Breakline ----------------------
 
 
