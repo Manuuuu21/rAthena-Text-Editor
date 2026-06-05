@@ -923,22 +923,79 @@ function parseRathenaDocs() {
 
     const saveCommand = () => {
         if (currentCmd) {
-            let rawContent = currentContent.join('\n').trim();
-            // Escape HTML characters before adding our own tags
-            rawContent = rawContent
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-
-            const content = rawContent.split('\n').map(line => {
-                const leadingSpaces = line.match(/^\s+/);
-                if (leadingSpaces) {
-                    const indent = leadingSpaces[0].length * 6; // roughly 6px per space
-                    return `<div style="padding-left: ${indent}px; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 11px; opacity: 0.9; margin: 2px 0;">${line.trim()}</div>`;
+            // Trim leading/trailing blank lines or visual separator decorators (like hyphens or equals signs)
+            let rawLines = [...currentContent];
+            while (rawLines.length > 0) {
+                const last = rawLines[rawLines.length - 1].trim();
+                if (last === "" || /^[=\-_~#\*]{3,}$/.test(last)) {
+                    rawLines.pop();
+                } else {
+                    break;
                 }
-                return `<div style="margin: 4px 0;">${line}</div>`;
+            }
+            while (rawLines.length > 0) {
+                const first = rawLines[0].trim();
+                if (first === "" || /^[=\-_~#\*]{3,}$/.test(first)) {
+                    rawLines.shift();
+                } else {
+                    break;
+                }
+            }
+
+            // Identify section headers underlined by dashes/equals and generic isolated dividers
+            const processedLines = [];
+            for (let j = 0; j < rawLines.length; j++) {
+                const line = rawLines[j];
+                const trimmed = line.trim();
+                
+                if (/^[=\-_~#\*]{3,}$/.test(trimmed)) {
+                    // This is a decorative divider line
+                    if (processedLines.length > 0 && !processedLines[processedLines.length - 1].isHeading) {
+                        // Mark previous line as structured Section Heading
+                        processedLines[processedLines.length - 1].isHeading = true;
+                    } else {
+                        // Otherwise, treat as an internal thin horizontal divider
+                        processedLines.push({
+                            text: `<hr style="border: 0; border-top: 1px solid var(--tooltipDivider); margin: 10px 0; opacity: 0.35;" />`,
+                            isDivider: true,
+                            originalText: line
+                        });
+                    }
+                } else {
+                    processedLines.push({
+                        text: line,
+                        originalText: line,
+                        isHeading: false
+                    });
+                }
+            }
+
+            // Assemble into beautifully formatted HTML blocks
+            const content = processedLines.map(item => {
+                if (item.isDivider) {
+                    return item.text;
+                }
+                
+                // Escape HTML tags while preserving our own structured formatting
+                let text = item.text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+                
+                const leadingSpaces = item.originalText.match(/^\s+/);
+                const indent = leadingSpaces ? leadingSpaces[0].length * 6 : 0;
+                
+                if (item.isHeading) {
+                    return `<div style="padding-left: ${indent}px; color: var(--tooltipHeaderColor); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 12px; margin-bottom: 6px; font-family: 'Inter', sans-serif;">${text.trim()}</div>`;
+                }
+                
+                if (leadingSpaces) {
+                    return `<div style="padding-left: ${indent}px; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 11px; opacity: 0.9; margin: 3px 0; white-space: pre-wrap; word-break: break-all; line-height: 1.45;">${text.trim()}</div>`;
+                }
+                
+                return `<div style="margin: 4px 0; font-size: 11.5px; opacity: 0.95; white-space: pre-wrap; word-break: break-word; line-height: 1.5;">${text}</div>`;
             }).join('');
             
             let formattedSignature = currentSignature
@@ -949,11 +1006,11 @@ function parseRathenaDocs() {
             formattedSignature = formattedSignature.replace(new RegExp("^\\*" + currentCmd, "i"), "<strong>*"+currentCmd+"</strong>");
 
             if (rathenaDocMap[currentCmd]) {
-                // Append signature and content if it's a variation
+                // Append signature and content if it is a variation
                 rathenaDocMap[currentCmd].signature += "<br/>" + formattedSignature;
-                // Add a divider if content is different
+                // Add a divider if the content behaves as a separate variant description
                 if (rathenaDocMap[currentCmd].description.indexOf(content.substring(0, 50)) === -1) {
-                    rathenaDocMap[currentCmd].description += "<br/><hr style='border:0; border-top:1px dashed var(--tooltipDivider); margin:8px 0;'/><br/>" + content;
+                    rathenaDocMap[currentCmd].description += `<div style="margin: 12px 0; border-top: 1px dashed var(--tooltipDivider); opacity: 0.4;"></div>` + content;
                 }
             } else {
                 rathenaDocMap[currentCmd] = {
@@ -1036,11 +1093,11 @@ class TokenTooltip {
                 this.currentToken = token.value;
                 
                 const html = `
-                    <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 5px; margin-bottom: 8px; color: var(--tooltipHeaderColor); font-size: 13px;">
+                    <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 6px; margin-bottom: 10px; color: var(--tooltipHeaderColor); font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.4;">
                         ${docData.signature}
                     </div>
-                    <div style="line-height: 1.4;">
-                        ${docData.description.replace(/\n/g, '<br/>')}
+                    <div style="line-height: 1.5; font-size: 11.5px; font-family: 'Inter', -apple-system, sans-serif;">
+                        ${docData.description}
                     </div>
                 `;
                 
