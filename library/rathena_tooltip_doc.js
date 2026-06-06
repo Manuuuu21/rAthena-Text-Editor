@@ -5396,6 +5396,8 @@ showscript "I am the guardian of this place!", 100001, AREA;
 ---------------------- Breakline ----------------------
 <syntax>
 *warp "<map name>",<x>,<y>{,<char id>};
+
+<from mapname>,<fromX>,<fromY>,<facing>%TAB%warp%TAB%<warp name>%TAB%<spanx>,<spany>,<to mapname>,<toX>,<toY>
 </syntax>
 
 <description>
@@ -5427,6 +5429,16 @@ warp "SavePoint", 0, 0;
 <example_code>
 // Warp another character by ID
 warp "prontera", 150, 180, 150001;
+</example_code>
+Or a warp portal
+
+<example_code>
+// A warp portal from Prontera to Payon.
+// Players entering the 3x3 area at prontera (150, 150) will be warped to payon (100, 100).
+prontera,150,150,0  warp    WarpToPayon 1,1,payon,100,100
+
+// Another warp portal from Payon back to Prontera.
+payon,103,103,0 warp    WarpToProntera  1,1,prontera,153,153
 </example_code>
 </description>
 ---------------------- Breakline ----------------------
