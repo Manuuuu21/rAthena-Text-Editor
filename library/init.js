@@ -519,6 +519,12 @@ class Tab {
                 this.sendMessage();
             }
         });
+        this.elements.chatInput.addEventListener('input', () => {
+            if (this.visibleCount !== 10) {
+                this.visibleCount = 10;
+                this.updateMessageVisibility(false);
+            }
+        });
         this.elements.clearChatBtn.addEventListener('click', () => openClearChatModal());
         
         // scroll up pagination to show more chat history
@@ -734,6 +740,9 @@ class Tab {
                 this.lastSavedCode = currentCode;
             }
             this.updateTabIcon();
+
+            this.visibleCount = 10;
+            this.updateMessageVisibility(false);
 
             if (diffIndex !== null) {
                 this.addMessage("I made some changes", 'user');
@@ -2022,7 +2031,10 @@ Follow these guidelines at all times:
 
 4. Code Editor Context: 
   1. The user's current code from their editor will be provided within \`\`\`...\`\`\` in their prompt. Use this for context.
-5. Response Formatting:  
+
+5. JSON Object Structure:
+  1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
+5.1 Response Formatting:
   General Rules:
     1. **Never use HTML tags** like <ul>, <ol>, or others — except:
         1. <h4> headers for clarity (explained below) if just needed.
@@ -2037,19 +2049,17 @@ Follow these guidelines at all times:
     3. If a user asks you to remove code, respond only with: \`\`\`// Code removed\`\`\`
     4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please find the generated script in your editor.</p>\`
     5. Do not use &lt; or &gt; in the codeblock (\`\`\`).
-5.1 JSON Object Structure:
-  1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
 
 5.2 \`thinking\` field:
   1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
-  2. Use **ordered bullet** to explain in summarize the step-by-step guides or concepts when necessary.
+  2. Use **<ul> or <ol>** to explain in summarize the step-by-step guides or concepts if necessary.
 
 5.3 \`response\` field:
     1. **Response**:
       1. You have already created the following plan to guide your response base on 'thinking'. Please execute the thinking plan now.
       2. Start with a brief answer to user first followed by answer to user input/question. use proper NPC structure code script if requested.
     2. **Detailed Format Summarize Explanation**:
-      1. Use **paragraphs** to explain the answer thoroughly.
+      1. Use **paragraphs** to explain the answer.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
       3. inside <code></code> Do not use "<" or ">" instead use "&lt;" or "&gt;".
       4. Alway provide to user a full/completed code/script response and wrap it in 1 codeblock if requested.
@@ -2063,14 +2073,14 @@ Follow these guidelines at all times:
       6. Use proper new vertical line break (\n), spacing, indent and script structure.
       7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
       8. Do not use &lt; or &gt; in the codeblock (\`\`\`).
-      3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
-      3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
-      3.3: Instead of saying *"Here is the script"*, always write or revise this:
-        1. "<p>Please kindly look for the generated script inside editor.</p>" when you are generating script.
-    5. **End with a Follow-up**:
+    3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
+    3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
+    3.3: Instead of saying *"Here is the script"*, always write or revise this:
+    1. "<p>Please kindly look for the generated script inside editor.</p>" when you are generating script.
+6. **End with a Follow-up**:
       1. <p>Always conclude a polite follow-up question or invitation based on the user's input.</p> Do not include this inside the nested list.
     ---
-    # 7.3 Special Rules/Instructions:
+7. Special Rules/Instructions:
       1. Use single backticks \` \` to refer to single **commands, code keywords**, or **parameters** during explanation.
       2. If the user's request is **unclear**, include a clarification question instead of assuming their intent.
       3. Strictly complete your explanation.
