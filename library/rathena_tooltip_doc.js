@@ -20530,4 +20530,29 @@ setdialogpospercent(0, 0);
 </example_code>
 </description>
 ---------------------- Breakline ----------------------
+<syntax>
+*OnInit:
+    <code>
+end;
+</syntax>
+<description>
+OnInit will execute every time the scripts loading is complete, including when
+they are reloaded with @reloadscript or @reloadnpcfile command. 
+
+<example_code>
+-   script  InitializationExample   -1,{
+    OnTouch:
+        mes "[System]";
+        mes "The current global counter is: " + $GlobalCounter;
+        close;
+
+    OnInit:
+        // Initialize global variables when the script loads
+        $GlobalCounter = 0;
+        debugmes "InitializationExample: GlobalCounter has been reset to 0.";
+        end;
+}
+</example_code>
+</description>
+---------------------- Breakline ----------------------
 `;
