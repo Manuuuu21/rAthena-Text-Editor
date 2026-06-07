@@ -703,7 +703,7 @@ class Tab {
     }
 
     async saveToFile() {
-        if (!this.isDirty()) {
+        if (!this.isDirty() && this.fileHandle) {
             return;
         }
         const currentCode = this.editor.getValue();
