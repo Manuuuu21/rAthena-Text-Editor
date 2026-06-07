@@ -351,6 +351,7 @@ class Tab {
         this.chatSessionNum = 0;
         this.typeWriterStatusForChatDone = true;
         this.snackbarTimeout = null;
+        this.visibleCount = 10;
 
         this.initDOM();
         this.initEditor();
@@ -520,6 +521,24 @@ class Tab {
         });
         this.elements.clearChatBtn.addEventListener('click', () => openClearChatModal());
         
+        // scroll up pagination to show more chat history
+        let isScrolledUpLoading = false;
+        this.elements.chatMessages.addEventListener('scroll', () => {
+            if (isScrolledUpLoading) return;
+            if (this.elements.chatMessages.scrollTop <= 5) {
+                const children = this.elements.chatMessages.children;
+                const total = children.length;
+                if (this.visibleCount < total) {
+                    isScrolledUpLoading = true;
+                    this.visibleCount = Math.min(total, this.visibleCount + 5);
+                    this.updateMessageVisibility(true);
+                    setTimeout(() => {
+                        isScrolledUpLoading = false;
+                    }, 50);
+                }
+            }
+        });
+
         // lazy loading
         const firstDot = this.elements.loadingIndicator.querySelector('.first_dot');
         const secondDot = this.elements.loadingIndicator.querySelector('.second_dot');
@@ -537,12 +556,15 @@ class Tab {
         this.elements.content.classList.add("active");
         this.editor.resize();
         this.updateHistoryButtons();
+        this.visibleCount = 10;
+        this.updateMessageVisibility(false);
         document.title = `${this.name} - rAthena Text Editor`;
         // Use timeout to prevent scroll-to-focus issues during tab transition
         setTimeout(() => {
           if (this.elements.chatInput) {
             this.elements.chatInput.focus({ preventScroll: true });
           }
+          this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
         }, 50);
     }
 
@@ -745,6 +767,7 @@ class Tab {
     }
 
     clearChat(showSnack = true) {
+        this.visibleCount = 10;
         this.elements.chatMessages.innerHTML = '';
         this.chatHistory = [
             {
@@ -768,6 +791,7 @@ class Tab {
             return;
         }
 
+        this.visibleCount = 10;
         this.chatSessionNum++;
         this.timerCounterForGlobal = 0;
         let timer = setInterval(() => this.timerCounterForGlobal++, 1000);
@@ -900,6 +924,8 @@ class Tab {
         div.appendChild(bubble);
         this.elements.chatMessages.appendChild(div);
 
+        this.updateMessageVisibility(false);
+
         if (sender === 'ai' || sender === 'restored') {
             this.typeWriterEffect(bubble, text);
         } else {
@@ -912,6 +938,39 @@ class Tab {
             bubble.appendChild(pre);
         }
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+    }
+
+    updateMessageVisibility(preserveScroll = false) {
+        const children = Array.from(this.elements.chatMessages.children);
+        if (children.length === 0) return;
+
+        if (!this.visibleCount) {
+            this.visibleCount = 10;
+        }
+
+        const total = children.length;
+        const hideCount = Math.max(0, total - this.visibleCount);
+
+        let oldScrollHeight = 0;
+        let oldScrollTop = 0;
+        if (preserveScroll) {
+            oldScrollHeight = this.elements.chatMessages.scrollHeight;
+            oldScrollTop = this.elements.chatMessages.scrollTop;
+        }
+
+        for (let i = 0; i < total; i++) {
+            const child = children[i];
+            if (i < hideCount) {
+                child.style.display = 'none';
+            } else {
+                child.style.display = '';
+            }
+        }
+
+        if (preserveScroll) {
+            const newScrollHeight = this.elements.chatMessages.scrollHeight;
+            this.elements.chatMessages.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+        }
     }
 
     typeWriterEffect(element, text) {
