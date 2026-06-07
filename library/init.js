@@ -703,6 +703,9 @@ class Tab {
     }
 
     async saveToFile() {
+        if (!this.isDirty()) {
+            return;
+        }
         const currentCode = this.editor.getValue();
         const saveDate = new Date();
         try {
