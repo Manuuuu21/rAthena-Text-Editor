@@ -274,9 +274,48 @@ function closeClearChatModal() {
     document.getElementById('clearChatModal').style.display = 'none';
 }
 
+function openCloseTabConfirmModal(tabId, tabName, isUntitled) {
+    const modal = document.getElementById('closeTabConfirmModal');
+    const header = document.getElementById('closeTabConfirmHeader');
+    const message = document.getElementById('closeTabConfirmMessage');
+    const yesBtn = document.getElementById('closeTabYesBtn');
+    const noBtn = document.getElementById('closeTabNoBtn');
+
+    if (isUntitled) {
+        message.textContent = "New file has been modified, save changes?";
+    } else {
+        message.textContent = `${tabName} has been modified, save changes?`;
+    }
+
+    yesBtn.onclick = async () => {
+        closeCloseTabConfirmModal();
+        const tab = tabManager.tabs.find(t => t.id === tabId);
+        if (tab) {
+            try {
+                await tab.saveToFile();
+                tabManager.forceCloseTab(tabId);
+            } catch (err) {
+                console.error("Save failed or canceled:", err);
+            }
+        }
+    };
+
+    noBtn.onclick = () => {
+        closeCloseTabConfirmModal();
+        tabManager.forceCloseTab(tabId);
+    };
+
+    modal.style.display = 'flex';
+}
+
+function closeCloseTabConfirmModal() {
+    document.getElementById('closeTabConfirmModal').style.display = 'none';
+}
+
 window.onclick = function(event) {
   if (event.target.id == 'modalOverlay') closeModal();
   if (event.target.id == 'clearChatModal') closeClearChatModal();
+  if (event.target.id == 'closeTabConfirmModal') closeCloseTabConfirmModal();
 }
 
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
@@ -1729,6 +1768,20 @@ const tabManager = {
         const index = this.tabs.findIndex(t => t.id === id);
         if (index === -1) return;
         
+        const tab = this.tabs[index];
+        if (tab.isDirty()) {
+            const isUntitled = (tab.name === "Untitled");
+            openCloseTabConfirmModal(tab.id, tab.name, isUntitled);
+            return;
+        }
+
+        this.forceCloseTab(id);
+    },
+
+    forceCloseTab(id) {
+        const index = this.tabs.findIndex(t => t.id === id);
+        if (index === -1) return;
+        
         const [tab] = this.tabs.splice(index, 1);
         tab.elements.content.remove();
         
@@ -2009,9 +2062,8 @@ Follow these guidelines at all times:
   2. Base all scripts and information strictly on the provided rAthena documentation. Do not invent item IDs or variable constants. When possible, use known numerical IDs or defined constants for clarity.
   3. Maintain a friendly, helpful, and conversational tone. Keep responses concise and to the point. Do not repeat these instructions in your responses.
 
-2. Scripting Guidelines:
-  1. **Start with Script Header:** When creating a new NPC script structure, you must start a comment header block at the beginning. each new NPC should have with script header differently:
-    \`\`\`(No specific name of codeblock)
+2. Scripting Guidelines Rule:
+  1. **Start with Script Header:** When creating a new NPC script structure, you must start a comment header block at the beginning. Each new NPC should have a distinct script header:
     //===== rAthena Script =======================================
     //= Name of the NPC
     //===== By: rAthena AI Assistant ============================
@@ -2019,71 +2071,56 @@ Follow these guidelines at all times:
     //= Optional: Additional function description
     //============================================================
     The rest of the code here ...
-    \`\`\`
-  1.5 **Always wrap the script in codeblock eg. \`\`\`...\`\`\`**. No specific name of codeblock just wrap in triple backtick.
-  2. Do not modify, revise, or repeat the user's provided code unless they explicitly ask for a revision of that specific code.
-  3. When revising existing code, keep the full script intact and only change the necessary parts.
-  4. Please Use proper new vertical line break and indentation for all code, so that it is properly formatted and readable in any text editor.
-  5. Follow rAthena scripting standards and variable types (permanent, temporary, global, NPC, scope, account, character). always declare a variable in set or direct.
-  6. Use \`$\` for strings as per rAthena documentation.
-  7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
-  8. For complete scripts or NPCs intended for the editor, wrap the output in codeblock to trigger the script editor.
-  9. Use single backticks anytime for inline or short code references or variable names within chat.
-  10. Absolutely do **not** use double backticks under any circumstances.
-  11. If the user asks to remove the code, return only: \`\`\`// Code remove\`\`\`
+  2. **Always wrap the script in codeblock eg. \`\`\`...\`\`\`.** No specific name of codeblock just wrap in triple backtick.
+  3. Do not modify, revise, or repeat the user's provided code unless they explicitly ask for a revision of that specific code.
+  4. When revising existing code, keep the full script intact and only change the necessary parts.
+  5. Please use proper new vertical line break and indentation for all code, so that it is properly formatted and readable in any text editor. Do not write the whole script code in 1 line.
+  6. Follow rAthena scripting standards and variable types (permanent, temporary, global, NPC, scope, account, character). Always declare a variable in set or direct.
+  7. Use \`$\` for strings as per rAthena documentation.
+  8. Use literal tab characters '&Tab;' for tabs. Change the %TAB% to literal tab character ('&Tab;').
+  9. For complete scripts or NPCs intended for the editor, wrap the output in codeblock to trigger the script editor.
+  10. Use single backticks anytime for inline or short code references or variable names within chat.
+  11. Absolutely do **not** use double backticks under any circumstances.
+  12. If the user asks to remove the code, return only: \`\`\`// Code remove\`\`\`
 
-4. Code Editor Context: 
+3. Code Editor Context Rule: 
   1. The user's current code from their editor will be provided within \`\`\`...\`\`\` in their prompt. Use this for context.
 
-5. JSON Object Structure:
+4. JSON Object Structure Rule:
   1. Your response must be a JSON object with two fields: \`thinking\` and \`response\`.
-5.1 Response Formatting:
+
+5. Response Formatting Rule:
   General Rules:
     1. **Never use HTML tags** like <ul>, <ol>, or others — except:
-        1. <h4> headers for clarity (explained below) if just needed.
+        1. <h4> headers for clarity if just needed.
         2. <p> tags only in "response" for key remarks (e.g., pointing to the code in editor or for final follow-up).
     2. Use **clean ordered structure** (e.g., 1. → 1.1 → 1.1.1) when necessary for clarity.
-    3. Escape angle brackets **inside <code>** using \`&lt;\` and \`&gt;\` only when present in HTML-like code.
+    3. Escape angle brackets **inside <code>** using \`&lt;\` and \`&gt;\` only when present in HTML-like code. Do not use them in the triple backtick (\`\`\`) codeblock.
     4. **Do not include any hyperlinks.**
     5. Emojis may be used **minimally and meaningfully** to express your emotion as AI — never overuse.
-  Code Formatting:
-    1. Use single backticks ( \` \` ) for all inline code references, such as commands, keywords, or variable names.
-    2. Use triple backticks or wrap it in 1 codeblock ( \`\`\`codeblock\`\`\` ) only for complete, multi-line code blocks intended for the script editor.
-    3. If a user asks you to remove code, respond only with: \`\`\`// Code removed\`\`\`
-    4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please find the generated script in your editor.</p>\`
-    5. Do not use &lt; or &gt; in the codeblock (\`\`\`).
 
-5.2 \`thinking\` field:
-  1. Provide a summarize plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
-  2. Use **<ul> or <ol>** to explain in summarize the step-by-step guides or concepts if necessary.
+  Code Formatting Rule:
+    1. Use single backticks ( \`...\` ) for all inline code references, such as commands, keywords, or variable names. In showing syntax code do not use triple backticks!
+    2. Use triple backticks or wrap it in 1 codeblock ( \`\`\`...\`\`\` ) only for complete, multi-line code blocks intended for the script editor inside the JSON Object "response" field. Never use triple backticks anywhere else.
+    3. Do not wrap the entire explanation in triple backticks — only the actual code/script.
+    4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please kindly look for the generated script inside editor.</p>\`
 
-5.3 \`response\` field:
-    1. **Response**:
-      1. You have already created the following plan to guide your response base on 'thinking'. Please execute the thinking plan now.
-      2. Start with a brief answer to user first followed by answer to user input/question. use proper NPC structure code script if requested.
+6. \`thinking\` field Rule:
+  1. Provide a summarized plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
+  2. Use **<ul> or <ol>** to explain in summary the step-by-step guides or concepts if necessary.
+
+7. \`response\` field Rule:
+    1. **Response Execution**:
+      1. Execute the thinking plan. Start with a brief answer to user first followed by answer to user input/question. Use proper NPC structure code script if requested.
     2. **Detailed Format Summarize Explanation**:
       1. Use **paragraphs** to explain the answer.
       2. Use <h4> (without <ul> or <ol>) to break down sections, with emojis for visual clarity.
-      3. inside <code></code> Do not use "<" or ">" instead use "&lt;" or "&gt;".
-      4. Alway provide to user a full/completed code/script response and wrap it in 1 codeblock if requested.
-      5. Use **ordered lists** to explain in summarize the step-by-step guides or concepts when necessary.
-    3. **1 Code Blocks Generation for the script**:
-      1. If the user requests a full working script/code, **wrap it using triple backticks** (e.g., \`\`\`) inside the JSON Object "response" field.
-      2. When generating script, wrap in triple backtick.
-      3. *Never use triple backticks anywhere else except in the "response" field.*
-      4. Do **not** wrap the entire explanation in triple backticks — only the actual code/script.
-      5. In showing syntax code do not use triple backticks!.
-      6. Use proper new vertical line break (\n), spacing, indent and script structure.
-      7. Use literal tab characters '&Tab;' for tabs. change the %TAB% to literal tab character ('&Tab;').
-      8. Do not use &lt; or &gt; in the codeblock (\`\`\`).
-    3.1: Provide a summarize explanation of the code in plain text afterwards using bullet points or ordered nested lists.
-    3.2. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
-    3.3: Instead of saying *"Here is the script"*, always write or revise this:
-    1. "<p>Please kindly look for the generated script inside editor.</p>" when you are generating script.
-6. **End with a Follow-up**:
+      3. Provide a summarized explanation of the code in plain text afterwards using bullet points or ordered nested lists.
+      4. When explaining specific script command just purely explain it. Do not revise the existing codeblock.
+    3. **End with a Follow-up**:
       1. <p>Always conclude a polite follow-up question or invitation based on the user's input.</p> Do not include this inside the nested list.
-    ---
-7. Special Rules/Instructions:
+
+8. Special Rules/Instructions:
       1. Use single backticks \` \` to refer to single **commands, code keywords**, or **parameters** during explanation.
       2. If the user's request is **unclear**, include a clarification question instead of assuming their intent.
       3. Strictly complete your explanation.
