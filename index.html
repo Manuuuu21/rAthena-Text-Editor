@@ -62,6 +62,25 @@
     </div>
   </div>
 
+  <!-- Close Tab Confirmation Modal -->
+  <div class="modal-overlay" id="closeTabConfirmModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="closeTabConfirmHeader">Unsaved Changes</h2>
+        <button class="close-btn" onclick="closeCloseTabConfirmModal()">✖</button>
+      </div>
+      <hr/>
+      <div style="padding: 15px 0;">
+        <p id="closeTabConfirmMessage">New file has been modified, save changes?</p>
+        <div style="text-align: right; margin-top: 20px;">
+          <button id="closeTabYesBtn" style="background: #2ea043; color: white; border: none; padding: 7px 15px; border-radius: 8px; cursor: pointer; margin-right: 10px;">Yes</button>
+          <button id="closeTabNoBtn" style="background: #dc3545; color: white; border: none; padding: 7px 15px; border-radius: 8px; cursor: pointer; margin-right: 10px;">No</button>
+          <button class="cancel-btn" id="closeTabCancelBtn" onclick="closeCloseTabConfirmModal()" style="padding: 5px 15px; border-radius: 8px; cursor: pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div id="container">
   <div id="tabBar">
     <div id="tabsContainer"></div>
@@ -125,7 +144,6 @@
   <script src="library/ace/src-noconflict.1.41.0/ext-statusbar.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/theme-monokai.js"></script>
   <script src="library/ace/src-noconflict.1.41.0/theme-github_light_default.js"></script>
-
 
   <!-- Custom Highlighting Rules -->
   <script src="library/rathena-highlight-rules.js"></script>
