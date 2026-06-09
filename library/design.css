@@ -279,6 +279,7 @@ code {
   color: gray;
   border-left: 1px solid gray;
   padding: 0 0 0 15px;
+  margin-bottom: -20px;
 }
 .ai_thinking ul li, .ai_thinking ol li, .ai_thinking p, thinking p, thinking ol li, thinking ul li {
   font-size: 10px !important;

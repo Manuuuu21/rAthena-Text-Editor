@@ -950,7 +950,7 @@ class Tab {
             clearInterval(timer);
             let combined = '';
             if (thinking) {
-                combined += `<p class="ai_thought_textDesign" onclick="toggleThinking(this)">🤖 Thought in ${this.timerCounterForGlobal} seconds <span class="toggle-arrow" style="display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; transition: transform 0.2s ease; margin-left: 4px; pointer-events: none;"><svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></p>\n<div class="ai_thinking" style="display: none;">\n<thinking>\n${thinking}\n</thinking>\n<p style="color:gray;margin-top:6px;">Done</p>\n</div>`;
+                combined += `<p class="ai_thought_textDesign" onclick="toggleThinking(this)">🤖 Thought in ${this.timerCounterForGlobal} seconds <span class="toggle-arrow" style="display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; transition: transform 0.2s ease; margin-left: 4px; pointer-events: none;"><svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; display: block;"><polyline points="9 18 15 12 9 6"></polyline></svg></span></p>\n<div class="ai_thinking" style="display: none;">\n<thinking>\n${thinking}\n</thinking>\n<p style="color:gray;margin-top:6px;">Done</p>\n</div><br/><br/>`;
             }
             combined += chatDisplayMessageValue;
             this.addMessage(combined, 'ai');
