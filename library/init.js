@@ -292,8 +292,10 @@ function openCloseTabConfirmModal(tabId, tabName, isUntitled) {
         const tab = tabManager.tabs.find(t => t.id === tabId);
         if (tab) {
             try {
-                await tab.saveToFile();
-                tabManager.forceCloseTab(tabId);
+                const saved = await tab.saveToFile();
+                if (saved) {
+                    tabManager.forceCloseTab(tabId);
+                }
             } catch (err) {
                 console.error("Save failed or canceled:", err);
             }
@@ -743,7 +745,7 @@ class Tab {
 
     async saveToFile() {
         if (!this.isDirty() && this.fileHandle) {
-            return;
+            return true;
         }
         const currentCode = this.editor.getValue();
         const saveDate = new Date();
@@ -800,8 +802,10 @@ class Tab {
                               </div>`;
                 this.addMessage(aiMessage, 'ai');
             }
+            return true;
         } catch (err) {
             console.error("Save failed:", err);
+            return false;
         }
     }
 
