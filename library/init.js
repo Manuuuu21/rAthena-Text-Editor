@@ -545,6 +545,47 @@ class Tab {
             }
             const file = files[0];
 
+            // Try to get a FileSystemFileHandle for the dropped item
+            let handle = null;
+            if (e.dataTransfer.items && e.dataTransfer.items.length === 1) {
+                try {
+                    const item = e.dataTransfer.items[0];
+                    if (typeof item.getAsFileSystemHandle === "function") {
+                        handle = await item.getAsFileSystemHandle();
+                    }
+                } catch(err) {}
+            }
+
+            // Check if another tab already has this file open to avoid duplicates
+            let existingTab = null;
+            if (handle) {
+                for (const otherTab of tabManager.tabs) {
+                    if (otherTab.id === this.id) continue;
+                    if (otherTab.fileHandle) {
+                        try {
+                            if (await otherTab.fileHandle.isSameEntry(handle)) {
+                                existingTab = otherTab;
+                                break;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            } else {
+                const contents = await file.text();
+                for (const otherTab of tabManager.tabs) {
+                    if (otherTab.id === this.id) continue;
+                    if (otherTab.name === file.name && otherTab.editor.getValue() === contents) {
+                        existingTab = otherTab;
+                        break;
+                    }
+                }
+            }
+
+            if (existingTab) {
+                tabManager.switchTab(existingTab.id);
+                return;
+            }
+
             const contents = await file.text();
             this.recordChange(this.editor.getValue(), contents);
             this.editor.setValue(contents, -1);
@@ -721,6 +762,28 @@ class Tab {
                 startIn: tabManager.lastDirectoryHandle || "documents"
             });
 
+            const file = await handle.getFile();
+            const fileName = file.name;
+
+            // Check if any other tab already has this file open to avoid duplicates
+            let existingTab = null;
+            for (const otherTab of tabManager.tabs) {
+                if (otherTab.id === this.id) continue;
+                if (otherTab.fileHandle && handle) {
+                    try {
+                        if (await otherTab.fileHandle.isSameEntry(handle)) {
+                            existingTab = otherTab;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            if (existingTab) {
+                tabManager.switchTab(existingTab.id);
+                return;
+            }
+
             // If it's a different file, clear the chat
             const isSame = this.fileHandle && await this.fileHandle.isSameEntry(handle);
             if (!isSame) {
@@ -733,7 +796,6 @@ class Tab {
 
             this.fileHandle = handle;
             tabManager.lastDirectoryHandle = handle;
-            const file = await handle.getFile();
             const contents = await file.text();
             this.editor.setValue(contents, -1);
             this.editor.scrollToLine(1, true, true);
