@@ -461,6 +461,8 @@ class Tab {
         const name = (this.name || "").toLowerCase();
         if (name.endsWith(".yml") || name.endsWith(".yaml")) {
             this.editor.session.setMode("ace/mode/rathena_yaml");
+        } else if (name.endsWith(".conf")) {
+            this.editor.session.setMode("ace/mode/rathena_conf");
         } else {
             this.editor.session.setMode("ace/mode/rathena");
         }
@@ -546,6 +548,8 @@ class Tab {
             const contents = await file.text();
             this.recordChange(this.editor.getValue(), contents);
             this.editor.setValue(contents, -1);
+            this.editor.scrollToLine(1, true, true);
+            this.editor.gotoLine(1, 0, false);
             this.saveCurrentCodeToHistory();
             this.lastSavedCode = contents;
         });
@@ -732,6 +736,8 @@ class Tab {
             const file = await handle.getFile();
             const contents = await file.text();
             this.editor.setValue(contents, -1);
+            this.editor.scrollToLine(1, true, true);
+            this.editor.gotoLine(1, 0, false);
             this.name = file.name;
             this.updateEditorMode();
             this.saveCurrentCodeToHistory();

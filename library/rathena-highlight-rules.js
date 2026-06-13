@@ -479,6 +479,10 @@ const operators = [
   "\\|\\|", "&&", "!", "\\^", "&", "\\|", "\\?", "\\+=", "-=", "\\*=", "/=", "%=", ">>=", "<<="
 ];
 
+const constantLibKeywordsConf = [
+  "YES", "NO", "ON", "OFF"
+];
+
 /* Declare the keywords here and to RathenaHighlightRules to display on autocomplete except operators */
 const keywords = [
   ...supportFunctionKeywords, 
@@ -486,7 +490,9 @@ const keywords = [
   ...constantLibraryKeywords,
   ...variableLanguageKeywords, // Add base names of special vars
   ...inventoryVarNames, // Add prefixed special global array names
-  ...constantLanguageKeywords
+  ...constantLanguageKeywords,
+
+  ...constantLibKeywordsConf
 ];
 
 const langTools = ace.require("ace/ext/language_tools");
@@ -713,6 +719,55 @@ ace.define("ace/mode/rathena_yaml", ["require", "exports", "ace/lib/oop", "ace/m
     this.$behaviour = new CstyleBehaviour();
     this.foldingRules = new FoldMode();
     this.lineCommentStart = "#";
+  };
+  oop.inherits(Mode, TextMode);
+  exports.Mode = Mode;
+});
+
+ace.define("ace/mode/rathena_conf_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+  const RathenaConfHighlightRules = function () {
+    this.$rules = {
+      start: [
+        { token: "comment.line", regex: "//.*$" },
+        { token: "comment.block.start", regex: "/\\*", next: "comment" },
+        { token: "string", regex: '".*?"' },
+        { token: "variable.parameter", regex: "0x.*$" },
+        { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_\\.]*)(:)" },
+        { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
+        { token: "variable.parameter", regex: "\\b(?:" + constantLibKeywordsConf.join("|") + ")\\b", caseInsensitive: true},
+        { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
+        { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
+        { token: "constant.numeric", regex: "\\b\\d+\\b" },
+        { token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },
+        { token: "support.function", regex: "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()" },
+        { token: "keyword.control", regex: "(?<=\\b(?:goto|callsub)[ \\t]*\\(?[ \\t]*|,[ \\t]*)[a-zA-Z_][a-zA-Z0-9_]*\\b(?=[ \\t]*(?:,|;|\\)|))" },
+      ],
+      comment: [
+        { token: "comment.block.end", regex: "\\*/", next: "start" },
+        { defaultToken: "comment.block" }
+      ]
+    };
+    this.normalizeRules();
+  };
+
+  oop.inherits(RathenaConfHighlightRules, TextHighlightRules);
+  exports.RathenaConfHighlightRules = RathenaConfHighlightRules;
+});
+
+ace.define("ace/mode/rathena_conf", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/rathena_conf_highlight_rules", "ace/mode/behaviour/cstyle", "ace/mode/folding/cstyle"], function (require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextMode = require("ace/mode/text").Mode;
+  const RathenaConfHighlightRules = require("ace/mode/rathena_conf_highlight_rules").RathenaConfHighlightRules;
+  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour;
+  const FoldMode = require("ace/mode/folding/cstyle").FoldMode;
+  const Mode = function () {
+    this.HighlightRules = RathenaConfHighlightRules;
+    this.$behaviour = new CstyleBehaviour();
+    this.foldingRules = new FoldMode();
+    this.lineCommentStart = "//";
+    this.blockComment = { start: "/*", end: "*/" };
   };
   oop.inherits(Mode, TextMode);
   exports.Mode = Mode;
