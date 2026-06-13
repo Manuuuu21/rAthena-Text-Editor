@@ -390,7 +390,7 @@ const constantLibraryKeywords = [
 // Green highlight - Variables and variable manipulation
 const variableLanguageKeywords = [
   // Original varHolderKeywords
-  "set", "killedrid", "killerrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", // Added from commands
+  "set", "killedrid", "killerrid", "setarray", "copyarray", "cleararray", "setd", "getd", "getvar", "getvariableofnpc", "getelementofarray", "killermobgid", // Added from commands
   // Original specialVarKeywords
   "Zeny", "Hp", "MaxHp", "Sp", "MaxSp", "StatusPoint", "SkillPoint", "BaseLevel",
   "JobLevel", "BaseExp", "JobExp", "NextBaseExp", "NextJobExp", "Weight", "MaxWeight",
@@ -533,7 +533,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
         { token: "variable.parameter", regex: "(?<![@\\w\\.])\\b(?:" + constantLibraryKeywords.join("|") + ")\\b", caseInsensitive: true}, // Using constant.library for map names, item IDs etc.
-        { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
+        { token: "variable.language", regex: "\\$?(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
         { token: "variable.language", regex: "(@(?:" + inventoryVarNames.join("|") + "))\\b" },
         { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
         { token: "constant.numeric", regex: "\\b\\d+\\b" },
@@ -692,7 +692,7 @@ ace.define("ace/mode/rathena_yaml_highlight_rules", ["require", "exports", "ace/
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
         { token: "variable.parameter", regex: "\\b(?:" + constantLibraryKeywords.join("|") + ")\\b", caseInsensitive: true},
-        { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
+        { token: "variable.language", regex: "\\$?(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
         { token: "variable.language", regex: "(@(?:" + inventoryVarNames.join("|") + "))\\b" },
         { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
         { token: "constant.numeric", regex: "\\b\\d+\\b" },
@@ -737,7 +737,7 @@ ace.define("ace/mode/rathena_conf_highlight_rules", ["require", "exports", "ace/
         { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_\\.]*)(:)" },
         { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: "variable.parameter", regex: "\\b(?:" + constantLibKeywordsConf.join("|") + ")\\b", caseInsensitive: true},
-        { token: "variable.language", regex: "(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
+        { token: "variable.language", regex: "\\$?(?<![@\\w\\.])\\b(?:" + variableLanguageKeywords.join("|") + ")\\b" },
         { token: "constant.language", regex: "(?<![@\\w\\.])\\b(?:" + constantLanguageKeywords.join("|") + ")\\b" },
         { token: "constant.numeric", regex: "\\b\\d+\\b" },
         { token: "keyword.operator", regex: new RegExp("(?:" + operators.join("|") + ")") },

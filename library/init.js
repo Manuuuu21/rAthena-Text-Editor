@@ -1327,7 +1327,7 @@ function parseNewTooltipDocs() {
         if (!syntaxMatch) continue;
         
         const rawSyntax = syntaxMatch[1].trim();
-        const cmdMatch = rawSyntax.match(/^\*?([a-zA-Z0-9_]+)/);
+        const cmdMatch = rawSyntax.match(/^\*?([$@.#a-zA-Z0-9_]+)/);
         if (!cmdMatch) continue;
         const cmd = cmdMatch[1];
         
@@ -1426,6 +1426,10 @@ function parseNewTooltipDocs() {
             description: finalDescription,
             isNewStructured: true
         };
+        const cleanCmd = cmd.replace(/^[$@.#]+/, "");
+        if (cleanCmd !== cmd) {
+            rathenaDocMap[cleanCmd] = rathenaDocMap[cmd];
+        }
     }
 }
 
@@ -1494,13 +1498,17 @@ class TokenTooltip {
                       token.type.indexOf("identifier") !== -1 || 
                       token.type.indexOf("constant") !== -1 ||
                       token.type.indexOf("variable") !== -1)) {
-            const docData = rathenaDocMap[token.value];
+            const tokenVal = token.value;
+            let docData = rathenaDocMap[tokenVal];
+            if (!docData && (tokenVal.startsWith('$') || tokenVal.startsWith('@'))) {
+                docData = rathenaDocMap[tokenVal.substring(1)];
+            }
             if (docData) {
                 // If already showing this doc, don't re-show to avoid scroll reset
-                if (this.currentToken === token.value) return;
+                if (this.currentToken === tokenVal) return;
                 
                 this.destroyActiveEmbeddedEditors();
-                this.currentToken = token.value;
+                this.currentToken = tokenVal;
                 
                 const html = `
                     <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 6px; margin-bottom: 10px; color: var(--tooltipHeaderColor); font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.4;">

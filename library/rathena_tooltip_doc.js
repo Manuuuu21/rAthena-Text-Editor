@@ -20555,4 +20555,36 @@ they are reloaded with @reloadscript or @reloadnpcfile command.
 </example_code>
 </description>
 ---------------------- Breakline ----------------------
+<syntax>
+*$killermobgid
+</syntax> 
+<description>
+$killermobgid is a global temporary variable that stores the GID (Global ID) of the monster that killed the MOB.
+The $killermobgid contains the GID of MOB entity that delivered the killing blow to the event monster.
+
+<example_code>
+jupe_cave,127,52,3  script  Treasure Box SpawnerQE  735,{
+
+OnInit:
+    goto OnSpawnTreasureBoxQE;
+    end;
+
+OnSpawnTreasureBoxQE:
+    .@map$ = "jupe_cave";
+    monster .@map$, 0, 0, "Treasure Box", 2288, 2, "Treasure Box SpawnerQE::OnTBoxDestroyedQE";
+    announce "A new Treasure Box has appeared in "+ .@map$ + "!", 0;
+    end;
+
+OnTBoxDestroyedQE:
+    if (playerattached()) {
+        announce "The Treasure Box has been found and destroyed by [ " + strcharinfo(0) + "! ]", 0;
+        callfunc("eventRewards");
+    } else if ($killermobgid > 0) {
+        announce "The Treasure Box was destroyed by [ " + getunitname($killermobgid) + "! ]", 0;
+        $killermobgid = 0; // Reset variable
+    }
+    end;
+}
+</example_code>
+</description>
 `;
