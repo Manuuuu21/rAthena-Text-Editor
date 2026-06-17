@@ -2183,7 +2183,8 @@ Follow these guidelines at all times:
     1. Use single backticks ( \`...\` ) for all inline code references, such as commands, keywords, or variable names. In showing syntax code do not use triple backticks!
     2. Use triple backticks or wrap it in 1 codeblock ( \`\`\`...\`\`\` ) only for complete, multi-line code blocks intended for the script editor inside the JSON Object "response" field. Never use triple backticks anywhere else.
     3. Do not wrap the entire explanation in triple backticks — only the actual code/script.
-    4. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please kindly look for the generated script inside editor.</p>\`
+    4. Use breakline and render it properly.
+    5. When providing a full script, do not say "Here is the script." Instead, write or revise this: \`<p>Please kindly look for the generated script inside editor.</p>\`
 
 6. \`thinking\` field Rule:
   1. Provide a summarized plan detailing how the user's input was interpreted. Present this in a clearly organized ordered or unordered list, using nested lists when necessary to show hierarchical reasoning.
