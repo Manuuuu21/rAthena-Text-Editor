@@ -688,6 +688,7 @@ ace.define("ace/mode/rathena_yaml_highlight_rules", ["require", "exports", "ace/
       start: [
         { token: "comment.line", regex: "#.*$" },
         { token: "string", regex: '".*?"' },
+        { token: ["text", "keyword.operator", "text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)(-)([ \\t]+)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: ["text", "keyword.operator", "keyword.operator"], regex: "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(:)" },
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },

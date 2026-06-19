@@ -560,7 +560,6 @@ class Tab {
             let existingTab = null;
             if (handle) {
                 for (const otherTab of tabManager.tabs) {
-                    if (otherTab.id === this.id) continue;
                     if (otherTab.fileHandle) {
                         try {
                             if (await otherTab.fileHandle.isSameEntry(handle)) {
@@ -573,7 +572,6 @@ class Tab {
             } else {
                 const contents = await file.text();
                 for (const otherTab of tabManager.tabs) {
-                    if (otherTab.id === this.id) continue;
                     if (otherTab.name === file.name && otherTab.editor.getValue() === contents) {
                         existingTab = otherTab;
                         break;
@@ -586,13 +584,39 @@ class Tab {
                 return;
             }
 
+            // If the current tab has content or is linked to a file, open in a new tab
+            let targetTab = this;
+            const isReusable = !this.fileHandle && this.name === "Untitled" && !this.isDirty() && this.editor.getValue().trim() === "";
+            if (!isReusable) {
+                targetTab = tabManager.addTab();
+            }
+
             const contents = await file.text();
-            this.recordChange(this.editor.getValue(), contents);
-            this.editor.setValue(contents, -1);
-            this.editor.scrollToLine(1, true, true);
-            this.editor.gotoLine(1, 0, false);
-            this.saveCurrentCodeToHistory();
-            this.lastSavedCode = contents;
+            
+            // If it's a different file, clear the chat
+            const isSame = targetTab.fileHandle && handle && await targetTab.fileHandle.isSameEntry(handle);
+            if (!isSame) {
+                targetTab.clearChat(false);
+            }
+
+            // Reset code history for target tab on opening a new file
+            targetTab.codeHistory = [];
+            targetTab.currentHistoryIndex = -1;
+
+            targetTab.fileHandle = handle;
+            if (handle) {
+                tabManager.lastDirectoryHandle = handle;
+            }
+
+            targetTab.editor.setValue(contents, -1);
+            targetTab.editor.scrollToLine(1, true, true);
+            targetTab.editor.gotoLine(1, 0, false);
+            targetTab.name = file.name;
+            targetTab.updateEditorMode();
+            targetTab.saveCurrentCodeToHistory();
+            targetTab.lastSavedCode = contents;
+            tabManager.renderTabs();
+            targetTab.activate();
         });
     }
 
@@ -765,10 +789,9 @@ class Tab {
             const file = await handle.getFile();
             const fileName = file.name;
 
-            // Check if any other tab already has this file open to avoid duplicates
+            // Check if any tab already has this file open to avoid duplicates
             let existingTab = null;
             for (const otherTab of tabManager.tabs) {
-                if (otherTab.id === this.id) continue;
                 if (otherTab.fileHandle && handle) {
                     try {
                         if (await otherTab.fileHandle.isSameEntry(handle)) {
@@ -784,28 +807,35 @@ class Tab {
                 return;
             }
 
+            // Decide where to open: reuse current tab if empty/clean, otherwise open in a new tab
+            let targetTab = this;
+            const isReusable = !this.fileHandle && this.name === "Untitled" && !this.isDirty() && this.editor.getValue().trim() === "";
+            if (!isReusable) {
+                targetTab = tabManager.addTab();
+            }
+
             // If it's a different file, clear the chat
-            const isSame = this.fileHandle && await this.fileHandle.isSameEntry(handle);
+            const isSame = targetTab.fileHandle && await targetTab.fileHandle.isSameEntry(handle);
             if (!isSame) {
-                this.clearChat(false);
+                targetTab.clearChat(false);
             }
 
             // Reset code history for this specific tab on opening a new file
-            this.codeHistory = [];
-            this.currentHistoryIndex = -1;
+            targetTab.codeHistory = [];
+            targetTab.currentHistoryIndex = -1;
 
-            this.fileHandle = handle;
+            targetTab.fileHandle = handle;
             tabManager.lastDirectoryHandle = handle;
             const contents = await file.text();
-            this.editor.setValue(contents, -1);
-            this.editor.scrollToLine(1, true, true);
-            this.editor.gotoLine(1, 0, false);
-            this.name = file.name;
-            this.updateEditorMode();
-            this.saveCurrentCodeToHistory();
-            this.lastSavedCode = contents;
+            targetTab.editor.setValue(contents, -1);
+            targetTab.editor.scrollToLine(1, true, true);
+            targetTab.editor.gotoLine(1, 0, false);
+            targetTab.name = file.name;
+            targetTab.updateEditorMode();
+            targetTab.saveCurrentCodeToHistory();
+            targetTab.lastSavedCode = contents;
             tabManager.renderTabs();
-            this.activate();
+            targetTab.activate();
         } catch (err) {
             console.error("Open failed:", err);
         }
@@ -1823,6 +1853,7 @@ const tabManager = {
         this.tabs.push(tab);
         this.renderTabs();
         this.switchTab(tab.id);
+        return tab;
     },
 
     switchTab(id) {
