@@ -609,6 +609,7 @@ class Tab {
             }
 
             targetTab.editor.setValue(contents, -1);
+            targetTab.editor.session.setUndoManager(new ace.UndoManager());
             targetTab.editor.scrollToLine(1, true, true);
             targetTab.editor.gotoLine(1, 0, false);
             targetTab.name = file.name;
@@ -828,6 +829,7 @@ class Tab {
             tabManager.lastDirectoryHandle = handle;
             const contents = await file.text();
             targetTab.editor.setValue(contents, -1);
+            targetTab.editor.session.setUndoManager(new ace.UndoManager());
             targetTab.editor.scrollToLine(1, true, true);
             targetTab.editor.gotoLine(1, 0, false);
             targetTab.name = file.name;
