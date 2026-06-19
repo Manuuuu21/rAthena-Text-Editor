@@ -54,7 +54,7 @@ const supportFunctionKeywords = [
   "successremovecards", "summon", "traitstatusup", "traitstatusup2", "transform", "unbindatcmd", "undisguise", "unequip", "unitattack", "unitblockmove", "unitblockskill", "unitexists", 
   "unitkill", "unitskilluseid", "unitskillusepos", "unitstopattack", "unitstopwalk", "unittalk", "unitwalk", "unitwalkto", "unitwarp", "unloadnpc", "useatcmd", "viewpoint", "viewpointmap", 
   "vip_status", "vip_time", "waitingroom", "waitingroom2bg", "waitingroom2bg_single", "waitingroomkick", "warp", "warpguild", "warppartner", "warpparty", "warpportal", "wedding","getarraysize",
-  "strmobinfo", "shop", "itemshop", "warpwaitingpc",
+  "strmobinfo", "shop", "itemshop", "warpwaitingpc", "mapflag",
 ];
 
 // Red highlight - Control flow and declarations
@@ -107,7 +107,7 @@ const constantLibraryKeywords = [
   "niflheim","nif_fild01","nif_fild02","quiz_01",
   "louyang", "lou_in01", "lou_in02", "lou_fild01", "lou_dun01", "lou_dun02", "lou_dun03", 
   "ayothaya", "ayo_in01", "ayo_fild01", "ayo_fild02", "ayo_dun01", "ayo_dun02", 
-  "jawaii", "jawaii_in01", 
+  "jawaii", "jawaii_in01", "poring_w01",
   "einbroch", "einbroch_in", "ein_fild01", "ein_fild02", "ein_fild03", "ein_fild04", "ein_fild05", "ein_fild06", "ein_fild07", "ein_fild08", "ein_fild09",
   "lighthalzen", "lhz_in01", "lhz_in02", "lhz_in03", "lhz_fild01", "lhz_fild02", "lhz_fild03", "lhz_dun01", "lhz_dun02", "lhz_dun03",
   "einbech","ein_in01","ein_fild01","ein_dun01","ein_dun02", 
@@ -329,7 +329,8 @@ const constantLibraryKeywords = [
   "SC_BUCHEDENOEL", "SC_EP16_DEF", "SC_STR_SCROLL", "SC_INT_SCROLL", "SC_CONTENTS_1", "SC_CONTENTS_2",
   "SC_CONTENTS_3", "SC_CONTENTS_4", "SC_CONTENTS_5", "SC_CONTENTS_6", "SC_CONTENTS_7", "SC_CONTENTS_8",
   "SC_CONTENTS_9", "SC_CONTENTS_10",
-
+  // Map flags
+  "pvp  off",
   // Jobs Constant
   "EA_NOVICE", "Job_Novice", "EA_SWORDMAN", "Job_Swordman", "EA_MAGE", "Job_Mage", "EA_ARCHER", "Job_Archer", "EA_ACOLYTE", "Job_Acolyte", "EA_MERCHANT", "Job_Merchant", "EA_THIEF", "Job_Thief", "EA_KNIGHT", "Job_Knight", "EA_PRIEST", "Job_Priest", "EA_WIZARD", "Job_Wizard", "EA_BLACKSMITH", "Job_Blacksmith", "EA_HUNTER", "Job_Hunter", "EA_ASSASSIN", "Job_Assassin", 
   "EA_CRUSADER", "Job_Crusader", "EA_MONK", "Job_Monk", "EA_SAGE", "Job_Sage", "EA_ALCHEMIST", "Job_Alchemist", "EA_BARD", "Job_Bard", "EA_DANCER", "Job_Dancer", "EA_KNIGHT2", "Job_Knight2", "EA_CRUSADER2", "Job_Crusader2", "EA_ROGUE", "Job_Rogue", "EA_HIGH_NOVICE", "Job_Novice_High", "EA_HIGH_SWORDMAN", "Job_Swordman_High", "EA_HIGH_MAGE", "Job_Mage_High", "EA_HIGH_ARCHER", 
