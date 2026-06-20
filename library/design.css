@@ -13,8 +13,10 @@
   --tooltipDivider: #444;
   --diffAddedBg: #1e3a1e;
   --diffAddedColor: #a3d9a3;
+  --diffAddedHighlightBg: rgba(46, 160, 67, 0.5);
   --diffRemovedBg: #4a1e1e;
   --diffRemovedColor: #e6a3a3;
+  --diffRemovedHighlightBg: #7a3232;
   --scrollbarTrack: #f1f1f1;
   --scrollbarThumb: #888;
   --scrollbarThumbHover: #555;
@@ -529,6 +531,8 @@ opacity: 0;
 /* ACE markers */
 .ace_added { background-color: var(--diffAddedBg) !important; position: absolute; }
 .ace_removed { background-color: var(--diffRemovedBg) !important; position: absolute; }
+.ace_added_word { background-color: var(--diffAddedHighlightBg) !important; position: absolute; z-index: 5 !important; }
+.ace_removed_word { background-color: var(--diffRemovedHighlightBg) !important; position: absolute; z-index: 5 !important; }
 
 /* Generic scrollbar for all containers */
 .chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight {

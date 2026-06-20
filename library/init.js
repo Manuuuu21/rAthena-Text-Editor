@@ -21,8 +21,10 @@ function toggleTheme() {
     root.style.setProperty('--tooltipDivider', '#444');
     root.style.setProperty('--diffAddedBg', '#1e3a1e');
     root.style.setProperty('--diffAddedColor', '#a3d9a3');
+    root.style.setProperty('--diffAddedHighlightBg', 'rgba(46, 160, 67, 0.5)');
     root.style.setProperty('--diffRemovedBg', '#4a1e1e');
     root.style.setProperty('--diffRemovedColor', '#e6a3a3');
+    root.style.setProperty('--diffRemovedHighlightBg', '#7a3232');
     root.style.setProperty('--scrollbarTrack', '#252525');
     root.style.setProperty('--scrollbarThumb', '#666');
     root.style.setProperty('--scrollbarThumbHover', '#555');
@@ -51,10 +53,12 @@ function toggleTheme() {
     root.style.setProperty('--tooltipBorder', '#ccc');
     root.style.setProperty('--tooltipHeaderColor', '#0056b3');
     root.style.setProperty('--tooltipDivider', '#eee');
-    root.style.setProperty('--diffAddedBg', '#d4edda');
+    root.style.setProperty('--diffAddedBg', '#e6ffec');
     root.style.setProperty('--diffAddedColor', '#155724');
-    root.style.setProperty('--diffRemovedBg', '#f8d7da');
+    root.style.setProperty('--diffAddedHighlightBg', '#68ffa0');
+    root.style.setProperty('--diffRemovedBg', '#ffebe9');
     root.style.setProperty('--diffRemovedColor', '#721c24');
+    root.style.setProperty('--diffRemovedHighlightBg', '#ffc5c2');
     root.style.setProperty('--scrollbarTrack', '#f1f1f1');
     root.style.setProperty('--scrollbarThumb', '#888');
     root.style.setProperty('--scrollbarThumbHover', '#555');
@@ -160,11 +164,15 @@ function openDiff(index, tabId) {
     
     const oldMarkers = oldSession.getMarkers();
     for (let m in oldMarkers) {
-      if (oldMarkers[m].clazz === 'ace_removed') oldSession.removeMarker(oldMarkers[m].id);
+      if (oldMarkers[m].clazz === 'ace_removed' || oldMarkers[m].clazz === 'ace_removed_word') {
+          oldSession.removeMarker(oldMarkers[m].id);
+      }
     }
     const newMarkers = newSession.getMarkers();
     for (let m in newMarkers) {
-      if (newMarkers[m].clazz === 'ace_added') newSession.removeMarker(newMarkers[m].id);
+      if (newMarkers[m].clazz === 'ace_added' || newMarkers[m].clazz === 'ace_added_word') {
+          newSession.removeMarker(newMarkers[m].id);
+      }
     }
 
     const diff = Diff.diffLines(oldCode, newCode);
@@ -183,7 +191,11 @@ function openDiff(index, tabId) {
     let newLine = 0;
     const Range = ace.require('ace/range').Range;
 
-    diff.forEach(part => {
+    const oldLines = oldCode.split(/\r?\n/);
+    const newLines = newCode.split(/\r?\n/);
+
+    for (let i = 0; i < diff.length; i++) {
+        const part = diff[i];
         if (part.added) {
             if (firstAddedLine === -1) firstAddedLine = newLine;
             const range = new Range(newLine, 0, newLine + part.count - 1, Infinity);
@@ -193,12 +205,50 @@ function openDiff(index, tabId) {
             if (firstRemovedLine === -1) firstRemovedLine = oldLine;
             const range = new Range(oldLine, 0, oldLine + part.count - 1, Infinity);
             oldSession.addMarker(range, "ace_removed", "fullLine");
+
+            // Look ahead to see if the next part is an addition
+            // so we can perform precise character-level highlights on the matching lines
+            const nextPart = diff[i + 1];
+            if (nextPart && nextPart.added) {
+                const matchCount = Math.min(part.count, nextPart.count);
+                for (let j = 0; j < matchCount; j++) {
+                    const lOld = oldLine + j;
+                    const lNew = newLine + j;
+                    const lineOldText = oldLines[lOld] || "";
+                    const lineNewText = newLines[lNew] || "";
+
+                    if (typeof Diff !== 'undefined' && Diff.diffWordsWithSpace) {
+                        try {
+                            const wordDiff = Diff.diffWordsWithSpace(lineOldText, lineNewText);
+                            let charOld = 0;
+                            let charNew = 0;
+                            wordDiff.forEach(wp => {
+                                if (wp.added) {
+                                    const wRange = new Range(lNew, charNew, lNew, charNew + wp.value.length);
+                                    newSession.addMarker(wRange, "ace_added_word", "text");
+                                    charNew += wp.value.length;
+                                } else if (wp.removed) {
+                                    const wRange = new Range(lOld, charOld, lOld, charOld + wp.value.length);
+                                    oldSession.addMarker(wRange, "ace_removed_word", "text");
+                                    charOld += wp.value.length;
+                                } else {
+                                    charOld += wp.value.length;
+                                    charNew += wp.value.length;
+                                }
+                            });
+                        } catch (e) {
+                            console.error("Word-diff failed for matched lines:", e);
+                        }
+                    }
+                }
+            }
+
             oldLine += part.count;
         } else {
             oldLine += part.count;
             newLine += part.count;
         }
-    });
+    }
 
     document.getElementById('diffModal').style.display = 'flex';
     
@@ -1770,10 +1820,12 @@ if (currentTheme) {
         root.style.setProperty('--tooltipBorder', '#ccc');
         root.style.setProperty('--tooltipHeaderColor', '#0056b3');
         root.style.setProperty('--tooltipDivider', '#eee');
-        root.style.setProperty('--diffAddedBg', '#d4edda');
+        root.style.setProperty('--diffAddedBg', '#e6ffec');
         root.style.setProperty('--diffAddedColor', '#155724');
-        root.style.setProperty('--diffRemovedBg', '#f8d7da');
+        root.style.setProperty('--diffAddedHighlightBg', '#68ffa0');
+        root.style.setProperty('--diffRemovedBg', '#ffebe9');
         root.style.setProperty('--diffRemovedColor', '#721c24');
+        root.style.setProperty('--diffRemovedHighlightBg', '#ffc5c2');
         root.style.setProperty('--scrollbarTrack', '#f1f1f1');
         root.style.setProperty('--scrollbarThumb', '#888');
         root.style.setProperty('--scrollbarThumbHover', '#555');
@@ -1805,8 +1857,10 @@ if (currentTheme) {
         root.style.setProperty('--tooltipDivider', '#444');
         root.style.setProperty('--diffAddedBg', '#1e3a1e');
         root.style.setProperty('--diffAddedColor', '#a3d9a3');
+        root.style.setProperty('--diffAddedHighlightBg', 'rgba(46, 160, 67, 0.5)');
         root.style.setProperty('--diffRemovedBg', '#4a1e1e');
         root.style.setProperty('--diffRemovedColor', '#e6a3a3');
+        root.style.setProperty('--diffRemovedHighlightBg', '#7a3232');
         root.style.setProperty('--scrollbarTrack', '#252525');
         root.style.setProperty('--scrollbarThumb', '#666');
         root.style.setProperty('--scrollbarThumbHover', '#555');
