@@ -52,8 +52,6 @@ Works in any modern browser supporting:
 # Screenshots and Video
 ## AI
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/sample_vid-output.gif)
-## AI Img
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/ai_sample1.gif)
 ## Darkmode
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode1.png)
 ## Lightmode
