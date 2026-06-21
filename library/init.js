@@ -568,6 +568,18 @@ class Tab {
             readOnly: false
         });
 
+        // Reopen closed tab keyboard shortcut bindings (supporting Alt-Shift-T / Ctrl-Alt-T as reliable fallbacks)
+        this.editor.commands.addCommand({
+            name: 'revertClosedTabCommand',
+            bindKey: {win: 'Ctrl-Shift-T|Alt-Shift-T|Ctrl-Alt-T', mac: 'Command-Shift-T|Alt-Shift-T|Command-Alt-T'},
+            exec: (editor) => {
+                if (typeof tabManager !== 'undefined' && tabManager.revertClosedTab) {
+                    tabManager.revertClosedTab();
+                }
+            },
+            readOnly: false
+        });
+
         this.editor.container.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             if (tabManager.latestSelectedText.trim() !== "") {
@@ -1948,6 +1960,7 @@ if (apiKeyInput) {
 
 const tabManager = {
     tabs: [],
+    closedTabs: [],
     activeTab: null,
     nextId: 1,
     lastDirectoryHandle: null,
@@ -2001,7 +2014,26 @@ const tabManager = {
         const index = this.tabs.findIndex(t => t.id === id);
         if (index === -1) return;
         
-        const [tab] = this.tabs.splice(index, 1);
+        const tab = this.tabs[index];
+        if (!this.closedTabs) {
+            this.closedTabs = [];
+        }
+        this.closedTabs.push({
+            name: tab.name,
+            code: tab.editor.getValue(),
+            fileHandle: tab.fileHandle,
+            chatHistory: JSON.parse(JSON.stringify(tab.chatHistory || [])),
+            diffHistory: JSON.parse(JSON.stringify(tab.diffHistory || [])),
+            codeHistory: [...(tab.codeHistory || [])],
+            currentHistoryIndex: tab.currentHistoryIndex,
+            lastSavedCode: tab.lastSavedCode,
+            chatMessagesHTML: tab.elements && tab.elements.chatMessages ? tab.elements.chatMessages.innerHTML : ""
+        });
+        if (this.closedTabs.length > 20) {
+            this.closedTabs.shift();
+        }
+
+        this.tabs.splice(index, 1);
         tab.elements.content.remove();
         
         if (this.tabs.length === 0) {
@@ -2011,6 +2043,53 @@ const tabManager = {
         } else {
             this.renderTabs();
         }
+    },
+
+    restoreTab(tabData) {
+        // Recycle the active tab if it's completely empty, untitled, and clean
+        let active = this.activeTab;
+        if (active && !active.fileHandle && active.name === "Untitled" && !active.isDirty() && active.editor.getValue().trim() === "") {
+            const idx = this.tabs.indexOf(active);
+            if (idx !== -1) {
+                this.tabs.splice(idx, 1);
+                active.elements.content.remove();
+            }
+        }
+
+        const tab = new Tab(this.nextId++, tabData.name);
+        
+        tab.fileHandle = tabData.fileHandle;
+        tab.lastSavedCode = tabData.lastSavedCode;
+        tab.chatHistory = tabData.chatHistory || [];
+        tab.diffHistory = tabData.diffHistory || [];
+        tab.codeHistory = tabData.codeHistory || [];
+        tab.currentHistoryIndex = tabData.currentHistoryIndex;
+        
+        if (tab.editor && tabData.code !== undefined) {
+            tab.editor.setValue(tabData.code, -1);
+            tab.editor.clearSelection();
+        }
+        
+        if (tab.elements && tab.elements.chatMessages && tabData.chatMessagesHTML) {
+            tab.elements.chatMessages.innerHTML = tabData.chatMessagesHTML;
+        }
+        
+        this.tabs.push(tab);
+        this.renderTabs();
+        this.switchTab(tab.id);
+        
+        tab.updateTabIcon();
+        showSnackbar(`Restored tab: ${tabData.name}`);
+        return tab;
+    },
+
+    revertClosedTab() {
+        if (!this.closedTabs || this.closedTabs.length === 0) {
+            showSnackbar("No recently closed tabs to restore.");
+            return;
+        }
+        const lastClosed = this.closedTabs.pop();
+        this.restoreTab(lastClosed);
     },
 
     renderTabs() {
@@ -2205,7 +2284,27 @@ function clearChat() {
     closeClearChatModal();
 }
 
-// Global context menu logic
+// Global hotkey logic (e.g. reopen closed tab)
+document.addEventListener("keydown", (e) => {
+    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+    const isShift = e.shiftKey;
+    const isAlt = e.altKey;
+    const isKeyT = e.key && (e.key.toLowerCase() === 't' || e.key.toUpperCase() === 'T');
+    
+    // Check for Alt+Shift+T, Ctrl+Alt+T or Ctrl+Shift+T (best-effort)
+    const shouldRevert = (isAlt && isShift && isKeyT) || 
+                         (isCtrlOrCmd && isAlt && isKeyT) || 
+                         (isCtrlOrCmd && isShift && isKeyT);
+                         
+    if (shouldRevert) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof tabManager !== 'undefined' && tabManager.revertClosedTab) {
+            tabManager.revertClosedTab();
+        }
+    }
+}, true);
+
 document.addEventListener("click", () => {
     document.getElementById("contextMenu").style.display = "none";
     document.getElementById("askAIForm").style.display = "none";
