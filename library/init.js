@@ -2017,6 +2017,15 @@ const tabManager = {
         const container = document.getElementById("tabsContainer");
         const existingButtons = Array.from(container.querySelectorAll('.tab-button'));
         
+        // Record initial positions of all existing buttons for FLIP animation
+        const firstPositions = new Map();
+        existingButtons.forEach(btn => {
+            const id = btn.dataset.id;
+            if (id) {
+                firstPositions.set(id, btn.getBoundingClientRect());
+            }
+        });
+
         // Remove surplus buttons or clear if count mismatch (simple approach for now)
         if (existingButtons.length !== this.tabs.length) {
             container.innerHTML = "";
@@ -2057,6 +2066,47 @@ const tabManager = {
                 this.tabs.forEach((t, i) => container.appendChild(this.createTabButton(t, i)));
             }
         });
+
+        // After updating DOM, calculate delta and apply translation transition (FLIP)
+        const updatedButtons = Array.from(container.querySelectorAll('.tab-button'));
+        updatedButtons.forEach(btn => {
+            const id = btn.dataset.id;
+            const firstRect = firstPositions.get(id);
+            if (!firstRect) return;
+
+            // Resolve any currently active transition inline style
+            if (btn._cleanupTransition) {
+                btn._cleanupTransition();
+            }
+
+            const lastRect = btn.getBoundingClientRect();
+            const deltaX = firstRect.left - lastRect.left;
+            const deltaY = firstRect.top - lastRect.top;
+
+            // If it moved, perform FLIP animation
+            if (deltaX !== 0 || deltaY !== 0) {
+                btn.style.transition = 'none';
+                btn.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                
+                // Force layout reflow
+                btn.offsetWidth; 
+
+                // Play the transition slide
+                btn.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                btn.style.transform = 'translate(0, 0)';
+
+                const cleanup = (e) => {
+                    if (!e || e.propertyName === 'transform') {
+                        btn.style.transition = '';
+                        btn.style.transform = '';
+                        btn.removeEventListener('transitionend', cleanup);
+                        btn._cleanupTransition = null;
+                    }
+                };
+                btn.addEventListener('transitionend', cleanup);
+                btn._cleanupTransition = cleanup;
+            }
+        });
     },
 
     createTabButton(tab, index) {
@@ -2095,20 +2145,43 @@ const tabManager = {
 
         btn.ondragenter = (e) => {
             e.preventDefault();
-            const fromIndex = tabManager.draggedTabIndex;
-            const toIndex = parseInt(btn.dataset.index);
-            
-            if (fromIndex !== null && fromIndex !== toIndex) {
-                const movedTab = this.tabs.splice(fromIndex, 1)[0];
-                this.tabs.splice(toIndex, 0, movedTab);
-                tabManager.draggedTabIndex = toIndex;
-                this.renderTabs();
-            }
         };
 
         btn.ondragover = (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
+            
+            const fromIndex = tabManager.draggedTabIndex;
+            const toIndex = parseInt(btn.dataset.index);
+            
+            if (fromIndex !== null && fromIndex !== toIndex) {
+                const rect = btn.getBoundingClientRect();
+                const mouseX = e.clientX;
+                
+                if (typeof mouseX === 'number' && mouseX > 0) {
+                    const midpoint = rect.left + rect.width / 2;
+                    let shouldSwap = false;
+                    
+                    if (fromIndex < toIndex) {
+                        // Dragging left-to-right: only swap if cursor is past the midpoint
+                        if (mouseX > midpoint) {
+                            shouldSwap = true;
+                        }
+                    } else {
+                        // Dragging right-to-left: only swap if cursor is before the midpoint
+                        if (mouseX < midpoint) {
+                            shouldSwap = true;
+                        }
+                    }
+                    
+                    if (shouldSwap) {
+                        const movedTab = this.tabs.splice(fromIndex, 1)[0];
+                        this.tabs.splice(toIndex, 0, movedTab);
+                        tabManager.draggedTabIndex = toIndex;
+                        this.renderTabs();
+                    }
+                }
+            }
         };
 
         btn.ondrop = (e) => {
