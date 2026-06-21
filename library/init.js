@@ -1583,6 +1583,9 @@ class TokenTooltip {
         editor.tokenTooltip = this;
         this.editor = editor;
         this.activeEmbeddedEditors = [];
+        this.hoverTimeout = null;
+        this.pendingToken = null;
+        this.cachedEvent = null;
         
         let Tooltip;
         try {
@@ -1600,6 +1603,9 @@ class TokenTooltip {
         
         editor.on("mousemove", this.onMouseMove);
         editor.on("mouseout", this.onMouseOut);
+        if (editor.container) {
+            editor.container.addEventListener("mouseleave", this.hideTooltip);
+        }
     }
 
     destroyActiveEmbeddedEditors() {
@@ -1616,6 +1622,12 @@ class TokenTooltip {
     }
 
     hideTooltip() {
+        if (this.hoverTimeout) {
+            clearTimeout(this.hoverTimeout);
+            this.hoverTimeout = null;
+        }
+        this.pendingToken = null;
+        this.cachedEvent = null;
         this.destroyActiveEmbeddedEditors();
         this.currentToken = null;
         this.tooltip.hide();
@@ -1637,33 +1649,79 @@ class TokenTooltip {
         const pos = e.getDocumentPosition();
         const token = editor.session.getTokenAt(pos.row, pos.column);
         
+        let isValidToken = false;
+        let tokenVal = null;
+        let docData = null;
+
         if (token && (token.type.indexOf("support.function") !== -1 || 
                       token.type.indexOf("keyword") !== -1 || 
                       token.type.indexOf("identifier") !== -1 || 
                       token.type.indexOf("constant") !== -1 ||
                       token.type.indexOf("variable") !== -1)) {
-            const tokenVal = token.value;
-            let docData = rathenaDocMap[tokenVal];
+            tokenVal = token.value;
+            docData = rathenaDocMap[tokenVal];
             if (!docData && (tokenVal.startsWith('$') || tokenVal.startsWith('@'))) {
                 docData = rathenaDocMap[tokenVal.substring(1)];
             }
             if (docData) {
-                // If already showing this doc, don't re-show to avoid scroll reset
-                if (this.currentToken === tokenVal) return;
+                isValidToken = true;
+            }
+        }
+
+        if (isValidToken) {
+            // Case 1: We are already showing this token's tooltip
+            if (this.currentToken === tokenVal) {
+                return;
+            }
+
+            // Case 2: We are already waiting/pending display for this same token
+            if (this.pendingToken === tokenVal) {
+                this.cachedEvent = {
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    pos: pos,
+                    docData: docData,
+                    tokenVal: tokenVal
+                };
+                return;
+            }
+
+            // Case 3: A new token is hovered, or we were waiting for a different one
+            if (this.hoverTimeout) {
+                clearTimeout(this.hoverTimeout);
+            }
+            
+            this.destroyActiveEmbeddedEditors();
+            this.currentToken = null;
+            this.tooltip.hide();
+
+            this.pendingToken = tokenVal;
+            this.cachedEvent = {
+                clientX: e.clientX,
+                clientY: e.clientY,
+                pos: pos,
+                docData: docData,
+                tokenVal: tokenVal
+            };
+
+            this.hoverTimeout = setTimeout(() => {
+                if (!this.cachedEvent) return;
+                const cached = this.cachedEvent;
                 
-                this.destroyActiveEmbeddedEditors();
-                this.currentToken = tokenVal;
-                
+                this.currentToken = cached.tokenVal;
+                this.pendingToken = null;
+                this.hoverTimeout = null;
+
                 const html = `
                     <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 6px; margin-bottom: 10px; color: var(--tooltipHeaderColor); font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.4;">
-                        ${docData.signature}
+                        ${cached.docData.signature}
                     </div>
                     <div style="line-height: 1.5; font-size: 11.5px; font-family: 'Inter', -apple-system, sans-serif;">
-                        ${docData.description}
+                        ${cached.docData.description}
                     </div>
                 `;
                 
-                this.tooltip.show("", e.clientX, e.clientY);
+                this.tooltip.show("", cached.clientX, cached.clientY);
                 const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
                 if (element) {
                     element.innerHTML = html;
@@ -1678,7 +1736,6 @@ class TokenTooltip {
                     }
 
                     // Dynamically initialize any embedded Ace Editor instances inside the tooltip first
-                    // so we can measure the ACTUAL final height after Ace renders.
                     const editorContainers = element.querySelectorAll(".tooltip-ace-editor");
                     const rawCodeScripts = element.querySelectorAll(".tooltip-ace-raw-code");
                     for (let i = 0; i < editorContainers.length; i++) {
@@ -1723,45 +1780,39 @@ class TokenTooltip {
                     const tooltipHeight = rect.height || 280;
 
                     // Determine available space above, below, right and left
-                    const spaceAbove = e.clientY;
-                    const spaceBelow = window.innerHeight - e.clientY;
+                    const spaceAbove = cached.clientY;
+                    const spaceBelow = window.innerHeight - cached.clientY;
 
-                    let x = e.clientX + 15; // default 15px margin to prevent cursor overlap
-                    let y = e.clientY + 15;
+                    let x = cached.clientX + 15; // default 15px margin to prevent cursor overlap
+                    let y = cached.clientY + 15;
 
                     if (spaceBelow >= tooltipHeight + 25) {
-                        // Plenty of space below the hovered element
-                        y = e.clientY + 15;
+                        y = cached.clientY + 15;
                     } else if (spaceAbove >= tooltipHeight + 25) {
-                        // Plenty of space above the hovered element
-                        y = e.clientY - tooltipHeight - 15;
+                        y = cached.clientY - tooltipHeight - 15;
                     } else {
-                        // Neither above nor below has sufficient space to place it completely
-                        // We avoid vertical overlapping with the mouse (which blocks reading)
-                        // by placing the tooltip on the left/right side if there is space.
-                        const spaceRight = window.innerWidth - e.clientX;
-                        const spaceLeft = e.clientX;
+                        const spaceRight = window.innerWidth - cached.clientX;
+                        const spaceLeft = cached.clientX;
 
                         if (spaceRight >= tooltipWidth + 30) {
-                            x = e.clientX + 20;
-                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, e.clientY - tooltipHeight / 2));
+                            x = cached.clientX + 20;
+                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, cached.clientY - tooltipHeight / 2));
                         } else if (spaceLeft >= tooltipWidth + 30) {
-                            x = e.clientX - tooltipWidth - 20;
-                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, e.clientY - tooltipHeight / 2));
+                            x = cached.clientX - tooltipWidth - 20;
+                            y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, cached.clientY - tooltipHeight / 2));
                         } else {
-                            // Absolute fallback: share space vertically but clamp it off the mouse
                             if (spaceBelow > spaceAbove) {
-                                y = e.clientY + 15;
+                                y = cached.clientY + 15;
                             } else {
-                                y = Math.max(10, e.clientY - tooltipHeight - 15);
+                                y = Math.max(10, cached.clientY - tooltipHeight - 15);
                             }
                         }
                     }
 
-                    // Horizontal bounds fallback adjustment (if placed above or below)
-                    if (y === e.clientY + 15 || y === e.clientY - tooltipHeight - 15) {
+                    // Horizontal bounds fallback adjustment
+                    if (y === cached.clientY + 15 || y === cached.clientY - tooltipHeight - 15) {
                         if (x + tooltipWidth > window.innerWidth - 10) {
-                            x = e.clientX - tooltipWidth - 15;
+                            x = cached.clientX - tooltipWidth - 15;
                         }
                         if (x < 10) {
                             x = 10;
@@ -1775,8 +1826,9 @@ class TokenTooltip {
                     element.style.left = x + "px";
                     element.style.top = y + "px";
                 }
-                return;
-            }
+            }, 1000);
+
+            return;
         }
 
         // If we have a tooltip active, check if mouse is moving towards it
