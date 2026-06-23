@@ -15,7 +15,7 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 - **Dark/Light Theme** - Toggle between Monokai (dark) and GitHub Light themes
 - **Smart Settings** - Local autocomplete, read-only mode, and customizable options
 - **Responsive UI** - Side-by-side editor and chat interface with collapsible panels
-- **Keyboard Shortcut** - CTRL+Alt+T to reopen the previously tab along with chats.
+- **Keyboard Shortcut** - CTRL+Alt+T or CTRL+Shift+T to reopen the previously tab along with chats.
   
 ## 🚀 Quick Start
 
