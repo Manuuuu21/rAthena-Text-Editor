@@ -2097,13 +2097,65 @@ const tabManager = {
         return tab;
     },
 
-    revertClosedTab() {
+    async findExistingTab(tabData) {
+        if (!tabData) return null;
+        if (tabData.name && tabData.name !== "Untitled") {
+            for (const otherTab of this.tabs) {
+                if (otherTab.name === tabData.name) {
+                    return otherTab;
+                }
+            }
+        }
+        if (tabData.fileHandle) {
+            for (const otherTab of this.tabs) {
+                if (otherTab.fileHandle) {
+                    if (otherTab.fileHandle === tabData.fileHandle) {
+                        return otherTab;
+                    }
+                    try {
+                        if (typeof otherTab.fileHandle.isSameEntry === "function" &&
+                            typeof tabData.fileHandle.isSameEntry === "function" &&
+                            await otherTab.fileHandle.isSameEntry(tabData.fileHandle)) {
+                            return otherTab;
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+        return null;
+    },
+
+    async revertClosedTab() {
         if (!this.closedTabs || this.closedTabs.length === 0) {
             showSnackbar("No recently closed tabs to restore.");
             return;
         }
-        const lastClosed = this.closedTabs.pop();
-        this.restoreTab(lastClosed);
+
+        // Search from the end of the stack for a closed tab that is NOT already currently open
+        let targetIndex = -1;
+        for (let i = this.closedTabs.length - 1; i >= 0; i--) {
+            const closed = this.closedTabs[i];
+            const existing = await this.findExistingTab(closed);
+            if (!existing) {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex !== -1) {
+            const removed = this.closedTabs.splice(targetIndex, 1)[0];
+            this.restoreTab(removed);
+        } else {
+            // All closed tabs are already open! Switch to the most recently closed one and alert
+            const lastData = this.closedTabs.pop();
+            const existing = await this.findExistingTab(lastData);
+            if (existing) {
+                this.switchTab(existing.id);
+                showSnackbar(`"${lastData.name}" is already open.`);
+            } else {
+                this.restoreTab(lastData);
+            }
+        }
     },
 
     renderTabs() {
