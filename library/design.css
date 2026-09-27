@@ -215,8 +215,8 @@ code {
 
 .minimap-container {
   position: relative;
-  width: 95px;
-  flex: 0 0 95px;
+  width: 150px;
+  flex: 0 0 150px;
   height: 100%;
   overflow: hidden;
   background: var(--minimapBg);
