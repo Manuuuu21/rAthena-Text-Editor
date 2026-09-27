@@ -81,6 +81,28 @@
     </div>
   </div>
 
+  <!-- External File Change Conflict Modal -->
+  <div class="modal-overlay" id="externalConflictModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="externalConflictHeader">⚠️ External File Change Detected</h2>
+        <button class="close-btn" onclick="closeExternalConflictModal()">✖</button>
+      </div>
+      <hr/>
+      <div style="padding: 15px 0;">
+        <p id="externalConflictMessage">
+          This file has been modified on disk by another program (e.g. Notepad).<br/><br/>
+          You also have unsaved changes in this editor. What would you like to do?
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap;">
+          <button id="conflictDiffBtn" style="background: #007bff; color: white; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer;">Compare (Diff)</button>
+          <button id="conflictReloadBtn" style="background: #dc3545; color: white; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer;">Reload from Disk</button>
+          <button id="conflictKeepBtn" class="cancel-btn" style="padding: 7px 14px; border-radius: 8px; cursor: pointer;">Keep Editor Version</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div id="container">
   <div id="tabBar">
     <div id="tabsContainer"></div>
@@ -149,7 +171,7 @@
   <script src="library/rathena-highlight-rules.js"></script>
   <script src="library/rathena-linter.js"></script>
 
-  <script src="library/rathena_documentation.js"></script>
+  <script src="library/rathena_documentation_original.js"></script>
   <script src="library/rathena_tooltip_doc.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
