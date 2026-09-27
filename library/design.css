@@ -23,6 +23,12 @@
   --btnBg: #a0a0a0;
   --btnText: #000;
   --closeBtnColor: #bbb;
+  --minimapBg: #1e1e1e;
+  --minimapBorder: #2d2d2d;
+  --minimapSliderBg: rgba(255, 255, 255, 0.08);
+  --minimapSliderHoverBg: rgba(255, 255, 255, 0.15);
+  --minimapSliderActiveBg: rgba(255, 255, 255, 0.22);
+  --minimapSliderBorder: rgba(255, 255, 255, 0.25);
 }
 
 html, body {
@@ -187,13 +193,78 @@ code {
   display: flex;
 }
 
-.editor-instance {
+.editor-wrapper {
   position: relative;
   width: 70%;
   flex: 1 1 70%;
   height: 100%;
   min-width: 0;
+  display: flex;
+  flex-direction: row;
   overflow: hidden;
+}
+
+.editor-instance {
+  position: relative;
+  width: auto;
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.minimap-container {
+  position: relative;
+  width: 95px;
+  flex: 0 0 95px;
+  height: 100%;
+  overflow: hidden;
+  background: var(--minimapBg);
+  border-left: 1px solid var(--minimapBorder);
+  user-select: none;
+  cursor: pointer;
+  z-index: 5;
+  box-sizing: border-box;
+}
+
+.minimap-container.hidden {
+  display: none !important;
+}
+
+.minimap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.minimap-slider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 25px;
+  background: var(--minimapSliderBg);
+  border: 1px solid var(--minimapSliderBorder);
+  border-left: 3px solid var(--tooltipHeaderColor, #66d9ef);
+  box-sizing: border-box;
+  cursor: grab;
+  transition: background 0.1s ease;
+  pointer-events: auto;
+  z-index: 2;
+  border-radius: 2px;
+}
+
+.minimap-slider:hover {
+  background: var(--minimapSliderHoverBg);
+}
+
+.minimap-slider.dragging {
+  cursor: grabbing;
+  background: var(--minimapSliderActiveBg);
 }
 
 .chat-container-instance {

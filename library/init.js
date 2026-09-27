@@ -40,6 +40,12 @@ function toggleTheme() {
     root.style.setProperty('--syntaxFunction', '#66d9ef');
     root.style.setProperty('--syntaxVariable', '#a6e22e');
     root.style.setProperty('--syntaxConstant', '#fd971f');
+    root.style.setProperty('--minimapBg', '#1e1e1e');
+    root.style.setProperty('--minimapBorder', '#2d2d2d');
+    root.style.setProperty('--minimapSliderBg', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--minimapSliderHoverBg', 'rgba(255, 255, 255, 0.15)');
+    root.style.setProperty('--minimapSliderActiveBg', 'rgba(255, 255, 255, 0.22)');
+    root.style.setProperty('--minimapSliderBorder', 'rgba(255, 255, 255, 0.25)');
   } else {
     // Switching to LIGHT
     root.style.setProperty('--tabBarBg', '#d8ccc6');
@@ -71,6 +77,12 @@ function toggleTheme() {
     root.style.setProperty('--syntaxFunction', '#6f42c1');
     root.style.setProperty('--syntaxVariable', '#e36209');
     root.style.setProperty('--syntaxConstant', '#b07d00');
+    root.style.setProperty('--minimapBg', '#f6f8fa');
+    root.style.setProperty('--minimapBorder', '#e1e4e8');
+    root.style.setProperty('--minimapSliderBg', 'rgba(0, 0, 0, 0.07)');
+    root.style.setProperty('--minimapSliderHoverBg', 'rgba(0, 0, 0, 0.13)');
+    root.style.setProperty('--minimapSliderActiveBg', 'rgba(0, 0, 0, 0.18)');
+    root.style.setProperty('--minimapSliderBorder', 'rgba(0, 0, 0, 0.22)');
   }
   
   tabManager.tabs.forEach(tab => {
@@ -85,6 +97,10 @@ function toggleTheme() {
           }
         });
       }
+    }
+    if (tab.minimap) {
+      tab.minimap.colorCache = {};
+      tab.minimap.update(true);
     }
   });
   if (diffOldEditor) diffOldEditor.setTheme(currentTheme);
@@ -309,6 +325,22 @@ function closeApiModal() {
 }
 
 function openModal() {
+  const toggleMinimapElem = document.getElementById('toggleMinimap');
+  if (toggleMinimapElem && typeof minimapEnabled !== 'undefined') {
+    toggleMinimapElem.checked = minimapEnabled;
+  }
+  const toggleLocalElem = document.getElementById('toggleLocalCompletion');
+  if (toggleLocalElem && typeof localCompletionEnabled !== 'undefined') {
+    toggleLocalElem.checked = localCompletionEnabled;
+  }
+  const toggleReadOnlyElem = document.getElementById('toggleReadOnly');
+  if (toggleReadOnlyElem && tabManager.activeTab) {
+    toggleReadOnlyElem.checked = tabManager.activeTab.editor.getReadOnly();
+  }
+  const toggleTooltipElem = document.getElementById('toggleTooltip');
+  if (toggleTooltipElem && typeof documentationTooltipEnabled !== 'undefined') {
+    toggleTooltipElem.checked = documentationTooltipEnabled;
+  }
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
@@ -438,7 +470,38 @@ window.onclick = function(event) {
   if (event.target.id == 'externalConflictModal') closeExternalConflictModal();
 }
 
+let minimapEnabled = localStorage.getItem("minimapEnabled") !== "false";
+let localCompletionEnabled = localStorage.getItem("localCompletionEnabled") !== "false";
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
+
+const toggleMinimapElem = document.getElementById("toggleMinimap");
+if (toggleMinimapElem) {
+  toggleMinimapElem.checked = minimapEnabled;
+  toggleMinimapElem.addEventListener("change", function () {
+    minimapEnabled = this.checked;
+    localStorage.setItem("minimapEnabled", minimapEnabled);
+    tabManager.tabs.forEach(tab => {
+      if (tab.setMinimapVisible) {
+        tab.setMinimapVisible(minimapEnabled);
+      }
+    });
+  });
+}
+
+const toggleLocalElem = document.getElementById("toggleLocalCompletion");
+if (toggleLocalElem) {
+  toggleLocalElem.checked = localCompletionEnabled;
+  toggleLocalElem.addEventListener("change", function () {
+    localCompletionEnabled = this.checked;
+    localStorage.setItem("localCompletionEnabled", localCompletionEnabled);
+    tabManager.tabs.forEach(tab => {
+      if (tab.editor) {
+        tab.editor.setOption("enableBasicAutocompletion", localCompletionEnabled);
+        tab.editor.setOption("enableLiveAutocompletion", localCompletionEnabled);
+      }
+    });
+  });
+}
 
 document.getElementById("toggleReadOnly").addEventListener("change", function () {
   if (tabManager.activeTab) {
@@ -457,12 +520,12 @@ function toggleDisplayChatBotContainer() {
   if (!activeTab) return;
 
   const chatBot = activeTab.elements.chatBotContainer;
-  const editorElem = activeTab.elements.editor;
+  const editorArea = activeTab.elements.editorWrapper || activeTab.elements.editor;
 
   if (window.getComputedStyle(chatBot).display === 'none') {
     chatBot.style.display = 'flex';
-    editorElem.style.flex = '1 1 70%';
-    editorElem.style.width = '70%';
+    editorArea.style.flex = '1 1 70%';
+    editorArea.style.width = '70%';
     // Scroll to bottom after displaying
     setTimeout(() => {
         const messages = activeTab.elements.chatMessages;
@@ -470,8 +533,14 @@ function toggleDisplayChatBotContainer() {
     }, 100);
   } else {
     chatBot.style.display = 'none';
-    editorElem.style.flex = '1 1 100%';
-    editorElem.style.width = '100%';
+    editorArea.style.flex = '1 1 100%';
+    editorArea.style.width = '100%';
+  }
+  if (activeTab.editor) {
+    activeTab.editor.resize();
+    if (activeTab.minimap) {
+      activeTab.minimap.update(true);
+    }
   }
 }
 
@@ -479,12 +548,13 @@ function showSnackbar(message) {
     const activeTab = tabManager.activeTab;
     if (!activeTab) return;
     
-    let snackbar = activeTab.elements.editor.querySelector(".snackbar");
+    const container = activeTab.elements.editorWrapper || activeTab.elements.editor;
+    let snackbar = container.querySelector(".snackbar");
     if (!snackbar) {
         snackbar = document.createElement("div");
         snackbar.className = "snackbar";
         snackbar.id = "snackbar";
-        activeTab.elements.editor.appendChild(snackbar);
+        container.appendChild(snackbar);
     }
     
     snackbar.textContent = message;
@@ -494,6 +564,343 @@ function showSnackbar(message) {
     activeTab.snackbarTimeout = setTimeout(() => {
         snackbar.classList.remove("show");
     }, 3000);
+}
+
+class Minimap {
+    constructor(tab, container, canvas, slider) {
+        this.tab = tab;
+        this.container = container;
+        this.canvas = canvas;
+        this.slider = slider;
+        this.ctx = canvas.getContext('2d');
+        this.isDragging = false;
+        this.animFrame = null;
+        this.lineHeight = 3.0;
+        this.charWidth = 1.35;
+        this.minimapScrollTop = 0;
+        this.colorCache = {};
+        this.probeSpan = null;
+
+        this.initEvents();
+    }
+
+    initEvents() {
+        const editor = this.tab.editor;
+        
+        // Listen to scroll events on Ace editor - redraw on scroll to keep canvas in exact lockstep
+        editor.session.on('changeScrollTop', () => this.update(true));
+        editor.session.on('changeScrollLeft', () => this.update(false));
+        
+        // Listen to document changes (code typed, loaded, or undone)
+        editor.on('change', () => this.scheduleUpdate());
+        editor.renderer.on('afterRender', () => this.update(true));
+
+        // Click & Drag interaction on Minimap
+        this.container.addEventListener('mousedown', (e) => {
+            this.handleMouseDown(e);
+        });
+
+        // Mouse wheel over minimap
+        this.container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            editor.session.setScrollTop(editor.session.getScrollTop() + e.deltaY);
+        }, { passive: false });
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            if (this.tab === tabManager.activeTab) {
+                this.update(true);
+            }
+        });
+    }
+
+    handleMouseDown(e) {
+        if (e.button !== 0) return; // Primary mouse button only
+        e.preventDefault();
+
+        const editor = this.tab.editor;
+        if (!editor || !editor.session || !editor.renderer) return;
+
+        const rect = this.container.getBoundingClientRect();
+        const clickY = e.clientY - rect.top;
+        const totalLines = editor.session.getLength();
+        const totalHeight = this.container.clientHeight;
+        const sliderHeight = parseFloat(this.slider.style.height) || 25;
+        const sliderTop = parseFloat(this.slider.style.top) || 0;
+
+        const editorLineHeight = editor.renderer.lineHeight || 18;
+        const scrollerHeight = editor.renderer.$size.scrollerHeight || editor.container.clientHeight || totalHeight;
+        const visibleRowCount = scrollerHeight / editorLineHeight;
+
+        let maxEditorScroll = 0;
+        if (editor.renderer.scrollBarV && editor.renderer.scrollBarV.scrollHeight > editor.renderer.scrollBarV.clientHeight) {
+            maxEditorScroll = editor.renderer.scrollBarV.scrollHeight - editor.renderer.scrollBarV.clientHeight;
+        } else {
+            maxEditorScroll = Math.max(1, (totalLines * editorLineHeight) - scrollerHeight);
+        }
+
+        const sliderTravelRange = Math.max(1, totalHeight - sliderHeight);
+
+        // If clicked outside current slider, jump center of viewport to click position
+        if (clickY < sliderTop || clickY > sliderTop + sliderHeight) {
+            const clickedRow = (clickY + this.minimapScrollTop) / this.lineHeight;
+            const targetTopRow = Math.max(0, clickedRow - (visibleRowCount / 2));
+            editor.session.setScrollTop(targetTopRow * editorLineHeight);
+        }
+
+        // Begin dragging tracking
+        this.isDragging = true;
+        this.slider.classList.add('dragging');
+        const startMouseY = e.clientY;
+        const startScrollTop = editor.session.getScrollTop();
+
+        const onMouseMove = (moveEvent) => {
+            if (!this.isDragging) return;
+            moveEvent.preventDefault();
+
+            const deltaY = moveEvent.clientY - startMouseY;
+            const currentTotalHeight = this.container.clientHeight;
+            const currentSliderHeight = parseFloat(this.slider.style.height) || sliderHeight;
+            const currentTravelRange = Math.max(1, currentTotalHeight - currentSliderHeight);
+
+            if (maxEditorScroll > 0 && currentTravelRange > 0) {
+                const ratio = maxEditorScroll / currentTravelRange;
+                const newScroll = Math.max(0, Math.min(maxEditorScroll, startScrollTop + deltaY * ratio));
+                editor.session.setScrollTop(newScroll);
+            }
+        };
+
+        const onMouseUp = () => {
+            this.isDragging = false;
+            this.slider.classList.remove('dragging');
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    }
+
+    scheduleUpdate() {
+        if (this.animFrame) cancelAnimationFrame(this.animFrame);
+        this.animFrame = requestAnimationFrame(() => this.update(true));
+    }
+
+    update(fullRedraw = true) {
+        if (!minimapEnabled || this.container.offsetParent === null) return;
+
+        const width = this.container.clientWidth;
+        const height = this.container.clientHeight;
+        if (width === 0 || height === 0) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const targetW = Math.round(width * dpr);
+        const targetH = Math.round(height * dpr);
+        if (this.canvas.width !== targetW || this.canvas.height !== targetH) {
+            this.canvas.width = targetW;
+            this.canvas.height = targetH;
+            fullRedraw = true;
+        }
+
+        const editor = this.tab.editor;
+        if (!editor || !editor.session || !editor.renderer) return;
+
+        const session = editor.session;
+        const totalLines = session.getLength();
+        if (totalLines === 0) return;
+
+        const editorLineHeight = editor.renderer.lineHeight || 18;
+        const scrollerHeight = editor.renderer.$size.scrollerHeight || editor.container.clientHeight || height;
+        
+        // Exact continuous row position and count visible in Ace editor
+        const topScrollRow = session.getScrollTop() / editorLineHeight;
+        const visibleRowCount = scrollerHeight / editorLineHeight;
+
+        // Total height of all lines in document on minimap
+        const totalMinimapHeight = totalLines * this.lineHeight;
+
+        // Exact height of the slider: each line visible in the editor corresponds to 1 line on the minimap
+        const sliderHeight = Math.max(16, Math.min(height, visibleRowCount * this.lineHeight));
+
+        let maxEditorScroll = 0;
+        if (editor.renderer.scrollBarV && editor.renderer.scrollBarV.scrollHeight > editor.renderer.scrollBarV.clientHeight) {
+            maxEditorScroll = editor.renderer.scrollBarV.scrollHeight - editor.renderer.scrollBarV.clientHeight;
+        } else {
+            maxEditorScroll = Math.max(1, (totalLines * editorLineHeight) - scrollerHeight);
+        }
+
+        const currentScrollTop = session.getScrollTop();
+        const scrollRatio = maxEditorScroll > 0 ? Math.max(0, Math.min(1, currentScrollTop / maxEditorScroll)) : 0;
+
+        const prevMinimapScrollTop = this.minimapScrollTop;
+        let sliderTop = 0;
+
+        if (totalMinimapHeight <= height) {
+            // Entire document fits inside minimap container without scrolling
+            this.minimapScrollTop = 0;
+            sliderTop = topScrollRow * this.lineHeight;
+            sliderTop = Math.max(0, Math.min(height - sliderHeight, sliderTop));
+        } else {
+            // Document is taller than container; minimap content scrolls proportionally
+            const maxMinimapScroll = totalMinimapHeight - height;
+            this.minimapScrollTop = scrollRatio * maxMinimapScroll;
+            // The top of the visible screen on minimap canvas:
+            sliderTop = topScrollRow * this.lineHeight - this.minimapScrollTop;
+            sliderTop = Math.max(0, Math.min(height - sliderHeight, sliderTop));
+        }
+
+        this.slider.style.top = `${sliderTop}px`;
+        this.slider.style.height = `${sliderHeight}px`;
+
+        if (fullRedraw || prevMinimapScrollTop !== this.minimapScrollTop) {
+            this.draw(width, height, dpr);
+        }
+    }
+
+    getTokenFallbackColor(type, isLight) {
+        if (!type) return isLight ? '#24292e' : '#f8f8f2';
+
+        if (type.includes('comment')) {
+            return isLight ? '#6a737d' : '#75715e';
+        }
+        if (type.includes('string')) {
+            return isLight ? '#032f62' : '#e6db74';
+        }
+        // Parameters & constant library keywords (Orange in Monokai!)
+        // Important: check parameter BEFORE variable, since token type is "variable.parameter"
+        if (type.includes('parameter')) {
+            return isLight ? '#e36209' : '#fd971f';
+        }
+        if (type.includes('keyword') || type.includes('storage')) {
+            return isLight ? '#d73a49' : '#f92672';
+        }
+        if (type.includes('function') || type.includes('support') || type.includes('entity.name')) {
+            return isLight ? '#6f42c1' : '#66d9ef';
+        }
+        if (type.includes('numeric') || type.includes('constant')) {
+            return isLight ? '#005cc5' : '#ae81ff';
+        }
+        if (type.includes('variable.language')) {
+            return isLight ? '#005cc5' : '#a6e22e';
+        }
+        if (type.includes('variable') || type.includes('identifier')) {
+            return isLight ? '#e36209' : '#a6e22e';
+        }
+        if (type.includes('operator') || type.includes('punctuation')) {
+            return isLight ? '#586069' : '#f8f8f2';
+        }
+
+        return isLight ? '#24292e' : '#f8f8f2';
+    }
+
+    getTokenColor(token) {
+        if (!token) return currentTheme === "ace/theme/github_light_default" ? '#24292e' : '#f8f8f2';
+        const type = token.type || '';
+        if (!type) return currentTheme === "ace/theme/github_light_default" ? '#24292e' : '#f8f8f2';
+
+        if (!this.colorCache) this.colorCache = {};
+        const cacheKey = `${currentTheme}::${type}`;
+        if (this.colorCache[cacheKey]) {
+            return this.colorCache[cacheKey];
+        }
+
+        const isLight = currentTheme === "ace/theme/github_light_default";
+        let color = null;
+
+        try {
+            if (!this.probeSpan) {
+                this.probeSpan = document.createElement('span');
+                this.probeSpan.style.position = 'absolute';
+                this.probeSpan.style.left = '-9999px';
+                this.probeSpan.style.top = '-9999px';
+                this.probeSpan.style.visibility = 'hidden';
+                this.probeSpan.style.pointerEvents = 'none';
+                this.probeSpan.style.width = '0px';
+                this.probeSpan.style.height = '0px';
+                this.probeSpan.style.overflow = 'hidden';
+                if (this.tab && this.tab.editor && this.tab.editor.container) {
+                    this.tab.editor.container.appendChild(this.probeSpan);
+                }
+            }
+
+            if (this.probeSpan && this.probeSpan.parentElement) {
+                // Ace formats token classes by replacing '.' with ' ace_'
+                this.probeSpan.className = "ace_" + type.replace(/\./g, " ace_");
+                const computed = window.getComputedStyle(this.probeSpan).color;
+                if (computed && computed !== 'rgba(0, 0, 0, 0)' && computed !== 'transparent') {
+                    const defaultColor = isLight ? 'rgb(36, 41, 46)' : 'rgb(248, 248, 242)';
+                    if (computed !== defaultColor) {
+                        color = computed;
+                    }
+                }
+            }
+        } catch (e) {
+            // fallback
+        }
+
+        if (!color) {
+            color = this.getTokenFallbackColor(type, isLight);
+        }
+
+        this.colorCache[cacheKey] = color;
+        return color;
+    }
+
+    draw(width, height, dpr) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, width, height);
+
+        const session = this.tab.editor.session;
+        const totalLines = session.getLength();
+        const startLine = Math.max(0, Math.floor(this.minimapScrollTop / this.lineHeight));
+        const endLine = Math.min(totalLines - 1, Math.ceil((this.minimapScrollTop + height) / this.lineHeight));
+        const isLight = currentTheme === "ace/theme/github_light_default";
+        const defaultTextColor = isLight ? '#24292e' : '#f8f8f2';
+
+        const drawH = 2; // 2px thickness with 1px space between lines (lineHeight = 3.0)
+
+        for (let row = startLine; row <= endLine; row++) {
+            const y = row * this.lineHeight - this.minimapScrollTop;
+            const tokens = session.getTokens(row);
+            let x = 4; // Left margin
+
+            if (tokens && tokens.length > 0) {
+                for (let i = 0; i < tokens.length; i++) {
+                    const token = tokens[i];
+                    const val = token.value;
+                    const len = val.length;
+
+                    if (val.trim() === '') {
+                        x += len * this.charWidth;
+                        if (x >= width - 4) break;
+                        continue;
+                    }
+
+                    const color = this.getTokenColor(token);
+                    const tokenW = Math.max(1.5, Math.min(len * this.charWidth, width - 4 - x));
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y, tokenW, drawH);
+                    x += tokenW + 0.8;
+                    if (x >= width - 4) break;
+                }
+            } else {
+                const line = session.getLine(row);
+                if (line && line.trim() !== '') {
+                    const leadingMatch = line.match(/^\s*/);
+                    const leadSpaces = leadingMatch ? leadingMatch[0].length : 0;
+                    x += leadSpaces * this.charWidth;
+                    const textLen = line.length - leadSpaces;
+                    const tokenW = Math.max(1.5, Math.min(textLen * this.charWidth, width - 4 - x));
+                    ctx.fillStyle = defaultTextColor;
+                    ctx.fillRect(x, y, tokenW, drawH);
+                }
+            }
+        }
+
+        ctx.restore();
+    }
 }
 
 class Tab {
@@ -525,7 +932,13 @@ class Tab {
         content.className = "tab-content";
         content.id = `tab-content-${this.id}`;
         content.innerHTML = `
-            <div id="editor-${this.id}" class="editor-instance"></div>
+            <div id="editor-wrapper-${this.id}" class="editor-wrapper">
+                <div id="editor-${this.id}" class="editor-instance"></div>
+                <div id="minimap-container-${this.id}" class="minimap-container ${minimapEnabled ? '' : 'hidden'}">
+                    <canvas id="minimap-canvas-${this.id}" class="minimap-canvas"></canvas>
+                    <div id="minimap-slider-${this.id}" class="minimap-slider" title="Drag to scroll"></div>
+                </div>
+            </div>
             <div id="chatBotContainer-${this.id}" class="chat-container-instance">
                 <div class="chat-section">
                     <div class="chat-messages" id="chat-messages-${this.id}"></div>
@@ -549,7 +962,11 @@ class Tab {
         document.getElementById("tabContentArea").appendChild(content);
         
         this.elements.content = content;
+        this.elements.editorWrapper = content.querySelector(`#editor-wrapper-${this.id}`);
         this.elements.editor = content.querySelector(`#editor-${this.id}`);
+        this.elements.minimapContainer = content.querySelector(`#minimap-container-${this.id}`);
+        this.elements.minimapCanvas = content.querySelector(`#minimap-canvas-${this.id}`);
+        this.elements.minimapSlider = content.querySelector(`#minimap-slider-${this.id}`);
         this.elements.chatBotContainer = content.querySelector(`#chatBotContainer-${this.id}`);
         this.elements.chatMessages = content.querySelector(`#chat-messages-${this.id}`);
         this.elements.chatInput = content.querySelector(`#chat-input-${this.id}`);
@@ -592,14 +1009,22 @@ class Tab {
         this.editor = ace.edit(this.elements.editor.id);
         this.editor.setTheme(currentTheme);
         this.updateEditorMode();
+        const localCompletion = typeof localCompletionEnabled !== "undefined" ? localCompletionEnabled : true;
         this.editor.setOptions({
-            enableBasicAutocompletion: true,
-            enableLiveAutocompletion: true,
+            enableBasicAutocompletion: localCompletion,
+            enableLiveAutocompletion: localCompletion,
             fontSize: "14px",
         });
         this.editor.renderer.setScrollMargin(0, 0, 0, 50);
 
         new TokenTooltip(this.editor);
+
+        this.minimap = new Minimap(
+            this,
+            this.elements.minimapContainer,
+            this.elements.minimapCanvas,
+            this.elements.minimapSlider
+        );
 
         this.editor.setShowPrintMargin(false); // Hide the vertical print margin line
         this.editor.getSession().setUseSoftTabs(false);
@@ -811,6 +1236,9 @@ class Tab {
     activate() {
         this.elements.content.classList.add("active");
         this.editor.resize();
+        if (this.minimap) {
+            this.minimap.update(true);
+        }
         this.updateHistoryButtons();
         this.visibleCount = 10;
         this.updateMessageVisibility(false);
@@ -823,6 +1251,22 @@ class Tab {
           }
           this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
         }, 50);
+    }
+
+    setMinimapVisible(visible) {
+        if (this.elements.minimapContainer) {
+            if (visible) {
+                this.elements.minimapContainer.classList.remove("hidden");
+                if (this.minimap) {
+                    this.minimap.update(true);
+                }
+            } else {
+                this.elements.minimapContainer.classList.add("hidden");
+            }
+        }
+        if (this.editor) {
+            this.editor.resize();
+        }
     }
 
     deactivate() {
