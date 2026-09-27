@@ -364,10 +364,78 @@ function closeCloseTabConfirmModal() {
     document.getElementById('closeTabConfirmModal').style.display = 'none';
 }
 
+let activeConflictTab = null;
+let activeExternalContent = "";
+let activeExternalModified = 0;
+
+function openExternalConflictModal(tab, diskContent, diskModified) {
+    activeConflictTab = tab;
+    activeExternalContent = diskContent;
+    activeExternalModified = diskModified;
+    const modal = document.getElementById('externalConflictModal');
+    if (!modal) return;
+    const message = document.getElementById('externalConflictMessage');
+    if (message) {
+        message.innerHTML = `<strong>${tab.name}</strong> has been modified on disk by another program (e.g. Notepad).<br/><br/>You also have unsaved changes in this editor. What would you like to do?`;
+    }
+
+    const reloadBtn = document.getElementById('conflictReloadBtn');
+    if (reloadBtn) {
+        reloadBtn.onclick = () => {
+            closeExternalConflictModal();
+            if (activeConflictTab) {
+                const cursor = activeConflictTab.editor.getCursorPosition();
+                const scrollTop = activeConflictTab.editor.session.getScrollTop();
+                activeConflictTab.editor.setValue(activeExternalContent, -1);
+                activeConflictTab.editor.moveCursorToPosition(cursor);
+                activeConflictTab.editor.session.setScrollTop(scrollTop);
+                activeConflictTab.lastSavedCode = activeExternalContent;
+                activeConflictTab.lastModified = activeExternalModified;
+                activeConflictTab.saveCurrentCodeToHistory();
+                activeConflictTab.updateTabIcon();
+                showSnackbar(`"${activeConflictTab.name}" reloaded from disk.`);
+            }
+        };
+    }
+
+    const keepBtn = document.getElementById('conflictKeepBtn');
+    if (keepBtn) {
+        keepBtn.onclick = () => {
+            closeExternalConflictModal();
+            if (activeConflictTab) {
+                // Update lastModified so we don't prompt repeatedly until disk changes again
+                activeConflictTab.lastModified = activeExternalModified;
+                showSnackbar(`Kept editor changes. Note: saving will overwrite external changes.`);
+            }
+        };
+    }
+
+    const diffBtn = document.getElementById('conflictDiffBtn');
+    if (diffBtn) {
+        diffBtn.onclick = () => {
+            const currentTab = activeConflictTab;
+            const diskCode = activeExternalContent;
+            closeExternalConflictModal();
+            if (currentTab) {
+                const diffIndex = currentTab.recordChange(currentTab.editor.getValue(), diskCode, new Date());
+                openDiff(diffIndex, currentTab.id);
+            }
+        };
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeExternalConflictModal() {
+    const modal = document.getElementById('externalConflictModal');
+    if (modal) modal.style.display = 'none';
+}
+
 window.onclick = function(event) {
   if (event.target.id == 'modalOverlay') closeModal();
   if (event.target.id == 'clearChatModal') closeClearChatModal();
   if (event.target.id == 'closeTabConfirmModal') closeCloseTabConfirmModal();
+  if (event.target.id == 'externalConflictModal') closeExternalConflictModal();
 }
 
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
@@ -438,6 +506,8 @@ class Tab {
         this.currentHistoryIndex = -1;
         this.fileHandle = null;
         this.lastSavedCode = "";
+        this.lastModified = 0;
+        this.isCheckingExternal = false;
         this.timerCounterForGlobal = 0;
         this.chatSessionNum = 0;
         this.typeWriterStatusForChatDone = true;
@@ -680,6 +750,7 @@ class Tab {
                 targetTab.editor.scrollToLine(1, true, true);
                 targetTab.editor.gotoLine(1, 0, false);
                 targetTab.name = file.name;
+                targetTab.lastModified = file.lastModified || 0;
                 targetTab.updateEditorMode();
                 targetTab.saveCurrentCodeToHistory();
                 targetTab.lastSavedCode = contents;
@@ -744,6 +815,7 @@ class Tab {
         this.visibleCount = 10;
         this.updateMessageVisibility(false);
         document.title = `${this.name} - rAthena Text Editor`;
+        this.checkExternalChange();
         // Use timeout to prevent scroll-to-focus issues during tab transition
         setTimeout(() => {
           if (this.elements.chatInput) {
@@ -770,6 +842,43 @@ class Tab {
         
         closeIcon.textContent = dirty ? '●' : '✖';
         closeIcon.classList.toggle('dirty', dirty);
+    }
+
+    async checkExternalChange() {
+        if (!this.fileHandle || this.isCheckingExternal) return;
+        this.isCheckingExternal = true;
+        try {
+            const file = await this.fileHandle.getFile();
+            if (this.lastModified && file.lastModified <= this.lastModified) {
+                return;
+            }
+
+            const diskContent = await file.text();
+
+            if (diskContent === this.lastSavedCode && diskContent === this.editor.getValue()) {
+                this.lastModified = file.lastModified;
+                return;
+            }
+
+            if (!this.isDirty()) {
+                const cursor = this.editor.getCursorPosition();
+                const scrollTop = this.editor.session.getScrollTop();
+                this.editor.setValue(diskContent, -1);
+                this.editor.moveCursorToPosition(cursor);
+                this.editor.session.setScrollTop(scrollTop);
+                this.lastSavedCode = diskContent;
+                this.lastModified = file.lastModified;
+                this.saveCurrentCodeToHistory();
+                this.updateTabIcon();
+                showSnackbar(`"${this.name}" updated with external changes.`);
+            } else {
+                openExternalConflictModal(this, diskContent, file.lastModified);
+            }
+        } catch (err) {
+            // Silently handle if permission not granted or file moved
+        } finally {
+            this.isCheckingExternal = false;
+        }
     }
 
     recordChange(oldCode, newCode, timestamp = new Date()) {
@@ -908,6 +1017,7 @@ class Tab {
                 targetTab.editor.scrollToLine(1, true, true);
                 targetTab.editor.gotoLine(1, 0, false);
                 targetTab.name = file.name;
+                targetTab.lastModified = file.lastModified || 0;
                 targetTab.updateEditorMode();
                 targetTab.saveCurrentCodeToHistory();
                 targetTab.lastSavedCode = contents;
@@ -952,6 +1062,12 @@ class Tab {
             const writable = await this.fileHandle.createWritable();
             await writable.write(currentCode);
             await writable.close();
+            try {
+                const updatedFile = await this.fileHandle.getFile();
+                this.lastModified = updatedFile.lastModified || Date.now();
+            } catch (e) {
+                this.lastModified = Date.now();
+            }
             showSnackbar("Saved successfully.");
             this.saveCurrentCodeToHistory();
 
@@ -2370,6 +2486,26 @@ document.addEventListener("keydown", (e) => {
         }
     }
 }, true);
+
+// External File Change Detection (Syncing external edits from Notepad / other editors)
+window.addEventListener("focus", () => {
+    if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+        tabManager.activeTab.checkExternalChange();
+    }
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && typeof tabManager !== 'undefined' && tabManager.activeTab) {
+        tabManager.activeTab.checkExternalChange();
+    }
+});
+
+// Periodic lightweight polling when the window has focus and active tab has a file handle
+setInterval(() => {
+    if (document.hasFocus() && typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.fileHandle) {
+        tabManager.activeTab.checkExternalChange();
+    }
+}, 3000);
 
 document.addEventListener("click", () => {
     document.getElementById("contextMenu").style.display = "none";
