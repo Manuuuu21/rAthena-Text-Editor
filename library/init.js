@@ -600,10 +600,32 @@ class Minimap {
             this.handleMouseDown(e);
         });
 
-        // Mouse wheel over minimap
+        // Touch interaction on Minimap
+        this.container.addEventListener('touchstart', (e) => {
+            this.handleTouchStart(e);
+        }, { passive: false });
+
+        // Mouse wheel over minimap - responsive and sensitive navigation
         this.container.addEventListener('wheel', (e) => {
             e.preventDefault();
-            editor.session.setScrollTop(editor.session.getScrollTop() + e.deltaY);
+            const editor = this.tab.editor;
+            if (!editor || !editor.session) return;
+
+            const editorLineHeight = (editor.renderer && editor.renderer.lineHeight) || 18;
+            let dy = e.deltaY;
+            if (e.deltaMode === 1) { // DOM_DELTA_LINE
+                dy *= editorLineHeight * 3;
+            } else if (e.deltaMode === 2) { // DOM_DELTA_PAGE
+                dy *= editor.container.clientHeight || 500;
+            } else {
+                // DOM_DELTA_PIXEL: responsive 2x sensitivity
+                dy *= 2.0;
+            }
+
+            const currentScroll = editor.session.getScrollTop();
+            const maxScroll = this.getMaxEditorScroll();
+            const newScroll = Math.max(0, Math.min(maxScroll, currentScroll + dy));
+            editor.session.setScrollTop(newScroll);
         }, { passive: false });
 
         // Window resize
@@ -612,6 +634,52 @@ class Minimap {
                 this.update(true);
             }
         });
+    }
+
+    getMaxEditorScroll() {
+        const editor = this.tab.editor;
+        if (!editor || !editor.session || !editor.renderer) return 0;
+
+        const renderer = editor.renderer;
+        if (renderer.scrollBarV && renderer.scrollBarV.scrollHeight > renderer.scrollBarV.clientHeight && renderer.scrollBarV.clientHeight > 0) {
+            return Math.max(0, renderer.scrollBarV.scrollHeight - renderer.scrollBarV.clientHeight);
+        }
+
+        const session = editor.session;
+        const totalLines = session.getScreenLength ? session.getScreenLength() : session.getLength();
+        const editorLineHeight = renderer.lineHeight || 18;
+        const scrollerHeight = (renderer.$size && renderer.$size.scrollerHeight) || editor.container.clientHeight || 500;
+        const scrollMarginBottom = (renderer.scrollMargin && renderer.scrollMargin.bottom) || 0;
+
+        return Math.max(0, (totalLines * editorLineHeight) - scrollerHeight + scrollMarginBottom);
+    }
+
+    getMaxSliderTravel() {
+        const height = this.container.clientHeight;
+        const editor = this.tab.editor;
+        const totalLines = editor && editor.session ? editor.session.getLength() : 0;
+        const totalMinimapHeight = totalLines * this.lineHeight;
+        const sliderHeight = parseFloat(this.slider.style.height) || 25;
+
+        if (totalMinimapHeight <= height) {
+            return Math.max(1, totalMinimapHeight - sliderHeight);
+        }
+        return Math.max(1, height - sliderHeight);
+    }
+
+    scrollToSliderTop(targetSliderTop) {
+        const editor = this.tab.editor;
+        if (!editor || !editor.session) return;
+
+        const maxTravel = this.getMaxSliderTravel();
+        const maxEditorScroll = this.getMaxEditorScroll();
+        if (maxEditorScroll <= 0 || maxTravel <= 0) return;
+
+        const clampedTop = Math.max(0, Math.min(maxTravel, targetSliderTop));
+        const fraction = clampedTop / maxTravel;
+        const targetScroll = Math.round(fraction * maxEditorScroll);
+
+        editor.session.setScrollTop(targetScroll);
     }
 
     handleMouseDown(e) {
@@ -623,62 +691,92 @@ class Minimap {
 
         const rect = this.container.getBoundingClientRect();
         const clickY = e.clientY - rect.top;
-        const totalLines = editor.session.getLength();
-        const totalHeight = this.container.clientHeight;
-        const sliderHeight = parseFloat(this.slider.style.height) || 25;
         const sliderTop = parseFloat(this.slider.style.top) || 0;
+        const sliderHeight = parseFloat(this.slider.style.height) || 25;
+        const maxTravel = this.getMaxSliderTravel();
 
-        const editorLineHeight = editor.renderer.lineHeight || 18;
-        const scrollerHeight = editor.renderer.$size.scrollerHeight || editor.container.clientHeight || totalHeight;
-        const visibleRowCount = scrollerHeight / editorLineHeight;
-
-        let maxEditorScroll = 0;
-        if (editor.renderer.scrollBarV && editor.renderer.scrollBarV.scrollHeight > editor.renderer.scrollBarV.clientHeight) {
-            maxEditorScroll = editor.renderer.scrollBarV.scrollHeight - editor.renderer.scrollBarV.clientHeight;
+        const isInsideSlider = (clickY >= sliderTop && clickY <= sliderTop + sliderHeight);
+        if (isInsideSlider) {
+            this.grabOffsetY = clickY - sliderTop;
         } else {
-            maxEditorScroll = Math.max(1, (totalLines * editorLineHeight) - scrollerHeight);
+            // Clicked outside slider: center slider on click position and jump immediately
+            const targetTop = Math.max(0, Math.min(maxTravel, clickY - sliderHeight / 2));
+            // Offset ensures no deadzone when dragging starts from beyond the track bounds
+            this.grabOffsetY = clickY - targetTop;
+            this.scrollToSliderTop(targetTop);
         }
 
-        const sliderTravelRange = Math.max(1, totalHeight - sliderHeight);
-
-        // If clicked outside current slider, jump center of viewport to click position
-        if (clickY < sliderTop || clickY > sliderTop + sliderHeight) {
-            const clickedRow = (clickY + this.minimapScrollTop) / this.lineHeight;
-            const targetTopRow = Math.max(0, clickedRow - (visibleRowCount / 2));
-            editor.session.setScrollTop(targetTopRow * editorLineHeight);
-        }
-
-        // Begin dragging tracking
         this.isDragging = true;
         this.slider.classList.add('dragging');
-        const startMouseY = e.clientY;
-        const startScrollTop = editor.session.getScrollTop();
+        document.body.style.userSelect = 'none';
 
         const onMouseMove = (moveEvent) => {
             if (!this.isDragging) return;
             moveEvent.preventDefault();
 
-            const deltaY = moveEvent.clientY - startMouseY;
-            const currentTotalHeight = this.container.clientHeight;
-            const currentSliderHeight = parseFloat(this.slider.style.height) || sliderHeight;
-            const currentTravelRange = Math.max(1, currentTotalHeight - currentSliderHeight);
-
-            if (maxEditorScroll > 0 && currentTravelRange > 0) {
-                const ratio = maxEditorScroll / currentTravelRange;
-                const newScroll = Math.max(0, Math.min(maxEditorScroll, startScrollTop + deltaY * ratio));
-                editor.session.setScrollTop(newScroll);
-            }
+            const currentRect = this.container.getBoundingClientRect();
+            const currentMouseY = moveEvent.clientY - currentRect.top;
+            this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
         };
 
         const onMouseUp = () => {
             this.isDragging = false;
             this.slider.classList.remove('dragging');
+            document.body.style.userSelect = '';
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
 
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
+    }
+
+    handleTouchStart(e) {
+        if (!e.touches || e.touches.length !== 1) return;
+        e.preventDefault();
+
+        const editor = this.tab.editor;
+        if (!editor || !editor.session) return;
+
+        const touch = e.touches[0];
+        const rect = this.container.getBoundingClientRect();
+        const clickY = touch.clientY - rect.top;
+        const sliderTop = parseFloat(this.slider.style.top) || 0;
+        const sliderHeight = parseFloat(this.slider.style.height) || 25;
+        const maxTravel = this.getMaxSliderTravel();
+
+        const isInsideSlider = (clickY >= sliderTop && clickY <= sliderTop + sliderHeight);
+        if (isInsideSlider) {
+            this.grabOffsetY = clickY - sliderTop;
+        } else {
+            const targetTop = Math.max(0, Math.min(maxTravel, clickY - sliderHeight / 2));
+            this.grabOffsetY = clickY - targetTop;
+            this.scrollToSliderTop(targetTop);
+        }
+
+        this.isDragging = true;
+        this.slider.classList.add('dragging');
+
+        const onTouchMove = (moveEvent) => {
+            if (!this.isDragging || !moveEvent.touches || moveEvent.touches.length !== 1) return;
+            moveEvent.preventDefault();
+            const curTouch = moveEvent.touches[0];
+            const currentRect = this.container.getBoundingClientRect();
+            const currentMouseY = curTouch.clientY - currentRect.top;
+            this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
+        };
+
+        const onTouchEnd = () => {
+            this.isDragging = false;
+            this.slider.classList.remove('dragging');
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
+            window.removeEventListener('touchcancel', onTouchEnd);
+        };
+
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd);
+        window.addEventListener('touchcancel', onTouchEnd);
     }
 
     scheduleUpdate() {
@@ -722,13 +820,7 @@ class Minimap {
         // Exact height of the slider: each line visible in the editor corresponds to 1 line on the minimap
         const sliderHeight = Math.max(16, Math.min(height, visibleRowCount * this.lineHeight));
 
-        let maxEditorScroll = 0;
-        if (editor.renderer.scrollBarV && editor.renderer.scrollBarV.scrollHeight > editor.renderer.scrollBarV.clientHeight) {
-            maxEditorScroll = editor.renderer.scrollBarV.scrollHeight - editor.renderer.scrollBarV.clientHeight;
-        } else {
-            maxEditorScroll = Math.max(1, (totalLines * editorLineHeight) - scrollerHeight);
-        }
-
+        const maxEditorScroll = this.getMaxEditorScroll();
         const currentScrollTop = session.getScrollTop();
         const scrollRatio = maxEditorScroll > 0 ? Math.max(0, Math.min(1, currentScrollTop / maxEditorScroll)) : 0;
 
@@ -739,7 +831,8 @@ class Minimap {
             // Entire document fits inside minimap container without scrolling
             this.minimapScrollTop = 0;
             sliderTop = topScrollRow * this.lineHeight;
-            sliderTop = Math.max(0, Math.min(height - sliderHeight, sliderTop));
+            const maxSliderTop = Math.max(0, Math.min(height - sliderHeight, totalMinimapHeight - sliderHeight));
+            sliderTop = Math.max(0, Math.min(maxSliderTop, sliderTop));
         } else {
             // Document is taller than container; minimap content scrolls proportionally
             const maxMinimapScroll = totalMinimapHeight - height;
