@@ -429,6 +429,7 @@ function openExternalConflictModal(tab, diskContent, diskModified) {
                 activeConflictTab.lastModified = activeExternalModified;
                 activeConflictTab.saveCurrentCodeToHistory();
                 activeConflictTab.updateTabIcon();
+                activeConflictTab.saveToDB();
                 showSnackbar(`"${activeConflictTab.name}" reloaded from disk.`);
             }
         };
@@ -1030,6 +1031,7 @@ class Tab {
         this.typeWriterStatusForChatDone = true;
         this.snackbarTimeout = null;
         this.visibleCount = 10;
+        this.dbSaveTimeout = null;
 
         this.initDOM();
         this.initEditor();
@@ -1163,6 +1165,7 @@ class Tab {
                 runRathenaLinter(this.editor);
             }
             this.updateTabIcon();
+            this.scheduleSaveToDB();
         });
 
         this.editor.getSelection().on("changeSelection", () => {
@@ -1296,7 +1299,8 @@ class Tab {
                 targetTab.saveCurrentCodeToHistory();
                 targetTab.lastSavedCode = contents;
                 tabManager.renderTabs();
-                targetTab.activate();
+                tabManager.switchTab(targetTab.id);
+                targetTab.saveToDB();
             }
         });
     }
@@ -1430,6 +1434,22 @@ class Tab {
         closeIcon.classList.toggle('dirty', dirty);
     }
 
+    scheduleSaveToDB() {
+        if (this.dbSaveTimeout) clearTimeout(this.dbSaveTimeout);
+        this.dbSaveTimeout = setTimeout(() => {
+            this.saveToDB();
+        }, 300);
+    }
+
+    saveToDB() {
+        if (typeof tabManager !== 'undefined' && tabManager.tabs && tabManager.tabs.includes(this)) {
+            const orderIndex = tabManager.tabs.indexOf(this);
+            if (typeof tabDB !== 'undefined') {
+                tabDB.saveTab(this, orderIndex);
+            }
+        }
+    }
+
     async checkExternalChange() {
         if (!this.fileHandle || this.isCheckingExternal) return;
         this.isCheckingExternal = true;
@@ -1525,6 +1545,7 @@ class Tab {
         this.editor.setValue(this.codeHistory[this.currentHistoryIndex], -1);
         this.editor.session.setUndoManager(new ace.UndoManager()); 
         this.updateHistoryButtons();
+        this.scheduleSaveToDB();
     }
 
     nextCode() {
@@ -1533,6 +1554,7 @@ class Tab {
         this.editor.setValue(this.codeHistory[this.currentHistoryIndex], -1);
         this.editor.session.setUndoManager(new ace.UndoManager());
         this.updateHistoryButtons();
+        this.scheduleSaveToDB();
     }
 
     async openFile() {
@@ -1608,7 +1630,8 @@ class Tab {
                 targetTab.saveCurrentCodeToHistory();
                 targetTab.lastSavedCode = contents;
                 tabManager.renderTabs();
-                targetTab.activate();
+                tabManager.switchTab(targetTab.id);
+                targetTab.saveToDB();
             }
         } catch (err) {
             console.error("Open failed:", err);
@@ -1622,6 +1645,20 @@ class Tab {
         const currentCode = this.editor.getValue();
         const saveDate = new Date();
         try {
+            if (this.fileHandle && typeof this.fileHandle.queryPermission === 'function') {
+                try {
+                    let perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
+                    if (perm !== 'granted') {
+                        perm = await this.fileHandle.requestPermission({ mode: 'readwrite' });
+                        if (perm !== 'granted') {
+                            this.fileHandle = null;
+                        }
+                    }
+                } catch (pe) {
+                    this.fileHandle = null;
+                }
+            }
+
             if (!this.fileHandle) {
                 let suggested = this.name;
                 const hasExt = [".txt", ".conf", ".yml", ".yaml"].some(ext => suggested.toLowerCase().endsWith(ext));
@@ -1662,6 +1699,7 @@ class Tab {
                 this.lastSavedCode = currentCode;
             }
             this.updateTabIcon();
+            this.saveToDB();
 
             this.visibleCount = 10;
             this.updateMessageVisibility(false);
@@ -2674,6 +2712,302 @@ if (apiKeyInput) {
     });
 }
 
+// IndexedDB persistence for open files / tabs
+const DB_NAME = "rathena_editor_db";
+const DB_VERSION = 1;
+const STORE_TABS = "open_tabs";
+const STORE_META = "session_meta";
+
+const tabDB = {
+    db: null,
+
+    async open() {
+        if (this.db) return this.db;
+        return new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                return reject(new Error("IndexedDB is not supported"));
+            }
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_TABS)) {
+                    db.createObjectStore(STORE_TABS, { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains(STORE_META)) {
+                    db.createObjectStore(STORE_META, { keyPath: "key" });
+                }
+            };
+            request.onsuccess = (e) => {
+                this.db = e.target.result;
+                this.db.onversionchange = () => {
+                    try { this.db.close(); } catch(err) {}
+                    this.db = null;
+                };
+                this.db.onclose = () => {
+                    this.db = null;
+                };
+                resolve(this.db);
+            };
+            request.onerror = (e) => {
+                console.error("IndexedDB open error:", e);
+                reject(e);
+            };
+        });
+    },
+
+    createTabRecord(tab, orderIndex) {
+        const cursor = tab.editor ? tab.editor.getCursorPosition() : null;
+        const scrollTop = tab.editor && tab.editor.session ? tab.editor.session.getScrollTop() : 0;
+        const scrollLeft = tab.editor && tab.editor.session ? tab.editor.session.getScrollLeft() : 0;
+        const code = tab.editor ? tab.editor.getValue() : (tab.lastSavedCode || "");
+
+        const record = {
+            id: tab.id,
+            name: tab.name || "Untitled",
+            code: code,
+            lastSavedCode: (tab.lastSavedCode !== undefined) ? tab.lastSavedCode : "",
+            lastModified: tab.lastModified || 0,
+            orderIndex: typeof orderIndex === 'number' ? orderIndex : 0,
+            cursorPosition: cursor,
+            scrollTop: scrollTop,
+            scrollLeft: scrollLeft,
+            currentHistoryIndex: typeof tab.currentHistoryIndex === 'number' ? tab.currentHistoryIndex : -1,
+            codeHistory: Array.isArray(tab.codeHistory) ? tab.codeHistory.slice(-25) : [],
+            diffHistory: Array.isArray(tab.diffHistory) ? tab.diffHistory.slice(-25) : [],
+            chatHistory: Array.isArray(tab.chatHistory) ? tab.chatHistory.slice(-50) : [],
+            chatMessagesHTML: tab.elements && tab.elements.chatMessages ? tab.elements.chatMessages.innerHTML : "",
+            savedAt: Date.now()
+        };
+
+        if (tab.fileHandle) {
+            record.fileHandle = tab.fileHandle;
+        }
+
+        return record;
+    },
+
+    async saveTab(tab, orderIndex) {
+        if (!tab || !tab.id) return;
+        try {
+            const db = await this.open();
+            const record = this.createTabRecord(tab, orderIndex);
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_TABS], "readwrite");
+                const store = tx.objectStore(STORE_TABS);
+
+                try {
+                    store.put(record);
+                } catch (putErr) {
+                    delete record.fileHandle;
+                    store.put(record);
+                }
+
+                tx.oncomplete = () => {
+                    this.updateBackup();
+                    resolve();
+                };
+                tx.onerror = (err) => {
+                    try {
+                        delete record.fileHandle;
+                        const retryTx = db.transaction([STORE_TABS], "readwrite");
+                        retryTx.objectStore(STORE_TABS).put(record);
+                        retryTx.oncomplete = () => {
+                            this.updateBackup();
+                            resolve();
+                        };
+                        retryTx.onerror = () => reject(err);
+                    } catch (retryErr) {
+                        reject(err);
+                    }
+                };
+            });
+        } catch (err) {
+            console.warn("tabDB.saveTab error:", err);
+            this.updateBackup();
+        }
+    },
+
+    async removeTab(tabId) {
+        if (tabId === undefined || tabId === null) return;
+        try {
+            const db = await this.open();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_TABS], "readwrite");
+                const store = tx.objectStore(STORE_TABS);
+                store.delete(tabId);
+                if (typeof tabId === 'string' && !isNaN(Number(tabId))) {
+                    store.delete(Number(tabId));
+                } else if (typeof tabId === 'number') {
+                    store.delete(String(tabId));
+                }
+                tx.oncomplete = () => {
+                    this.updateBackup();
+                    resolve();
+                };
+                tx.onerror = (err) => {
+                    this.updateBackup();
+                    reject(err);
+                };
+            });
+        } catch (err) {
+            console.warn("tabDB.removeTab error:", err);
+            this.updateBackup();
+        }
+    },
+
+    async syncTabs(tabs, activeTabId) {
+        if (!Array.isArray(tabs)) return;
+        try {
+            const db = await this.open();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_TABS, STORE_META], "readwrite");
+                const tabStore = tx.objectStore(STORE_TABS);
+                const metaStore = tx.objectStore(STORE_META);
+
+                const activeIds = new Set(tabs.map(t => t.id));
+                const activeIdStrings = new Set(tabs.map(t => String(t.id)));
+
+                const reqKeys = tabStore.getAllKeys();
+                reqKeys.onsuccess = () => {
+                    const keys = reqKeys.result || [];
+                    keys.forEach(k => {
+                        if (!activeIds.has(k) && !activeIdStrings.has(String(k))) {
+                            tabStore.delete(k);
+                        }
+                    });
+
+                    tabs.forEach((tab, index) => {
+                        const record = this.createTabRecord(tab, index);
+                        try {
+                            tabStore.put(record);
+                        } catch (e) {
+                            delete record.fileHandle;
+                            tabStore.put(record);
+                        }
+                    });
+
+                    if (activeTabId !== undefined && activeTabId !== null) {
+                        metaStore.put({ key: "activeTabId", value: activeTabId });
+                    }
+                };
+
+                tx.oncomplete = () => {
+                    this.updateBackup();
+                    resolve();
+                };
+                tx.onerror = (err) => reject(err);
+            });
+        } catch (err) {
+            console.warn("tabDB.syncTabs error:", err);
+            this.updateBackup();
+        }
+    },
+
+    async getAllTabs() {
+        try {
+            const db = await this.open();
+            return new Promise((resolve) => {
+                const tx = db.transaction([STORE_TABS], "readonly");
+                const store = tx.objectStore(STORE_TABS);
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    let list = request.result || [];
+                    list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                    if (list.length > 0) {
+                        resolve(list);
+                    } else {
+                        resolve(this.getBackupTabs());
+                    }
+                };
+                request.onerror = () => {
+                    resolve(this.getBackupTabs());
+                };
+            });
+        } catch (err) {
+            console.warn("tabDB.getAllTabs error, checking backup:", err);
+            return this.getBackupTabs();
+        }
+    },
+
+    getBackupTabs() {
+        try {
+            const raw = localStorage.getItem("rathena_open_tabs_backup");
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            }
+        } catch (e) {}
+        return [];
+    },
+
+    updateBackup() {
+        if (typeof tabManager === 'undefined' || !Array.isArray(tabManager.tabs)) return;
+        try {
+            const backupList = tabManager.tabs.map((tab, idx) => {
+                return {
+                    id: tab.id,
+                    name: tab.name || "Untitled",
+                    code: tab.editor ? tab.editor.getValue() : (tab.lastSavedCode || ""),
+                    lastSavedCode: (tab.lastSavedCode !== undefined) ? tab.lastSavedCode : "",
+                    lastModified: tab.lastModified || 0,
+                    orderIndex: idx,
+                    cursorPosition: tab.editor ? tab.editor.getCursorPosition() : null,
+                    scrollTop: tab.editor && tab.editor.session ? tab.editor.session.getScrollTop() : 0,
+                    scrollLeft: tab.editor && tab.editor.session ? tab.editor.session.getScrollLeft() : 0,
+                    currentHistoryIndex: typeof tab.currentHistoryIndex === 'number' ? tab.currentHistoryIndex : -1,
+                    codeHistory: Array.isArray(tab.codeHistory) ? tab.codeHistory.slice(-10) : [],
+                    diffHistory: Array.isArray(tab.diffHistory) ? tab.diffHistory.slice(-10) : [],
+                    chatHistory: Array.isArray(tab.chatHistory) ? tab.chatHistory.slice(-20) : [],
+                    chatMessagesHTML: tab.elements && tab.elements.chatMessages ? tab.elements.chatMessages.innerHTML : ""
+                };
+            });
+            localStorage.setItem("rathena_open_tabs_backup", JSON.stringify(backupList));
+            if (tabManager.activeTab) {
+                localStorage.setItem("rathena_active_tab_backup", String(tabManager.activeTab.id));
+            }
+        } catch (e) {
+            // Ignore quota errors
+        }
+    },
+
+    async saveActiveTabId(activeId) {
+        if (!activeId) return;
+        try {
+            localStorage.setItem("rathena_active_tab_backup", String(activeId));
+            const db = await this.open();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction([STORE_META], "readwrite");
+                const store = tx.objectStore(STORE_META);
+                store.put({ key: "activeTabId", value: activeId });
+                tx.oncomplete = () => resolve();
+                tx.onerror = (err) => reject(err);
+            });
+        } catch (err) {
+            console.warn("tabDB.saveActiveTabId error:", err);
+        }
+    },
+
+    async getActiveTabId() {
+        try {
+            const db = await this.open();
+            return new Promise((resolve) => {
+                const tx = db.transaction([STORE_META], "readonly");
+                const store = tx.objectStore(STORE_META);
+                const req = store.get("activeTabId");
+                req.onsuccess = () => {
+                    const val = req.result ? req.result.value : null;
+                    resolve(val || localStorage.getItem("rathena_active_tab_backup"));
+                };
+                req.onerror = () => resolve(localStorage.getItem("rathena_active_tab_backup"));
+            });
+        } catch (err) {
+            return localStorage.getItem("rathena_active_tab_backup");
+        }
+    }
+};
+
 const tabManager = {
     tabs: [],
     closedTabs: [],
@@ -2690,6 +3024,8 @@ const tabManager = {
         this.tabs.push(tab);
         this.renderTabs();
         this.switchTab(tab.id);
+        tabDB.saveTab(tab, this.tabs.indexOf(tab));
+        tabDB.saveActiveTabId(tab.id);
         return tab;
     },
 
@@ -2709,6 +3045,7 @@ const tabManager = {
         }
 
         this.renderTabs();
+        tabDB.saveActiveTabId(tab.id);
     },
 
     closeTab(id, e) {
@@ -2749,6 +3086,9 @@ const tabManager = {
             this.closedTabs.shift();
         }
 
+        // Remove from IndexedDB immediately upon closing file
+        tabDB.removeTab(id);
+
         this.tabs.splice(index, 1);
         tab.elements.content.remove();
         
@@ -2759,6 +3099,133 @@ const tabManager = {
         } else {
             this.renderTabs();
         }
+        this.saveAllTabsToDB();
+    },
+
+    saveAllTabsToDB() {
+        tabDB.syncTabs(this.tabs, this.activeTab ? this.activeTab.id : null);
+    },
+
+    flushAllTabsToDB() {
+        this.tabs.forEach(tab => {
+            if (tab.dbSaveTimeout) {
+                clearTimeout(tab.dbSaveTimeout);
+                tab.dbSaveTimeout = null;
+            }
+        });
+
+        tabDB.updateBackup();
+
+        if (tabDB.db) {
+            try {
+                const tx = tabDB.db.transaction([STORE_TABS, STORE_META], "readwrite");
+                const tabStore = tx.objectStore(STORE_TABS);
+                const metaStore = tx.objectStore(STORE_META);
+
+                this.tabs.forEach((tab, index) => {
+                    const record = tabDB.createTabRecord(tab, index);
+                    try {
+                        tabStore.put(record);
+                    } catch (e) {
+                        delete record.fileHandle;
+                        tabStore.put(record);
+                    }
+                });
+
+                if (this.activeTab) {
+                    metaStore.put({ key: "activeTabId", value: this.activeTab.id });
+                }
+            } catch (err) {
+                console.warn("flushAllTabsToDB error:", err);
+            }
+        }
+    },
+
+    async initSession() {
+        try {
+            const savedTabs = await tabDB.getAllTabs();
+            if (savedTabs && savedTabs.length > 0) {
+                let maxId = 0;
+                savedTabs.forEach(data => {
+                    if (data.id && typeof data.id === 'number') {
+                        maxId = Math.max(maxId, data.id);
+                    }
+                });
+                this.nextId = Math.max(this.nextId, maxId + 1);
+
+                const activeTabId = await tabDB.getActiveTabId();
+                let tabToActivate = null;
+
+                for (let i = 0; i < savedTabs.length; i++) {
+                    const tabData = savedTabs[i];
+                    const tabId = (typeof tabData.id === 'number' || typeof tabData.id === 'string') && tabData.id !== ""
+                        ? tabData.id
+                        : this.nextId++;
+                    const tab = new Tab(tabId, tabData.name || "Untitled");
+                    tab.fileHandle = tabData.fileHandle || null;
+                    tab.lastSavedCode = (tabData.lastSavedCode !== undefined) ? tabData.lastSavedCode : (tabData.code || "");
+                    tab.chatHistory = tabData.chatHistory || [];
+                    tab.diffHistory = tabData.diffHistory || [];
+                    tab.codeHistory = tabData.codeHistory || [];
+                    tab.currentHistoryIndex = typeof tabData.currentHistoryIndex === 'number' ? tabData.currentHistoryIndex : -1;
+                    tab.lastModified = tabData.lastModified || 0;
+
+                    if (tab.editor && tabData.code !== undefined) {
+                        tab.editor.setValue(tabData.code, -1);
+                        tab.editor.clearSelection();
+                        tab.editor.session.setUndoManager(new ace.UndoManager());
+
+                        if (tabData.cursorPosition) {
+                            try {
+                                tab.editor.moveCursorToPosition(tabData.cursorPosition);
+                            } catch (e) {}
+                        }
+                        if (tabData.scrollTop !== undefined) {
+                            try {
+                                tab.editor.session.setScrollTop(tabData.scrollTop);
+                            } catch (e) {}
+                        }
+                        if (tabData.scrollLeft !== undefined) {
+                            try {
+                                tab.editor.session.setScrollLeft(tabData.scrollLeft);
+                            } catch (e) {}
+                        }
+                    }
+
+                    if (tab.elements && tab.elements.chatMessages && tabData.chatMessagesHTML) {
+                        tab.elements.chatMessages.innerHTML = tabData.chatMessagesHTML;
+                    }
+
+                    tab.updateEditorMode();
+                    tab.updateTabIcon();
+                    this.tabs.push(tab);
+
+                    if (String(tabData.id) === String(activeTabId)) {
+                        tabToActivate = tab;
+                    }
+                }
+
+                this.renderTabs();
+                if (!tabToActivate && this.tabs.length > 0) {
+                    tabToActivate = this.tabs[0];
+                }
+                if (tabToActivate) {
+                    this.switchTab(tabToActivate.id);
+                }
+
+                this.saveAllTabsToDB();
+
+                setTimeout(() => {
+                    showSnackbar(`Restored ${savedTabs.length} open file${savedTabs.length > 1 ? 's' : ''} from previous session.`);
+                }, 300);
+                return;
+            }
+        } catch (e) {
+            console.warn("Failed to restore session from IndexedDB:", e);
+        }
+
+        // If no saved session in IndexedDB, open default initial tab
+        this.addTab();
     },
 
     restoreTab(tabData) {
@@ -2795,6 +3262,8 @@ const tabManager = {
         this.switchTab(tab.id);
         
         tab.updateTabIcon();
+        tabDB.saveTab(tab, this.tabs.indexOf(tab));
+        tabDB.saveActiveTabId(tab.id);
         showSnackbar(`Restored tab: ${tabData.name}`);
         return tab;
     },
@@ -3040,6 +3509,7 @@ const tabManager = {
             btn.classList.remove("dragging");
             tabManager.draggedTabIndex = null;
             this.renderTabs();
+            this.saveAllTabsToDB();
         };
 
         return btn;
@@ -3080,9 +3550,28 @@ window.addEventListener("focus", () => {
     }
 });
 
+// Accidental browser close protection & tab persistence:
+window.addEventListener("beforeunload", () => {
+    if (typeof tabManager !== 'undefined') {
+        tabManager.flushAllTabsToDB();
+    }
+});
+
+window.addEventListener("pagehide", () => {
+    if (typeof tabManager !== 'undefined') {
+        tabManager.flushAllTabsToDB();
+    }
+});
+
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && typeof tabManager !== 'undefined' && tabManager.activeTab) {
-        tabManager.activeTab.checkExternalChange();
+    if (document.visibilityState === "hidden") {
+        if (typeof tabManager !== 'undefined') {
+            tabManager.flushAllTabsToDB();
+        }
+    } else if (document.visibilityState === "visible") {
+        if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+            tabManager.activeTab.checkExternalChange();
+        }
     }
 });
 
