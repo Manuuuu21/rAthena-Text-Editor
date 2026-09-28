@@ -341,6 +341,10 @@ function openModal() {
   if (toggleTooltipElem && typeof documentationTooltipEnabled !== 'undefined') {
     toggleTooltipElem.checked = documentationTooltipEnabled;
   }
+  const toggleHideChatElem = document.getElementById('toggleHideChatBot');
+  if (toggleHideChatElem && typeof hideChatBotContainer !== 'undefined') {
+    toggleHideChatElem.checked = hideChatBotContainer;
+  }
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
@@ -473,6 +477,7 @@ window.onclick = function(event) {
 let minimapEnabled = localStorage.getItem("minimapEnabled") !== "false";
 let localCompletionEnabled = localStorage.getItem("localCompletionEnabled") !== "false";
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
+let hideChatBotContainer = localStorage.getItem("hideChatBotContainer") === "true";
 
 const toggleMinimapElem = document.getElementById("toggleMinimap");
 if (toggleMinimapElem) {
@@ -515,32 +520,44 @@ document.getElementById("toggleTooltip").addEventListener("change", function () 
   localStorage.setItem("documentationTooltipEnabled", documentationTooltipEnabled);
 });
 
+const toggleHideChatElem = document.getElementById("toggleHideChatBot");
+if (toggleHideChatElem) {
+  toggleHideChatElem.checked = hideChatBotContainer;
+  toggleHideChatElem.addEventListener("change", function () {
+    setChatBotContainerHidden(this.checked);
+  });
+}
+
+function setChatBotContainerHidden(hidden) {
+  hideChatBotContainer = hidden;
+  localStorage.setItem("hideChatBotContainer", hidden);
+
+  const toggleHideElem = document.getElementById("toggleHideChatBot");
+  if (toggleHideElem) {
+    toggleHideElem.checked = hidden;
+  }
+
+  tabManager.tabs.forEach(tab => {
+    if (tab.setChatBotHidden) {
+      tab.setChatBotHidden(hidden);
+    }
+  });
+}
+
 function toggleDisplayChatBotContainer() {
   const activeTab = tabManager.activeTab;
   if (!activeTab) return;
 
   const chatBot = activeTab.elements.chatBotContainer;
-  const editorArea = activeTab.elements.editorWrapper || activeTab.elements.editor;
+  const isCurrentlyHidden = window.getComputedStyle(chatBot).display === 'none';
 
-  if (window.getComputedStyle(chatBot).display === 'none') {
-    chatBot.style.display = 'flex';
-    editorArea.style.flex = '1 1 70%';
-    editorArea.style.width = '70%';
-    // Scroll to bottom after displaying
+  setChatBotContainerHidden(!isCurrentlyHidden);
+
+  if (isCurrentlyHidden) {
     setTimeout(() => {
-        const messages = activeTab.elements.chatMessages;
-        messages.scrollTop = messages.scrollHeight;
+      const messages = activeTab.elements.chatMessages;
+      if (messages) messages.scrollTop = messages.scrollHeight;
     }, 100);
-  } else {
-    chatBot.style.display = 'none';
-    editorArea.style.flex = '1 1 100%';
-    editorArea.style.width = '100%';
-  }
-  if (activeTab.editor) {
-    activeTab.editor.resize();
-    if (activeTab.minimap) {
-      activeTab.minimap.update(true);
-    }
   }
 }
 
@@ -1068,6 +1085,12 @@ class Tab {
         this.elements.clearChatBtn = content.querySelector(`#clear-chat-${this.id}`);
         this.elements.modelSelect = content.querySelector(`#model-select-${this.id}`);
 
+        if (typeof hideChatBotContainer !== 'undefined' && hideChatBotContainer) {
+            this.elements.chatBotContainer.style.display = 'none';
+            this.elements.editorWrapper.style.flex = '1 1 100%';
+            this.elements.editorWrapper.style.width = '100%';
+        }
+
         const savedModel = localStorage.getItem("lastSelectedModel");
         if (savedModel) {
             this.elements.modelSelect.value = savedModel;
@@ -1359,6 +1382,32 @@ class Tab {
         }
         if (this.editor) {
             this.editor.resize();
+        }
+    }
+
+    setChatBotHidden(hidden) {
+        if (this.elements && this.elements.chatBotContainer) {
+            const chatBot = this.elements.chatBotContainer;
+            const editorArea = this.elements.editorWrapper || this.elements.editor;
+            if (hidden) {
+                chatBot.style.display = 'none';
+                if (editorArea) {
+                    editorArea.style.flex = '1 1 100%';
+                    editorArea.style.width = '100%';
+                }
+            } else {
+                chatBot.style.display = 'flex';
+                if (editorArea) {
+                    editorArea.style.flex = '1 1 70%';
+                    editorArea.style.width = '70%';
+                }
+            }
+        }
+        if (this.editor) {
+            this.editor.resize();
+        }
+        if (this.minimap) {
+            this.minimap.update(true);
         }
     }
 
