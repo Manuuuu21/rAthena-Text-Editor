@@ -178,8 +178,12 @@
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
-    // Initialize the tab manager
-    tabManager.addTab(); // Create the first tab on load
+    // Initialize the tab manager and restore open files from IndexedDB
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => tabManager.initSession());
+    } else {
+      tabManager.initSession();
+    }
   </script>
 </body>
 </html>
