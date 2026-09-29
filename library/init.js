@@ -3215,9 +3215,16 @@ const tabManager = {
 
                 this.saveAllTabsToDB();
 
-                setTimeout(() => {
-                    showSnackbar(`Restored ${savedTabs.length} open file${savedTabs.length > 1 ? 's' : ''} from previous session.`);
-                }, 300);
+                const isDefaultSession = savedTabs.length === 1 &&
+                    savedTabs[0].name === "Untitled" &&
+                    !savedTabs[0].fileHandle &&
+                    (!savedTabs[0].code || savedTabs[0].code.trim() === "");
+
+                if (!isDefaultSession) {
+                    setTimeout(() => {
+                        showSnackbar(`Restored ${savedTabs.length} open file${savedTabs.length > 1 ? 's' : ''} from previous session.`);
+                    }, 300);
+                }
                 return;
             }
         } catch (e) {

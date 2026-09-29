@@ -25,10 +25,10 @@
   --closeBtnColor: #bbb;
   --minimapBg: #1e1e1e;
   --minimapBorder: #2d2d2d;
-  --minimapSliderBg: rgba(255, 255, 255, 0.08);
-  --minimapSliderHoverBg: rgba(255, 255, 255, 0.15);
-  --minimapSliderActiveBg: rgba(255, 255, 255, 0.22);
-  --minimapSliderBorder: rgba(255, 255, 255, 0.25);
+  --minimapSliderBg: rgba(255, 255, 255, 0.015);
+  --minimapSliderHoverBg: rgba(255, 255, 255, 0.04);
+  --minimapSliderActiveBg: rgba(255, 255, 255, 0.08);
+  --minimapSliderBorder: rgba(255, 255, 255, 0.16);
 }
 
 html, body {
@@ -215,8 +215,8 @@ code {
 
 .minimap-container {
   position: relative;
-  width: 150px;
-  flex: 0 0 150px;
+  width: 200px;
+  flex: 0 0 200px;
   height: 100%;
   overflow: hidden;
   background: var(--minimapBg);
