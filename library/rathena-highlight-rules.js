@@ -54,7 +54,7 @@ const supportFunctionKeywords = [
   "successremovecards", "summon", "traitstatusup", "traitstatusup2", "transform", "unbindatcmd", "undisguise", "unequip", "unitattack", "unitblockmove", "unitblockskill", "unitexists", 
   "unitkill", "unitskilluseid", "unitskillusepos", "unitstopattack", "unitstopwalk", "unittalk", "unitwalk", "unitwalkto", "unitwarp", "unloadnpc", "useatcmd", "viewpoint", "viewpointmap", 
   "vip_status", "vip_time", "waitingroom", "waitingroom2bg", "waitingroom2bg_single", "waitingroomkick", "warp", "warpguild", "warppartner", "warpparty", "warpportal", "wedding","getarraysize",
-  "strmobinfo", "shop", "itemshop", "warpwaitingpc", "mapflag",
+  "strmobinfo", "shop", "itemshop", "warpwaitingpc",
 ];
 
 // Red highlight - Control flow and declarations
@@ -107,7 +107,7 @@ const constantLibraryKeywords = [
   "niflheim","nif_fild01","nif_fild02","quiz_01",
   "louyang", "lou_in01", "lou_in02", "lou_fild01", "lou_dun01", "lou_dun02", "lou_dun03", 
   "ayothaya", "ayo_in01", "ayo_fild01", "ayo_fild02", "ayo_dun01", "ayo_dun02", 
-  "jawaii", "jawaii_in01", "poring_w01",
+  "jawaii", "jawaii_in01", 
   "einbroch", "einbroch_in", "ein_fild01", "ein_fild02", "ein_fild03", "ein_fild04", "ein_fild05", "ein_fild06", "ein_fild07", "ein_fild08", "ein_fild09",
   "lighthalzen", "lhz_in01", "lhz_in02", "lhz_in03", "lhz_fild01", "lhz_fild02", "lhz_fild03", "lhz_dun01", "lhz_dun02", "lhz_dun03",
   "einbech","ein_in01","ein_fild01","ein_dun01","ein_dun02", 
@@ -329,8 +329,7 @@ const constantLibraryKeywords = [
   "SC_BUCHEDENOEL", "SC_EP16_DEF", "SC_STR_SCROLL", "SC_INT_SCROLL", "SC_CONTENTS_1", "SC_CONTENTS_2",
   "SC_CONTENTS_3", "SC_CONTENTS_4", "SC_CONTENTS_5", "SC_CONTENTS_6", "SC_CONTENTS_7", "SC_CONTENTS_8",
   "SC_CONTENTS_9", "SC_CONTENTS_10",
-  // Map flags
-  "pvp  off",
+
   // Jobs Constant
   "EA_NOVICE", "Job_Novice", "EA_SWORDMAN", "Job_Swordman", "EA_MAGE", "Job_Mage", "EA_ARCHER", "Job_Archer", "EA_ACOLYTE", "Job_Acolyte", "EA_MERCHANT", "Job_Merchant", "EA_THIEF", "Job_Thief", "EA_KNIGHT", "Job_Knight", "EA_PRIEST", "Job_Priest", "EA_WIZARD", "Job_Wizard", "EA_BLACKSMITH", "Job_Blacksmith", "EA_HUNTER", "Job_Hunter", "EA_ASSASSIN", "Job_Assassin", 
   "EA_CRUSADER", "Job_Crusader", "EA_MONK", "Job_Monk", "EA_SAGE", "Job_Sage", "EA_ALCHEMIST", "Job_Alchemist", "EA_BARD", "Job_Bard", "EA_DANCER", "Job_Dancer", "EA_KNIGHT2", "Job_Knight2", "EA_CRUSADER2", "Job_Crusader2", "EA_ROGUE", "Job_Rogue", "EA_HIGH_NOVICE", "Job_Novice_High", "EA_HIGH_SWORDMAN", "Job_Swordman_High", "EA_HIGH_MAGE", "Job_Mage_High", "EA_HIGH_ARCHER", 
@@ -773,4 +772,216 @@ ace.define("ace/mode/rathena_conf", ["require", "exports", "ace/lib/oop", "ace/m
   };
   oop.inherits(Mode, TextMode);
   exports.Mode = Mode;
+});
+
+// C / C++ Highlight Rules & Mode Definition
+ace.define("ace/mode/c_cpp_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+
+  const keywordControls = (
+    "if|else|switch|case|default|while|do|for|break|continue|" +
+    "goto|return|try|catch|throw|new|delete|operator|" +
+    "co_await|co_yield|co_return"
+  );
+
+  const keywords = (
+    "auto|class|struct|union|enum|typedef|template|typename|namespace|" +
+    "using|public|protected|private|virtual|friend|explicit|inline|" +
+    "static|const|constexpr|consteval|constinit|volatile|mutable|register|" +
+    "extern|thread_local|noexcept|export|concept|requires|" +
+    "static_assert|sizeof|alignof|alignas|decltype|typeid|" +
+    "static_cast|dynamic_cast|reinterpret_cast|const_cast"
+  );
+
+  const storageTypes = (
+    "void|bool|char|char8_t|char16_t|char32_t|wchar_t|" +
+    "short|int|long|signed|unsigned|float|double|" +
+    "size_t|ssize_t|intptr_t|uintptr_t|ptrdiff_t|time_t|" +
+    "int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|" +
+    "int_least8_t|int_least16_t|int_least32_t|int_least64_t|" +
+    "uint_least8_t|uint_least16_t|uint_least32_t|uint_least64_t|" +
+    "int_fast8_t|int_fast16_t|int_fast32_t|int_fast64_t|" +
+    "uint_fast8_t|uint_fast16_t|uint_fast32_t|uint_fast64_t|" +
+    "intmax_t|uintmax_t|" +
+    "string|string_view|wstring|u16string|u32string|" +
+    "vector|map|unordered_map|set|unordered_set|multimap|multiset|" +
+    "pair|tuple|unique_ptr|shared_ptr|weak_ptr|array|list|deque|stack|queue|priority_queue|" +
+    "optional|variant|any|span|function|bitset|" +
+    "map_session_data|block_list|unit_data|npc_data|mob_data|pet_data|homun_data|merc_data|elemental_data"
+  );
+
+  const builtinConstants = (
+    "true|false|nullptr|NULL|TRUE|FALSE|EOF|stdin|stdout|stderr|" +
+    "EXIT_SUCCESS|EXIT_FAILURE"
+  );
+
+  const supportFunctions = (
+    "printf|sprintf|snprintf|fprintf|scanf|sscanf|fscanf|" +
+    "malloc|calloc|realloc|free|memcpy|memset|memmove|memcmp|" +
+    "strlen|strcpy|strncpy|strcat|strncat|strcmp|strncmp|strchr|strrchr|strstr|" +
+    "atoi|atof|atol|strtol|strtoul|abs|labs|min|max|clamp|" +
+    "ShowError|ShowWarning|ShowNotice|ShowInfo|ShowDebug|ShowFatalError|ShowMessage|" +
+    "CREATE|RECREATE|safestrncpy|aMalloc|aFree|aCalloc|aRealloc|aStrdup"
+  );
+
+  const CPPHighlightRules = function() {
+    this.$rules = {
+      start: [
+        {
+          token: "comment.line.double-slash",
+          regex: "//.*$"
+        },
+        {
+          token: "comment.block",
+          regex: "/\\*",
+          next: "comment"
+        },
+        {
+          token: "string.raw",
+          regex: 'R"[^(]*\\(',
+          next: "rawString"
+        },
+        {
+          token: "string",
+          regex: '"(?:[^\\\\]|\\\\.)*?"'
+        },
+        {
+          token: "constant.character",
+          regex: "'(?:[^\\\\]|\\\\.)*?'"
+        },
+        // Preprocessor directives
+        {
+          token: "keyword.control.directive",
+          regex: "^\\s*#\\s*include\\b",
+          next: "includeDirective"
+        },
+        {
+          token: "keyword.control.directive",
+          regex: "^\\s*#\\s*(?:define|undef|ifdef|ifndef|if|elif|else|endif|pragma|error|warning|line)\\b"
+        },
+        // Numbers
+        {
+          token: "constant.numeric.hex",
+          regex: "\\b0[xX][0-9a-fA-F]+(?:'[0-9a-fA-F]+)*(?:[uU]?[lL]{0,2}|[lL]{0,2}[uU]?)?\\b"
+        },
+        {
+          token: "constant.numeric.binary",
+          regex: "\\b0[bB][01]+(?:'[01]+)*(?:[uU]?[lL]{0,2}|[lL]{0,2}[uU]?)?\\b"
+        },
+        {
+          token: "constant.numeric.float",
+          regex: "\\b(?:\\d+(?:'\\d+)*\\.\\d*(?:'\\d+)*(?:[eE][+-]?\\d+)?|\\.\\d+(?:'\\d+)*(?:[eE][+-]?\\d+)?|\\d+(?:'\\d+)*[eE][+-]?\\d+)[fFlL]?\\b"
+        },
+        {
+          token: "constant.numeric.decimal",
+          regex: "\\b\\d+(?:'\\d+)*(?:[uU]?[lL]{0,2}|[lL]{0,2}[uU]?)?\\b"
+        },
+        // Built-ins and keywords
+        {
+          token: "constant.language",
+          regex: "\\b(?:" + builtinConstants + ")\\b"
+        },
+        {
+          token: "keyword.control",
+          regex: "\\b(?:" + keywordControls + ")\\b"
+        },
+        {
+          token: "keyword",
+          regex: "\\b(?:" + keywords + ")\\b"
+        },
+        {
+          token: "storage.type",
+          regex: "\\b(?:" + storageTypes + ")\\b"
+        },
+        {
+          token: "support.function",
+          regex: "\\b(?:" + supportFunctions + ")\\b"
+        },
+        {
+          token: "support.function",
+          regex: "\\b[a-zA-Z_]\\w*(?=\\s*\\()"
+        },
+        {
+          token: "keyword.operator",
+          regex: "::|->|\\+\\+|--|==|!=|<=|>=|&&|\\|\\||<<=|>>=|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|<<|>>|<=>|[\\+\\-\\*/%!=&|\\^~<>=?:.,;]"
+        },
+        {
+          token: "paren.lparen",
+          regex: "[\\{\\[\\(]"
+        },
+        {
+          token: "paren.rparen",
+          regex: "[\\}\\]\\)]"
+        },
+        {
+          token: "text",
+          regex: "\\s+"
+        }
+      ],
+      comment: [
+        {
+          token: "comment.block",
+          regex: "\\*/",
+          next: "start"
+        },
+        {
+          defaultToken: "comment.block"
+        }
+      ],
+      includeDirective: [
+        {
+          token: "string.include",
+          regex: '<[^>]*>|"(?:[^\\\\]|\\\\.)*?"',
+          next: "start"
+        },
+        {
+          token: "text",
+          regex: "\\s+"
+        },
+        {
+          regex: "$",
+          next: "start"
+        }
+      ],
+      rawString: [
+        {
+          token: "string.raw",
+          regex: '\\)[^"]*"',
+          next: "start"
+        },
+        {
+          defaultToken: "string.raw"
+        }
+      ]
+    };
+    this.normalizeRules();
+  };
+
+  oop.inherits(CPPHighlightRules, TextHighlightRules);
+  exports.c_cppHighlightRules = CPPHighlightRules;
+  exports.CPPHighlightRules = CPPHighlightRules;
+});
+
+ace.define("ace/mode/c_cpp", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/c_cpp_highlight_rules", "ace/mode/behaviour/cstyle", "ace/mode/folding/cstyle"], function (require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextMode = require("ace/mode/text").Mode;
+  const CPPHighlightRules = require("ace/mode/c_cpp_highlight_rules").CPPHighlightRules;
+  const CstyleBehaviour = require("ace/mode/behaviour/cstyle").CstyleBehaviour;
+  const FoldMode = require("ace/mode/folding/cstyle").FoldMode;
+
+  const Mode = function () {
+    this.HighlightRules = CPPHighlightRules;
+    this.$behaviour = new CstyleBehaviour();
+    this.foldingRules = new FoldMode();
+    this.lineCommentStart = "//";
+    this.blockComment = { start: "/*", end: "*/" };
+  };
+  oop.inherits(Mode, TextMode);
+  exports.Mode = Mode;
+});
+
+ace.define("ace/mode/cpp", ["require", "exports", "ace/mode/c_cpp"], function (require, exports) {
+  const c_cpp = require("ace/mode/c_cpp");
+  exports.Mode = c_cpp.Mode;
 });

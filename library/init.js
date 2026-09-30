@@ -1118,6 +1118,8 @@ class Tab {
             this.editor.session.setMode("ace/mode/rathena_yaml");
         } else if (name.endsWith(".conf")) {
             this.editor.session.setMode("ace/mode/rathena_conf");
+        } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl")) {
+            this.editor.session.setMode("ace/mode/c_cpp");
         } else {
             this.editor.session.setMode("ace/mode/rathena");
         }
@@ -1563,10 +1565,12 @@ class Tab {
                 multiple: true,
                 types: [
                     {
-                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml)",
-                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml"] }
+                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h)",
+                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"] }
                     },
                     { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                    { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
+                    { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
                     { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
                     { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
                 ],
@@ -1661,7 +1665,7 @@ class Tab {
 
             if (!this.fileHandle) {
                 let suggested = this.name;
-                const hasExt = [".txt", ".conf", ".yml", ".yaml"].some(ext => suggested.toLowerCase().endsWith(ext));
+                const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => suggested.toLowerCase().endsWith(ext));
                 if (!hasExt) {
                     suggested += ".txt";
                 }
@@ -1669,10 +1673,12 @@ class Tab {
                     suggestedName: suggested,
                     types: [
                         {
-                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml)",
-                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml"] }
+                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h)",
+                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"] }
                         },
                         { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                        { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
+                        { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
                         { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
                         { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
                     ]
@@ -1731,7 +1737,7 @@ class Tab {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const hasExt = [".txt", ".conf", ".yml", ".yaml"].some(ext => this.name.toLowerCase().endsWith(ext));
+        const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => this.name.toLowerCase().endsWith(ext));
         a.download = hasExt ? this.name : this.name + ".txt";
         a.click();
         URL.revokeObjectURL(url);

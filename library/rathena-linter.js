@@ -5,6 +5,12 @@
 
 function runRathenaLinter(editor) {
     const session = editor.getSession();
+    const mode = session.getMode();
+    const modeId = mode ? (mode.$id || mode.id || "") : "";
+    if (modeId && modeId !== "ace/mode/rathena") {
+        session.setAnnotations([]);
+        return;
+    }
     const code = session.getValue();
     const lines = code.split('\n');
     const annotations = [];
