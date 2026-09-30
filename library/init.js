@@ -405,62 +405,20 @@ let activeExternalContent = "";
 let activeExternalModified = 0;
 
 function openExternalConflictModal(tab, diskContent, diskModified) {
-    activeConflictTab = tab;
-    activeExternalContent = diskContent;
-    activeExternalModified = diskModified;
-    const modal = document.getElementById('externalConflictModal');
-    if (!modal) return;
-    const message = document.getElementById('externalConflictMessage');
-    if (message) {
-        message.innerHTML = `<strong>${tab.name}</strong> has been modified on disk by another program (e.g. Notepad).<br/><br/>You also have unsaved changes in this editor. What would you like to do?`;
+    closeExternalConflictModal();
+    if (tab && diskContent !== undefined) {
+        const cursor = tab.editor.getCursorPosition();
+        const scrollTop = tab.editor.session.getScrollTop();
+        tab.editor.setValue(diskContent, -1);
+        tab.editor.moveCursorToPosition(cursor);
+        tab.editor.session.setScrollTop(scrollTop);
+        tab.lastSavedCode = diskContent;
+        if (diskModified) tab.lastModified = diskModified;
+        tab.saveCurrentCodeToHistory();
+        tab.updateTabIcon();
+        tab.saveToDB();
+        showSnackbar(`"${tab.name}" updated with external changes.`);
     }
-
-    const reloadBtn = document.getElementById('conflictReloadBtn');
-    if (reloadBtn) {
-        reloadBtn.onclick = () => {
-            closeExternalConflictModal();
-            if (activeConflictTab) {
-                const cursor = activeConflictTab.editor.getCursorPosition();
-                const scrollTop = activeConflictTab.editor.session.getScrollTop();
-                activeConflictTab.editor.setValue(activeExternalContent, -1);
-                activeConflictTab.editor.moveCursorToPosition(cursor);
-                activeConflictTab.editor.session.setScrollTop(scrollTop);
-                activeConflictTab.lastSavedCode = activeExternalContent;
-                activeConflictTab.lastModified = activeExternalModified;
-                activeConflictTab.saveCurrentCodeToHistory();
-                activeConflictTab.updateTabIcon();
-                activeConflictTab.saveToDB();
-                showSnackbar(`"${activeConflictTab.name}" reloaded from disk.`);
-            }
-        };
-    }
-
-    const keepBtn = document.getElementById('conflictKeepBtn');
-    if (keepBtn) {
-        keepBtn.onclick = () => {
-            closeExternalConflictModal();
-            if (activeConflictTab) {
-                // Update lastModified so we don't prompt repeatedly until disk changes again
-                activeConflictTab.lastModified = activeExternalModified;
-                showSnackbar(`Kept editor changes. Note: saving will overwrite external changes.`);
-            }
-        };
-    }
-
-    const diffBtn = document.getElementById('conflictDiffBtn');
-    if (diffBtn) {
-        diffBtn.onclick = () => {
-            const currentTab = activeConflictTab;
-            const diskCode = activeExternalContent;
-            closeExternalConflictModal();
-            if (currentTab) {
-                const diffIndex = currentTab.recordChange(currentTab.editor.getValue(), diskCode, new Date());
-                openDiff(diffIndex, currentTab.id);
-            }
-        };
-    }
-
-    modal.style.display = 'flex';
 }
 
 function closeExternalConflictModal() {
@@ -1468,20 +1426,18 @@ class Tab {
                 return;
             }
 
-            if (!this.isDirty()) {
-                const cursor = this.editor.getCursorPosition();
-                const scrollTop = this.editor.session.getScrollTop();
-                this.editor.setValue(diskContent, -1);
-                this.editor.moveCursorToPosition(cursor);
-                this.editor.session.setScrollTop(scrollTop);
-                this.lastSavedCode = diskContent;
-                this.lastModified = file.lastModified;
-                this.saveCurrentCodeToHistory();
-                this.updateTabIcon();
-                showSnackbar(`"${this.name}" updated with external changes.`);
-            } else {
-                openExternalConflictModal(this, diskContent, file.lastModified);
-            }
+            const cursor = this.editor.getCursorPosition();
+            const scrollTop = this.editor.session.getScrollTop();
+            this.editor.setValue(diskContent, -1);
+            this.editor.moveCursorToPosition(cursor);
+            this.editor.session.setScrollTop(scrollTop);
+            this.lastSavedCode = diskContent;
+            this.lastModified = file.lastModified;
+            this.saveCurrentCodeToHistory();
+            this.updateTabIcon();
+            this.saveToDB();
+            closeExternalConflictModal();
+            showSnackbar(`"${this.name}" updated with external changes.`);
         } catch (err) {
             // Silently handle if permission not granted or file moved
         } finally {
