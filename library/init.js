@@ -345,6 +345,10 @@ function openModal() {
   if (toggleHideChatElem && typeof hideChatBotContainer !== 'undefined') {
     toggleHideChatElem.checked = hideChatBotContainer;
   }
+  const toggleAutoSaveElem = document.getElementById('toggleAutoSave');
+  if (toggleAutoSaveElem && typeof autoSaveEnabled !== 'undefined') {
+    toggleAutoSaveElem.checked = autoSaveEnabled;
+  }
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
@@ -437,6 +441,21 @@ let minimapEnabled = localStorage.getItem("minimapEnabled") !== "false";
 let localCompletionEnabled = localStorage.getItem("localCompletionEnabled") !== "false";
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
 let hideChatBotContainer = localStorage.getItem("hideChatBotContainer") === "true";
+let autoSaveEnabled = localStorage.getItem("autoSaveEnabled") === "true";
+
+const toggleAutoSaveElem = document.getElementById("toggleAutoSave");
+if (toggleAutoSaveElem) {
+  toggleAutoSaveElem.checked = autoSaveEnabled;
+  toggleAutoSaveElem.addEventListener("change", function () {
+    autoSaveEnabled = this.checked;
+    localStorage.setItem("autoSaveEnabled", autoSaveEnabled);
+    if (autoSaveEnabled) {
+      showSnackbar("Autosave in 1.5 seconds enabled.");
+    } else {
+      showSnackbar("Autosave disabled.");
+    }
+  });
+}
 
 const toggleMinimapElem = document.getElementById("toggleMinimap");
 if (toggleMinimapElem) {
@@ -1126,6 +1145,7 @@ class Tab {
             }
             this.updateTabIcon();
             this.scheduleSaveToDB();
+            this.scheduleSaveToFile();
         });
 
         this.editor.getSelection().on("changeSelection", () => {
@@ -1376,6 +1396,9 @@ class Tab {
     }
 
     deactivate() {
+        if (this.fileHandle && this.isDirty() && typeof autoSaveEnabled !== 'undefined' && autoSaveEnabled) {
+            this.autoSaveToFile();
+        }
         this.elements.content.classList.remove("active");
     }
 
@@ -1407,6 +1430,104 @@ class Tab {
             if (typeof tabDB !== 'undefined') {
                 tabDB.saveTab(this, orderIndex);
             }
+        }
+    }
+
+    async directReauthorize() {
+        if (!this.fileHandle) return 'none';
+        try {
+            if (typeof this.fileHandle.queryPermission === 'function') {
+                const perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
+                if (perm === 'granted') {
+                    return 'granted';
+                }
+                if (typeof this.fileHandle.requestPermission === 'function') {
+                    try {
+                        return await this.fileHandle.requestPermission({ mode: 'readwrite' });
+                    } catch (e) {
+                        // User activation not yet available; will prompt on next user interaction
+                    }
+                }
+                return perm;
+            }
+        } catch (e) {
+            return 'error';
+        }
+        return 'unknown';
+    }
+
+    scheduleSaveToFile() {
+        if (!this.fileHandle || typeof autoSaveEnabled === 'undefined' || !autoSaveEnabled) return;
+        if (this.diskSaveTimeout) clearTimeout(this.diskSaveTimeout);
+        this.diskSaveTimeout = setTimeout(() => {
+            this.autoSaveToFile();
+        }, 1500);
+    }
+
+    async autoSaveToFile() {
+        if (!this.fileHandle || !this.isDirty() || typeof autoSaveEnabled === 'undefined' || !autoSaveEnabled) return;
+        try {
+            let perm = 'granted';
+            if (typeof this.fileHandle.queryPermission === 'function') {
+                perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
+            }
+            if (perm === 'granted') {
+                await this.writeToDisk(false);
+            }
+        } catch (err) {
+            console.warn("autoSaveToFile error:", err);
+        }
+    }
+
+    async writeToDisk(showSnack = true) {
+        if (!this.fileHandle) return false;
+        try {
+            const currentCode = this.editor.getValue();
+            const saveDate = new Date();
+            const writable = await this.fileHandle.createWritable();
+            await writable.write(currentCode);
+            await writable.close();
+
+            try {
+                const updatedFile = await this.fileHandle.getFile();
+                this.lastModified = updatedFile.lastModified || Date.now();
+            } catch (e) {
+                this.lastModified = Date.now();
+            }
+
+            const diffIndex = this.recordChange(this.lastSavedCode, currentCode, saveDate);
+            this.lastSavedCode = currentCode;
+            this.updateTabIcon();
+            this.saveToDB();
+
+            if (showSnack) {
+                showSnackbar(`Saved "${this.name}" to file location.`);
+            }
+
+            this.visibleCount = 10;
+            this.updateMessageVisibility(false);
+
+            if (diffIndex !== null) {
+                this.addMessage("I made some changes", 'user');
+                const diffData = this.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                const additions = diffData.additions || 0;
+                const removals = diffData.removals || 0;
+                let aiMessage = `<p>Here are the changes in your code.<br/><br/>
+                                <span style="font-size:10px"><b>Time Edited:</b> ${saveDate.toLocaleString()}<br/>
+                                <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
+                aiMessage += `<div class="diff-actions">
+                                <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
+                                <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
+                              </div>`;
+                this.addMessage(aiMessage, 'ai');
+            }
+            return true;
+        } catch (err) {
+            console.error("writeToDisk error:", err);
+            if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
+                showSnackbar(`Write permission needed for "${this.name}". Use Ctrl+S or click Save to authorize.`);
+            }
+            return false;
         }
     }
 
@@ -1599,32 +1720,13 @@ class Tab {
     }
 
     async saveToFile() {
-        if (!this.isDirty() && this.fileHandle) {
-            return true;
-        }
-        const currentCode = this.editor.getValue();
-        const saveDate = new Date();
-        try {
-            if (this.fileHandle && typeof this.fileHandle.queryPermission === 'function') {
-                try {
-                    let perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
-                    if (perm !== 'granted') {
-                        perm = await this.fileHandle.requestPermission({ mode: 'readwrite' });
-                        if (perm !== 'granted') {
-                            this.fileHandle = null;
-                        }
-                    }
-                } catch (pe) {
-                    this.fileHandle = null;
-                }
+        if (!this.fileHandle) {
+            let suggested = this.name;
+            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => suggested.toLowerCase().endsWith(ext));
+            if (!hasExt) {
+                suggested += ".txt";
             }
-
-            if (!this.fileHandle) {
-                let suggested = this.name;
-                const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => suggested.toLowerCase().endsWith(ext));
-                if (!hasExt) {
-                    suggested += ".txt";
-                }
+            try {
                 this.fileHandle = await window.showSaveFilePicker({
                     suggestedName: suggested,
                     types: [
@@ -1643,48 +1745,31 @@ class Tab {
                 this.updateEditorMode();
                 tabManager.renderTabs();
                 this.activate();
+            } catch (pickerErr) {
+                console.warn("Save file picker canceled or error:", pickerErr);
+                return false;
             }
-            const writable = await this.fileHandle.createWritable();
-            await writable.write(currentCode);
-            await writable.close();
-            try {
-                const updatedFile = await this.fileHandle.getFile();
-                this.lastModified = updatedFile.lastModified || Date.now();
-            } catch (e) {
-                this.lastModified = Date.now();
-            }
-            showSnackbar("Saved successfully.");
-            this.saveCurrentCodeToHistory();
-
-            const diffIndex = this.recordChange(this.lastSavedCode, currentCode, saveDate);
-            if (this.lastSavedCode !== currentCode) {
-                this.lastSavedCode = currentCode;
-            }
-            this.updateTabIcon();
-            this.saveToDB();
-
-            this.visibleCount = 10;
-            this.updateMessageVisibility(false);
-
-            if (diffIndex !== null) {
-                this.addMessage("I made some changes", 'user');
-                const diffData = this.diffHistory[diffIndex] || { additions: 0, removals: 0 };
-                const additions = diffData.additions || 0;
-                const removals = diffData.removals || 0;
-                let aiMessage = `<p>Here are the changes in your code.<br/><br/>
-                                <span style="font-size:10px"><b>Time Edited:</b> ${saveDate.toLocaleString()}<br/>
-                                <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
-                aiMessage += `<div class="diff-actions">
-                                <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
-                                <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
-                              </div>`;
-                this.addMessage(aiMessage, 'ai');
-            }
-            return true;
-        } catch (err) {
-            console.error("Save failed:", err);
-            return false;
         }
+
+        if (this.fileHandle && typeof this.fileHandle.queryPermission === 'function') {
+            try {
+                let perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
+                if (perm !== 'granted') {
+                    if (typeof this.fileHandle.requestPermission === 'function') {
+                        perm = await this.fileHandle.requestPermission({ mode: 'readwrite' });
+                    }
+                }
+                if (perm !== 'granted') {
+                    showSnackbar(`Permission denied to save "${this.name}".`);
+                    return false;
+                }
+            } catch (pe) {
+                console.warn("Direct re-authorization error:", pe);
+                return false;
+            }
+        }
+
+        return await this.writeToDisk(true);
     }
 
     downloadEditorContent() {
@@ -2760,8 +2845,12 @@ const tabDB = {
                 try {
                     store.put(record);
                 } catch (putErr) {
-                    delete record.fileHandle;
-                    store.put(record);
+                    if (putErr && putErr.name === 'DataCloneError') {
+                        delete record.fileHandle;
+                        store.put(record);
+                    } else {
+                        throw putErr;
+                    }
                 }
 
                 tx.oncomplete = () => {
@@ -2769,18 +2858,7 @@ const tabDB = {
                     resolve();
                 };
                 tx.onerror = (err) => {
-                    try {
-                        delete record.fileHandle;
-                        const retryTx = db.transaction([STORE_TABS], "readwrite");
-                        retryTx.objectStore(STORE_TABS).put(record);
-                        retryTx.oncomplete = () => {
-                            this.updateBackup();
-                            resolve();
-                        };
-                        retryTx.onerror = () => reject(err);
-                    } catch (retryErr) {
-                        reject(err);
-                    }
+                    reject(err);
                 };
             });
         } catch (err) {
@@ -2843,8 +2921,10 @@ const tabDB = {
                         try {
                             tabStore.put(record);
                         } catch (e) {
-                            delete record.fileHandle;
-                            tabStore.put(record);
+                            if (e && e.name === 'DataCloneError') {
+                                delete record.fileHandle;
+                                tabStore.put(record);
+                            }
                         }
                     });
 
@@ -3089,8 +3169,10 @@ const tabManager = {
                     try {
                         tabStore.put(record);
                     } catch (e) {
-                        delete record.fileHandle;
-                        tabStore.put(record);
+                        if (e && e.name === 'DataCloneError') {
+                            delete record.fileHandle;
+                            tabStore.put(record);
+                        }
                     }
                 });
 
@@ -3491,12 +3573,23 @@ function clearChat() {
     closeClearChatModal();
 }
 
-// Global hotkey logic (e.g. reopen closed tab)
+// Global hotkey logic (e.g. Ctrl+S, reopen closed tab)
 document.addEventListener("keydown", (e) => {
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isAlt = e.altKey;
     const isKeyT = e.key && (e.key.toLowerCase() === 't' || e.key.toUpperCase() === 'T');
+    const isKeyS = e.key && (e.key.toLowerCase() === 's' || e.key.toUpperCase() === 'S');
+
+    // Global Ctrl+S handler
+    if (isCtrlOrCmd && !isAlt && !isShift && isKeyS) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+            tabManager.activeTab.saveToFile();
+        }
+        return;
+    }
     
     // Check for Alt+Shift+T, Ctrl+Alt+T or Ctrl+Shift+T (best-effort)
     const shouldRevert = (isAlt && isShift && isKeyT) || 
@@ -3519,15 +3612,30 @@ window.addEventListener("focus", () => {
     }
 });
 
+// Auto-save on window blur (when switching to Notepad, terminal, RO server, etc.)
+window.addEventListener("blur", () => {
+    if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+        if (tabManager.activeTab.fileHandle && tabManager.activeTab.isDirty()) {
+            tabManager.activeTab.autoSaveToFile();
+        }
+    }
+});
+
 // Accidental browser close protection & tab persistence:
 window.addEventListener("beforeunload", () => {
     if (typeof tabManager !== 'undefined') {
+        if (tabManager.activeTab && tabManager.activeTab.fileHandle && tabManager.activeTab.isDirty()) {
+            tabManager.activeTab.autoSaveToFile();
+        }
         tabManager.flushAllTabsToDB();
     }
 });
 
 window.addEventListener("pagehide", () => {
     if (typeof tabManager !== 'undefined') {
+        if (tabManager.activeTab && tabManager.activeTab.fileHandle && tabManager.activeTab.isDirty()) {
+            tabManager.activeTab.autoSaveToFile();
+        }
         tabManager.flushAllTabsToDB();
     }
 });
@@ -3535,6 +3643,9 @@ window.addEventListener("pagehide", () => {
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
         if (typeof tabManager !== 'undefined') {
+            if (tabManager.activeTab && tabManager.activeTab.fileHandle && tabManager.activeTab.isDirty()) {
+                tabManager.activeTab.autoSaveToFile();
+            }
             tabManager.flushAllTabsToDB();
         }
     } else if (document.visibilityState === "visible") {
