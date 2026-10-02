@@ -3128,7 +3128,7 @@ const tabManager = {
         this.renderTabs();
         tabDB.saveActiveTabId(tab.id);
         if (typeof folderTreeManager !== 'undefined' && folderTreeManager) {
-            folderTreeManager.highlightActiveInTree(tab.relativePath);
+            folderTreeManager.syncActiveTabWithTree(tab);
         }
     },
 
@@ -3958,6 +3958,7 @@ class FolderTreeManager {
         this.fsObserver = null;
         this.autoRefreshTimer = null;
         this.boundWindowFocus = null;
+        this.suppressTreeScroll = false;
     }
 
     init() {
@@ -4112,6 +4113,7 @@ class FolderTreeManager {
             await this.loadRoot();
             this.saveWorkspaceToDB(dirHandle);
             this.startWatcher();
+            this.syncActiveTabWithTree();
             showSnackbar(`Opened folder "${dirHandle.name}".`);
         } catch (err) {
             if (err && err.name !== "AbortError") {
@@ -4145,6 +4147,7 @@ class FolderTreeManager {
         const toggleText = document.getElementById("menuToggleSidebarText");
         if (toggleText) toggleText.textContent = "Hide Folder Tree";
         this.animateEditorResize();
+        this.syncActiveTabWithTree();
     }
 
     hideSidebar() {
@@ -4323,9 +4326,17 @@ class FolderTreeManager {
 
             containerElem.appendChild(fileNode);
         }
-
+        
+        // Mark active file in tree if it was rendered in this directory, without scrolling or re-expanding
         if (this.activePath) {
-            this.highlightActiveInTree(this.activePath);
+            for (const item of files) {
+                if (item.relativePath === this.activePath || item.relativePath.endsWith('/' + this.activePath) || this.activePath.endsWith('/' + item.relativePath)) {
+                    const reg = this.nodeRegistry.get(item.relativePath);
+                    if (reg && reg.nodeElem) {
+                        reg.nodeElem.classList.add("active");
+                    }
+                }
+            }
         }
     }
 
@@ -4366,6 +4377,7 @@ class FolderTreeManager {
 
     async openFileFromTree(fileHandle, relativePath) {
         if (typeof tabManager === 'undefined') return;
+        this.suppressTreeScroll = true;
         try {
             // Check if this file is already open in an existing tab
             let existingTab = null;
@@ -4386,7 +4398,7 @@ class FolderTreeManager {
 
             if (existingTab) {
                 tabManager.switchTab(existingTab.id);
-                this.highlightActiveInTree(relativePath);
+                await this.highlightActiveInTree(relativePath, existingTab, false);
                 return;
             }
 
@@ -4421,24 +4433,155 @@ class FolderTreeManager {
             tabManager.switchTab(targetTab.id);
             targetTab.saveToDB();
 
-            this.highlightActiveInTree(relativePath);
+            await this.highlightActiveInTree(relativePath, targetTab, false);
         } catch (err) {
             console.error("Failed to open file from tree:", err);
             showSnackbar(`Failed to open "${relativePath}".`);
+        } finally {
+            setTimeout(() => {
+                this.suppressTreeScroll = false;
+            }, 300);
         }
     }
 
-    highlightActiveInTree(relativePath) {
-        this.activePath = relativePath || "";
-        document.querySelectorAll(".tree-node.active").forEach(el => el.classList.remove("active"));
-        if (!relativePath) return;
+    async syncActiveTabWithTree(tab, shouldScroll = true) {
+        if (!this.rootHandle) return;
+        if (!tab && typeof tabManager !== 'undefined') {
+            tab = tabManager.activeTab;
+        }
+        if (!tab) return;
 
-        const selector = `.tree-node[data-path="${CSS.escape(relativePath)}"]`;
-        const node = document.querySelector(selector);
-        if (node) {
-            node.classList.add("active");
-            // Make sure all parent folders are expanded so node is visible
-            let parent = node.parentElement;
+        if (this.suppressTreeScroll) {
+            shouldScroll = false;
+        }
+
+        // Try to re-resolve tab fileHandle against current workspace rootHandle
+        if (tab.fileHandle && this.rootHandle) {
+            try {
+                const parts = await this.rootHandle.resolve(tab.fileHandle);
+                if (parts && parts.length > 0) {
+                    tab.relativePath = parts.join('/');
+                    tab.updateTitle();
+                }
+            } catch (e) {}
+        }
+
+        await this.highlightActiveInTree(tab.relativePath, tab, shouldScroll);
+    }
+
+    async highlightActiveInTree(relativePath, tabObj = null, shouldScroll = true) {
+        if (!tabObj && typeof tabManager !== 'undefined') {
+            tabObj = tabManager.activeTab;
+        }
+
+        // Normalize path
+        let normPath = (relativePath || (tabObj ? tabObj.relativePath : "")) || "";
+        normPath = normPath.replace(/\\/g, '/').replace(/^\.?\//, '').trim();
+        this.activePath = normPath;
+
+        // Remove active class from any existing nodes
+        document.querySelectorAll(".tree-node.active").forEach(el => el.classList.remove("active"));
+        if (!normPath && !tabObj) return;
+
+        // 1. Expand ancestor folders if path contains directory separators
+        if (normPath && normPath.includes('/')) {
+            const segments = normPath.split('/');
+            let curPath = "";
+            for (let i = 0; i < segments.length - 1; i++) {
+                curPath = curPath ? `${curPath}/${segments[i]}` : segments[i];
+                let parentReg = this.nodeRegistry.get(curPath);
+                if (!parentReg) {
+                    for (const [rPath, rItem] of this.nodeRegistry.entries()) {
+                        if (rItem.isDirectory && (rPath.endsWith('/' + curPath) || rPath === curPath)) {
+                            parentReg = rItem;
+                            break;
+                        }
+                    }
+                }
+                if (parentReg && parentReg.isDirectory && !parentReg.isExpanded) {
+                    await this.toggleFolderNode(parentReg);
+                }
+            }
+        }
+
+        // 2. Find target element in DOM or registry
+        let targetNode = null;
+        if (normPath) {
+            targetNode = document.querySelector(`.tree-node[data-path="${CSS.escape(normPath)}"]`);
+        }
+
+        // If not found by exact path, try suffix match (e.g. tree has npc/custom/... but path is custom/...)
+        if (!targetNode && normPath) {
+            for (const [rPath, rItem] of this.nodeRegistry.entries()) {
+                if (!rItem.isDirectory && (rPath === normPath || rPath.endsWith('/' + normPath))) {
+                    targetNode = rItem.nodeElem;
+                    normPath = rPath;
+                    this.activePath = rPath;
+                    break;
+                }
+            }
+            if (!targetNode) {
+                const allFileNodes = document.querySelectorAll('.tree-node.tree-file');
+                for (const el of allFileNodes) {
+                    const p = el.dataset.path || "";
+                    if (p === normPath || p.endsWith('/' + normPath)) {
+                        targetNode = el;
+                        normPath = p;
+                        this.activePath = p;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If still not found, check if handle matches any registry file entry
+        if (!targetNode && tabObj && tabObj.fileHandle) {
+            for (const [rPath, rItem] of this.nodeRegistry.entries()) {
+                if (!rItem.isDirectory && rItem.handle) {
+                    try {
+                        if (await rItem.handle.isSameEntry(tabObj.fileHandle)) {
+                            targetNode = rItem.nodeElem;
+                            normPath = rPath;
+                            this.activePath = rPath;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+
+        // If still not found, match by filename among loaded items
+        if (!targetNode && tabObj && tabObj.name) {
+            const fileName = tabObj.name.toLowerCase();
+            const candidates = [];
+            for (const [rPath, rItem] of this.nodeRegistry.entries()) {
+                if (!rItem.isDirectory) {
+                    const leaf = rPath.split('/').pop().toLowerCase();
+                    if (leaf === fileName) {
+                        candidates.push(rItem);
+                    }
+                }
+            }
+            if (candidates.length === 1) {
+                targetNode = candidates[0].nodeElem;
+                normPath = candidates[0].path;
+                this.activePath = normPath;
+            } else if (candidates.length > 1 && normPath) {
+                const best = candidates.find(c => normPath.includes(c.path) || c.path.includes(normPath));
+                if (best) {
+                    targetNode = best.nodeElem;
+                    normPath = best.path;
+                    this.activePath = normPath;
+                }
+            }
+        }
+
+        // 3. Highlight and Spy Scroll to target node
+        if (targetNode) {
+            targetNode.classList.add("active");
+
+            // Ensure all parent folders in DOM are visibly open
+            let parent = targetNode.parentElement;
             while (parent && parent.id !== "folderTreeContainer") {
                 if (parent.classList.contains("tree-children")) {
                     parent.classList.add("expanded");
@@ -4466,9 +4609,30 @@ class FolderTreeManager {
                 }
                 parent = parent.parentElement;
             }
-            try {
-                node.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            } catch (e) {}
+
+            // Spy Scroll: smoothly scroll folderTreeContainer to bring the active node into view (only when permitted)
+            if (shouldScroll && !this.suppressTreeScroll) {
+                const container = document.getElementById("folderTreeContainer");
+                if (container) {
+                    setTimeout(() => {
+                        if (!shouldScroll || this.suppressTreeScroll) return;
+                        const containerRect = container.getBoundingClientRect();
+                        const nodeRect = targetNode.getBoundingClientRect();
+                        
+                        const isAbove = nodeRect.top < containerRect.top + 20;
+                        const isBelow = nodeRect.bottom > containerRect.bottom - 20;
+                        
+                        if (isAbove || isBelow) {
+                            const currentScroll = container.scrollTop;
+                            const targetScroll = currentScroll + (nodeRect.top - containerRect.top) - (containerRect.height / 2) + (nodeRect.height / 2);
+                            container.scrollTo({
+                                top: Math.max(0, targetScroll),
+                                behavior: "smooth"
+                            });
+                        }
+                    }, 80);
+                }
+            }
         }
     }
 
@@ -4540,12 +4704,8 @@ class FolderTreeManager {
             this.applyFilter(this.filterText);
         }
 
-        // Re-highlight active file in tree
-        if (this.activePath) {
-            this.highlightActiveInTree(this.activePath);
-        } else if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.relativePath) {
-            this.highlightActiveInTree(tabManager.activeTab.relativePath);
-        }
+        // Re-highlight active file in tree with spy scroll
+        await this.syncActiveTabWithTree();
     }
 
     startWatcher() {
@@ -4842,6 +5002,7 @@ class FolderTreeManager {
                             if (divider) divider.style.display = "block";
                             await this.loadRoot();
                             this.startWatcher();
+                            await this.syncActiveTabWithTree();
                         }
                     } catch (e) {}
                 }
