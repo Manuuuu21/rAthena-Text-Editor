@@ -107,12 +107,60 @@
   </div>
 
 <div id="container">
-  <div id="tabBar">
-    <div id="tabsContainer"></div>
-    <button id="addTabBtn" onclick="tabManager.addTab()">+</button>
+  <div id="sidebarArea" class="sidebar-area sidebar-hidden">
+    <div class="sidebar-inner" id="sidebarInner">
+      <div class="sidebar-header">
+        <div class="sidebar-title" id="sidebarTitle">
+          <span class="sidebar-title-icon">📁</span>
+          <span class="sidebar-title-text" id="sidebarFolderName">EXPLORER</span>
+        </div>
+        <div class="sidebar-header-actions">
+          <button class="sidebar-action-btn" id="sidebarCollapseBtn" title="Collapse all folders">⌸</button>
+          <button class="sidebar-action-btn close-btn" id="sidebarCloseBtn" title="Close folder workspace">✖</button>
+        </div>
+      </div>
+      <div class="sidebar-search-box">
+        <span class="sidebar-search-icon">🔍</span>
+        <input type="text" id="sidebarSearchInput" placeholder="Filter files in folder..." autocomplete="off" spellcheck="false" />
+        <button id="sidebarSearchClear" class="sidebar-search-clear" style="display: none;" title="Clear filter">✕</button>
+      </div>
+      <div id="folderTreeContainer" class="folder-tree-container">
+        <!-- Tree nodes populated dynamically -->
+      </div>
+    </div>
   </div>
-  <div id="toolbar">
-      <button title="Open File" id="openBtn" onclick="tabManager.activeTab.openFile()">📂</button>
+  <div id="sidebarResizer" class="sidebar-resizer" style="display: none;"></div>
+
+  <div id="mainArea">
+    <div id="tabBar">
+      <div id="tabsContainer"></div>
+      <button id="addTabBtn" onclick="tabManager.addTab()">+</button>
+    </div>
+    <div id="toolbar">
+      <div class="open-dropdown-container" id="openDropdownContainer">
+        <button title="Open (New Tab, Open File, Open Folder)" id="openBtn" class="toolbar-dropdown-btn">📂 <span class="dropdown-arrow">▾</span></button>
+        <div class="open-dropdown-menu" id="openMenu" style="display: none;">
+          <div class="open-dropdown-item" id="menuItemNewTab">
+            <span class="dropdown-item-icon">➕</span>
+            <span class="dropdown-item-text">New Tab</span>
+            <span class="dropdown-item-shortcut">Ctrl+Alt+N</span>
+          </div>
+          <div class="open-dropdown-item" id="menuItemOpenFile">
+            <span class="dropdown-item-icon">📄</span>
+            <span class="dropdown-item-text">Open File...</span>
+            <span class="dropdown-item-shortcut">Ctrl+O</span>
+          </div>
+          <div class="open-dropdown-item" id="menuItemOpenFolder">
+            <span class="dropdown-item-icon">📁</span>
+            <span class="dropdown-item-text">Open Folder...</span>
+          </div>
+          <div class="open-dropdown-divider" id="menuFolderDivider" style="display: none;"></div>
+          <div class="open-dropdown-item" id="menuItemToggleSidebar" style="display: none;">
+            <span class="dropdown-item-icon">🗂️</span>
+            <span class="dropdown-item-text" id="menuToggleSidebarText">Toggle Folder Tree</span>
+          </div>
+        </div>
+      </div>
       <button title="Save" id="saveBtn" onclick="tabManager.activeTab.saveToFile()">💾</button>
       <button title="Download this content" onclick="tabManager.activeTab.downloadEditorContent()">📥</button>
       <button title="Previous Code" id="previousCodeBtn" onclick="tabManager.activeTab.previousCode()">⏪</button>
@@ -124,12 +172,11 @@
         <button title="Chat Bot" onclick="toggleDisplayChatBotContainer()">🤖</button>
       </div>
     </div>
-  <div id="mainArea">
     <div id="tabContentArea">
       <!-- Tab contents (editor + chat) will be injected here -->
     </div>
+    <div id="statusBar" class="statusbardesign"></div>
   </div>
-  <div id="statusBar" class="statusbardesign"></div>
 </div>
 
 <div class="modal-api-overlay" id="modalApi">
@@ -179,11 +226,16 @@
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
   <script>
-    // Initialize the tab manager and restore open files from IndexedDB
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => tabManager.initSession());
-    } else {
+    function bootApp() {
       tabManager.initSession();
+      if (typeof folderTreeManager !== 'undefined') {
+        folderTreeManager.init();
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootApp);
+    } else {
+      bootApp();
     }
   </script>
 </body>
