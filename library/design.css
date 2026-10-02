@@ -29,6 +29,9 @@
   --minimapSliderHoverBg: rgba(255, 255, 255, 0.04);
   --minimapSliderActiveBg: rgba(255, 255, 255, 0.08);
   --minimapSliderBorder: rgba(255, 255, 255, 0.16);
+  --sidebarResizerBg: #252525;
+  --sidebarResizerBorder: rgba(255, 255, 255, 0.08);
+  --sidebarResizerHoverBg: #3b82f6;
 }
 
 html, body {
@@ -47,10 +50,11 @@ code {
 
 #container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 #tabBar {
@@ -167,12 +171,406 @@ code {
   background: rgba(0,0,0,0.05);
 }
 
+/* Open Button Dropdown */
+.open-dropdown-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toolbar-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+.open-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 205px;
+  background: var(--toolbarBg);
+  border: 1px solid var(--tooltipBorder);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 5px;
+  z-index: 1000;
+  animation: fadeInMenu 0.12s ease-out;
+}
+
+@keyframes fadeInMenu {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.open-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--textColor);
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+
+.open-dropdown-item:hover {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.open-dropdown-item:hover .dropdown-item-shortcut {
+  color: rgba(255, 255, 255, 0.9) !important;
+  opacity: 1;
+}
+
+.dropdown-item-icon {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+}
+
+.dropdown-item-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.dropdown-item-shortcut {
+  font-size: 11px;
+  opacity: 0.6;
+  font-family: monospace;
+  margin-left: 8px;
+  color: var(--textColor);
+}
+
+.open-dropdown-divider {
+  height: 1px;
+  background: var(--tooltipDivider);
+  margin: 4px 0;
+}
+
 #mainArea {
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  min-width: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--toolbarBg);
+}
+
+/* Sidebar Area - Sliding in Folder Tree Container */
+.sidebar-area {
+  width: 270px;
+  min-width: 0;
+  max-width: 800px;
+  height: 100%;
+  background: var(--toolbarBg);
+  color: var(--textColor);
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  user-select: none;
+  transition: width 0.28s cubic-bezier(0.2, 0, 0, 1), opacity 0.22s ease, border-color 0.2s ease;
+  will-change: width;
+  position: relative;
+  z-index: 5;
+}
+
+.sidebar-area.sidebar-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  opacity: 0 !important;
+  border-right-color: transparent !important;
+  pointer-events: none !important;
+  visibility: hidden;
+}
+
+.sidebar-area.resizing-active {
+  transition: none !important;
+}
+
+.sidebar-inner {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Sidebar Header matching toolbar and modal style */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  min-height: 44px;
+  height: 44px;
+  background: var(--toolbarBg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+}
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--textColor);
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-title-icon {
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidebar-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.sidebar-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--textColor);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+}
+
+.sidebar-action-btn.spinning {
+  animation: spinAction 0.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinAction {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Close button matching the application's .close-btn */
+.sidebar-action-btn.close-btn {
+  font-size: 16px;
+  color: var(--closeBtnColor);
+  padding: 2px 6px;
+}
+
+.sidebar-action-btn.close-btn:hover {
+  color: red !important;
+  background: rgba(255, 0, 0, 0.1);
+}
+
+/* Search / Filter box styled like the chat input and modals */
+.sidebar-search-box {
+  display: flex;
+  align-items: center;
+  margin: 8px 10px 6px 10px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--tooltipBorder);
+  border-radius: 6px;
+  flex-shrink: 0;
+  gap: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sidebar-search-box:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.sidebar-search-icon {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.sidebar-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--textColor);
+  width: 100%;
+  font-family: inherit;
+}
+
+.sidebar-search-box input::placeholder {
+  color: var(--textColor);
+  opacity: 0.5;
+}
+
+.sidebar-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--closeBtnColor);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.sidebar-search-clear:hover {
+  color: red;
+}
+
+.folder-tree-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 6px 12px 6px;
+}
+
+.sidebar-resizer {
+  width: 5px;
+  cursor: col-resize;
+  background: var(--sidebarResizerBg, #252525);
+  border-left: 1px solid var(--sidebarResizerBorder, rgba(255, 255, 255, 0.08));
+  border-right: 1px solid var(--sidebarResizerBorder, rgba(255, 255, 255, 0.08));
+  transition: background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+.sidebar-resizer:hover, .sidebar-resizer.resizing {
+  background: var(--sidebarResizerHoverBg, #3b82f6) !important;
+  border-color: var(--sidebarResizerHoverBg, #3b82f6) !important;
+}
+
+/* Tree Nodes matching Tab Buttons and UI Items */
+.tree-node {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--textColor);
+  white-space: nowrap;
+  gap: 6px;
+  margin: 1px 0;
+  transition: background 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+}
+
+.tree-node:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.tree-node.active {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: var(--activeTabColor) !important;
+  font-weight: 600;
+  border-left: 3px solid #3b82f6;
+}
+
+.tree-arrow {
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.tree-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-arrow.empty {
+  visibility: hidden;
+}
+
+.tree-icon {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+
+.tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-folder-group {
+  user-select: none;
+}
+
+.tree-children {
+  display: none;
+}
+
+.tree-children.expanded {
+  display: block;
+}
+
+.tree-empty, .tree-loading {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--textColor);
+  opacity: 0.6;
+  text-align: center;
+  font-style: italic;
+}
+
+.tree-empty-message {
+  padding: 20px 12px;
+  font-size: 12px;
+  opacity: 0.6;
+  text-align: center;
+  line-height: 1.5;
 }
 
 #tabContentArea {
@@ -180,6 +578,8 @@ code {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .tab-content {
@@ -606,23 +1006,23 @@ opacity: 0;
 .ace_removed_word { background-color: var(--diffRemovedHighlightBg) !important; position: absolute; z-index: 5 !important; }
 
 /* Generic scrollbar for all containers */
-.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight {
+.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
-.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track {
+.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track {
     background: var(--scrollbarTrack);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb {
     background: var(--scrollbarThumb);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbarThumbHover);
 }
 

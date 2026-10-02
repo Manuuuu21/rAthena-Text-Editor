@@ -46,6 +46,9 @@ function toggleTheme() {
     root.style.setProperty('--minimapSliderHoverBg', 'rgba(255, 255, 255, 0.15)');
     root.style.setProperty('--minimapSliderActiveBg', 'rgba(255, 255, 255, 0.22)');
     root.style.setProperty('--minimapSliderBorder', 'rgba(255, 255, 255, 0.25)');
+    root.style.setProperty('--sidebarResizerBg', '#252525');
+    root.style.setProperty('--sidebarResizerBorder', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--sidebarResizerHoverBg', '#3b82f6');
   } else {
     // Switching to LIGHT
     root.style.setProperty('--tabBarBg', '#d8ccc6');
@@ -83,6 +86,9 @@ function toggleTheme() {
     root.style.setProperty('--minimapSliderHoverBg', 'rgba(0, 0, 0, 0.13)');
     root.style.setProperty('--minimapSliderActiveBg', 'rgba(0, 0, 0, 0.18)');
     root.style.setProperty('--minimapSliderBorder', 'rgba(0, 0, 0, 0.22)');
+    root.style.setProperty('--sidebarResizerBg', '#d0c4bd');
+    root.style.setProperty('--sidebarResizerBorder', 'rgba(0, 0, 0, 0.12)');
+    root.style.setProperty('--sidebarResizerHoverBg', '#3b82f6');
   }
   
   tabManager.tabs.forEach(tab => {
@@ -1000,6 +1006,7 @@ class Tab {
         this.codeHistory = [];
         this.currentHistoryIndex = -1;
         this.fileHandle = null;
+        this.relativePath = "";
         this.lastSavedCode = "";
         this.lastModified = 0;
         this.isCheckingExternal = false;
@@ -1342,7 +1349,7 @@ class Tab {
         this.updateHistoryButtons();
         this.visibleCount = 10;
         this.updateMessageVisibility(false);
-        document.title = `${this.name} - rAthena Text Editor`;
+        this.updateTitle();
         this.checkExternalChange();
         // Use timeout to prevent scroll-to-focus issues during tab transition
         setTimeout(() => {
@@ -1351,6 +1358,14 @@ class Tab {
           }
           this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
         }, 50);
+    }
+
+    updateTitle() {
+        if (typeof tabManager !== 'undefined' && tabManager.activeTab === this) {
+            const prefix = this.isDirty() ? '● ' : '';
+            const displayName = this.relativePath || this.name;
+            document.title = `${prefix}${displayName} - rAthena Text Editor`;
+        }
     }
 
     setMinimapVisible(visible) {
@@ -1409,12 +1424,14 @@ class Tab {
     updateTabIcon() {
         const dirty = this.isDirty();
         const btn = document.querySelector(`.tab-button[data-id="${this.id}"]`);
-        if (!btn) return;
-        const closeIcon = btn.querySelector('.tab-close');
-        if (!closeIcon) return;
-        
-        closeIcon.textContent = dirty ? '●' : '✖';
-        closeIcon.classList.toggle('dirty', dirty);
+        if (btn) {
+            const closeIcon = btn.querySelector('.tab-close');
+            if (closeIcon) {
+                closeIcon.textContent = dirty ? '●' : '✖';
+                closeIcon.classList.toggle('dirty', dirty);
+            }
+        }
+        this.updateTitle();
     }
 
     scheduleSaveToDB() {
@@ -1499,6 +1516,10 @@ class Tab {
             this.lastSavedCode = currentCode;
             this.updateTabIcon();
             this.saveToDB();
+
+            if (typeof folderTreeManager !== 'undefined' && folderTreeManager.rootHandle) {
+                folderTreeManager.checkForFolderChanges();
+            }
 
             if (showSnack) {
                 showSnackbar(`Saved "${this.name}" to file location.`);
@@ -1706,6 +1727,14 @@ class Tab {
                 targetTab.editor.scrollToLine(1, true, true);
                 targetTab.editor.gotoLine(1, 0, false);
                 targetTab.name = file.name;
+                if (typeof folderTreeManager !== 'undefined' && folderTreeManager && folderTreeManager.rootHandle) {
+                    try {
+                        const parts = await folderTreeManager.rootHandle.resolve(handle);
+                        if (parts && parts.length > 0) {
+                            targetTab.relativePath = parts.join('/');
+                        }
+                    } catch (e) {}
+                }
                 targetTab.lastModified = file.lastModified || 0;
                 targetTab.updateEditorMode();
                 targetTab.saveCurrentCodeToHistory();
@@ -2706,6 +2735,9 @@ if (currentTheme) {
         root.style.setProperty('--syntaxFunction', '#6f42c1');
         root.style.setProperty('--syntaxVariable', '#e36209');
         root.style.setProperty('--syntaxConstant', '#b07d00');
+        root.style.setProperty('--sidebarResizerBg', '#d0c4bd');
+        root.style.setProperty('--sidebarResizerBorder', 'rgba(0, 0, 0, 0.12)');
+        root.style.setProperty('--sidebarResizerHoverBg', '#3b82f6');
     } else {
         // Already dark mode (monokai)
         const root = document.documentElement;
@@ -2741,6 +2773,9 @@ if (currentTheme) {
         root.style.setProperty('--syntaxFunction', '#66d9ef');
         root.style.setProperty('--syntaxVariable', '#a6e22e');
         root.style.setProperty('--syntaxConstant', '#fd971f');
+        root.style.setProperty('--sidebarResizerBg', '#252525');
+        root.style.setProperty('--sidebarResizerBorder', 'rgba(255, 255, 255, 0.08)');
+        root.style.setProperty('--sidebarResizerHoverBg', '#3b82f6');
     }
 }
 parseRathenaDocs();
@@ -2828,6 +2863,10 @@ const tabDB = {
 
         if (tab.fileHandle) {
             record.fileHandle = tab.fileHandle;
+        }
+
+        if (tab.relativePath) {
+            record.relativePath = tab.relativePath;
         }
 
         return record;
@@ -3088,6 +3127,9 @@ const tabManager = {
 
         this.renderTabs();
         tabDB.saveActiveTabId(tab.id);
+        if (typeof folderTreeManager !== 'undefined' && folderTreeManager) {
+            folderTreeManager.highlightActiveInTree(tab.relativePath);
+        }
     },
 
     closeTab(id, e) {
@@ -3207,6 +3249,7 @@ const tabManager = {
                         : this.nextId++;
                     const tab = new Tab(tabId, tabData.name || "Untitled");
                     tab.fileHandle = tabData.fileHandle || null;
+                    tab.relativePath = tabData.relativePath || "";
                     tab.lastSavedCode = (tabData.lastSavedCode !== undefined) ? tabData.lastSavedCode : (tabData.code || "");
                     tab.chatHistory = tabData.chatHistory || [];
                     tab.diffHistory = tabData.diffHistory || [];
@@ -3412,7 +3455,8 @@ const tabManager = {
                 
                 // Update text if changed
                 const label = btn.querySelector("span");
-                if (label.textContent !== tab.name) label.textContent = tab.name;
+                if (label && label.textContent !== tab.name) label.textContent = tab.name;
+                btn.title = tab.relativePath || tab.name;
                 
                 // Update close icon
                 const closeIcon = btn.querySelector(".tab-close");
@@ -3482,6 +3526,7 @@ const tabManager = {
         btn.setAttribute("draggable", "true");
         btn.dataset.id = tab.id;
         btn.dataset.index = index;
+        btn.title = tab.relativePath || tab.name;
         
         const isDirty = tab.isDirty();
         btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">${isDirty ? '●' : '✖'}</span>`;
@@ -3580,6 +3625,8 @@ document.addEventListener("keydown", (e) => {
     const isAlt = e.altKey;
     const isKeyT = e.key && (e.key.toLowerCase() === 't' || e.key.toUpperCase() === 'T');
     const isKeyS = e.key && (e.key.toLowerCase() === 's' || e.key.toUpperCase() === 'S');
+    const isKeyO = e.key && (e.key.toLowerCase() === 'o' || e.key.toUpperCase() === 'O');
+    const isKeyN = e.key && (e.key.toLowerCase() === 'n' || e.key.toUpperCase() === 'N');
 
     // Global Ctrl+S handler
     if (isCtrlOrCmd && !isAlt && !isShift && isKeyS) {
@@ -3587,6 +3634,26 @@ document.addEventListener("keydown", (e) => {
         e.stopPropagation();
         if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
             tabManager.activeTab.saveToFile();
+        }
+        return;
+    }
+
+    // Global Ctrl+O handler (Open File)
+    if (isCtrlOrCmd && !isAlt && !isShift && isKeyO) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+            tabManager.activeTab.openFile();
+        }
+        return;
+    }
+
+    // Global Ctrl+Alt+N or Ctrl+Shift+N (New Tab)
+    if ((isCtrlOrCmd && isAlt && isKeyN) || (isCtrlOrCmd && isShift && isKeyN)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof tabManager !== 'undefined') {
+            tabManager.addTab();
         }
         return;
     }
@@ -3874,4 +3941,923 @@ Follow these guidelines at all times:
       2. If the user's request is **unclear**, include a clarification question instead of assuming their intent.
       3. Strictly complete your explanation.
 `.trim();
+
+// ==========================================
+// Folder Tree & Open Dropdown Manager
+// ==========================================
+class FolderTreeManager {
+    constructor() {
+        this.rootHandle = null;
+        this.rootName = "";
+        this.nodeRegistry = new Map(); // path -> { nodeElem, handle, isDirectory, isExpanded, ... }
+        this.activePath = "";
+        this.filterText = "";
+        this.isResizing = false;
+        this.savedSidebarWidth = 270;
+        this.isCheckingForChanges = false;
+        this.fsObserver = null;
+        this.autoRefreshTimer = null;
+        this.boundWindowFocus = null;
+    }
+
+    init() {
+        const openBtn = document.getElementById("openBtn");
+        const openMenu = document.getElementById("openMenu");
+        const openDropdownContainer = document.getElementById("openDropdownContainer");
+
+        if (openBtn && openMenu) {
+            openBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.toggleDropdown();
+            };
+
+            document.addEventListener("click", (e) => {
+                if (openDropdownContainer && !openDropdownContainer.contains(e.target)) {
+                    this.closeDropdown();
+                }
+            });
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    this.closeDropdown();
+                }
+            });
+        }
+
+        const menuNewTab = document.getElementById("menuItemNewTab");
+        if (menuNewTab) {
+            menuNewTab.onclick = () => {
+                this.closeDropdown();
+                if (typeof tabManager !== 'undefined') {
+                    tabManager.addTab();
+                }
+            };
+        }
+
+        const menuOpenFile = document.getElementById("menuItemOpenFile");
+        if (menuOpenFile) {
+            menuOpenFile.onclick = () => {
+                this.closeDropdown();
+                if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+                    tabManager.activeTab.openFile();
+                }
+            };
+        }
+
+        const menuOpenFolder = document.getElementById("menuItemOpenFolder");
+        if (menuOpenFolder) {
+            menuOpenFolder.onclick = () => {
+                this.closeDropdown();
+                this.promptOpenFolder();
+            };
+        }
+
+        const menuToggleSidebar = document.getElementById("menuItemToggleSidebar");
+        if (menuToggleSidebar) {
+            menuToggleSidebar.onclick = () => {
+                this.closeDropdown();
+                this.toggleSidebar();
+            };
+        }
+
+        // Sidebar action buttons
+        const collapseBtn = document.getElementById("sidebarCollapseBtn");
+        if (collapseBtn) {
+            collapseBtn.onclick = () => this.collapseAll();
+        }
+
+        const closeBtn = document.getElementById("sidebarCloseBtn");
+        if (closeBtn) {
+            closeBtn.onclick = () => this.closeFolderWorkspace();
+        }
+
+        // Search filter
+        const searchInput = document.getElementById("sidebarSearchInput");
+        const searchClear = document.getElementById("sidebarSearchClear");
+        if (searchInput) {
+            let debounceTimer = null;
+            searchInput.addEventListener("input", (e) => {
+                const val = e.target.value.trim().toLowerCase();
+                this.filterText = val;
+                if (searchClear) {
+                    searchClear.style.display = val ? "inline-block" : "none";
+                }
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    this.applyFilter(val);
+                }, 150);
+            });
+        }
+        if (searchClear) {
+            searchClear.onclick = () => {
+                if (searchInput) {
+                    searchInput.value = "";
+                    this.filterText = "";
+                    searchClear.style.display = "none";
+                    this.applyFilter("");
+                }
+            };
+        }
+
+        // Resizer setup
+        this.initResizer();
+
+        // Restore workspace folder from IndexedDB if previously saved
+        this.restoreWorkspaceFromDB();
+    }
+
+    toggleDropdown() {
+        const menu = document.getElementById("openMenu");
+        if (!menu) return;
+        const isVisible = menu.style.display === "block";
+        menu.style.display = isVisible ? "none" : "block";
+    }
+
+    closeDropdown() {
+        const menu = document.getElementById("openMenu");
+        if (menu) menu.style.display = "none";
+    }
+
+    async promptOpenFolder() {
+        if (typeof window.showDirectoryPicker !== "function") {
+            showSnackbar("Folder picker is not supported in this browser. Please use Chrome or Edge.");
+            return;
+        }
+        try {
+            const dirHandle = await window.showDirectoryPicker({
+                mode: "readwrite",
+                startIn: "documents"
+            });
+            if (!dirHandle) return;
+
+            this.rootHandle = dirHandle;
+            this.rootName = dirHandle.name;
+            if (typeof tabManager !== 'undefined') {
+                tabManager.workspaceDirectoryHandle = dirHandle;
+            }
+
+            this.showSidebar();
+            const folderNameElem = document.getElementById("sidebarFolderName");
+            if (folderNameElem) {
+                folderNameElem.textContent = dirHandle.name;
+                folderNameElem.title = dirHandle.name;
+            }
+
+            // Update dropdown menu
+            const toggleItem = document.getElementById("menuItemToggleSidebar");
+            const divider = document.getElementById("menuFolderDivider");
+            if (toggleItem) toggleItem.style.display = "flex";
+            if (divider) divider.style.display = "block";
+
+            await this.loadRoot();
+            this.saveWorkspaceToDB(dirHandle);
+            this.startWatcher();
+            showSnackbar(`Opened folder "${dirHandle.name}".`);
+        } catch (err) {
+            if (err && err.name !== "AbortError") {
+                console.error("Open folder error:", err);
+                showSnackbar("Could not open folder.");
+            }
+        }
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById("sidebarArea");
+        if (!sidebar) return;
+        if (sidebar.classList.contains("sidebar-hidden")) {
+            this.showSidebar();
+        } else {
+            this.hideSidebar();
+        }
+    }
+
+    showSidebar() {
+        const sidebar = document.getElementById("sidebarArea");
+        const resizer = document.getElementById("sidebarResizer");
+        const inner = document.getElementById("sidebarInner");
+        const targetWidth = this.savedSidebarWidth || 270;
+        if (sidebar) {
+            sidebar.style.width = `${targetWidth}px`;
+            if (inner) inner.style.width = "100%";
+            sidebar.classList.remove("sidebar-hidden");
+        }
+        if (resizer) resizer.style.display = "block";
+        const toggleText = document.getElementById("menuToggleSidebarText");
+        if (toggleText) toggleText.textContent = "Hide Folder Tree";
+        this.animateEditorResize();
+    }
+
+    hideSidebar() {
+        const sidebar = document.getElementById("sidebarArea");
+        const resizer = document.getElementById("sidebarResizer");
+        if (sidebar) {
+            const currentW = sidebar.getBoundingClientRect().width;
+            if (currentW > 50) {
+                this.savedSidebarWidth = currentW;
+            }
+            sidebar.classList.add("sidebar-hidden");
+        }
+        if (resizer) resizer.style.display = "none";
+        const toggleText = document.getElementById("menuToggleSidebarText");
+        if (toggleText) toggleText.textContent = "Show Folder Tree";
+        this.animateEditorResize();
+    }
+
+    animateEditorResize() {
+        const startTime = performance.now();
+        const duration = 320;
+        const step = (now) => {
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.editor) {
+                tabManager.activeTab.editor.resize();
+                if (tabManager.activeTab.minimap) {
+                    tabManager.activeTab.minimap.update(true);
+                }
+            }
+            if (now - startTime < duration) {
+                requestAnimationFrame(step);
+            }
+        };
+        requestAnimationFrame(step);
+    }
+
+    async loadRoot() {
+        const container = document.getElementById("folderTreeContainer");
+        if (!container || !this.rootHandle) return;
+        container.innerHTML = "";
+        this.nodeRegistry.clear();
+
+        try {
+            await this.renderDirectoryChildren(this.rootHandle, "", container, 0);
+        } catch (e) {
+            console.error("Error loading directory root:", e);
+            container.innerHTML = `<div class="tree-empty-message">Unable to read folder contents.</div>`;
+        }
+    }
+
+    async renderDirectoryChildren(dirHandle, parentPath, containerElem, depth = 0) {
+        containerElem.innerHTML = `<div class="tree-loading" style="padding: 6px 12px; font-size: 11px; opacity: 0.6;">Loading...</div>`;
+        
+        const subdirs = [];
+        const files = [];
+
+        try {
+            for await (const [name, entry] of dirHandle.entries()) {
+                if (name.startsWith(".") || name === "node_modules" || name === ".git") continue;
+                
+                const relativePath = parentPath ? `${parentPath}/${name}` : name;
+                if (entry.kind === "directory") {
+                    subdirs.push({ name, handle: entry, relativePath });
+                } else if (entry.kind === "file") {
+                    files.push({ name, handle: entry, relativePath });
+                }
+            }
+        } catch (err) {
+            containerElem.innerHTML = `<div class="tree-empty-message">Access restricted or folder moved.</div>`;
+            return;
+        }
+
+        subdirs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+        containerElem.innerHTML = "";
+
+        if (subdirs.length === 0 && files.length === 0) {
+            const emptyElem = document.createElement("div");
+            emptyElem.className = "tree-empty-message";
+            emptyElem.textContent = "(Empty folder)";
+            emptyElem.style.paddingLeft = `${depth * 14 + 20}px`;
+            containerElem.appendChild(emptyElem);
+            return;
+        }
+
+        // Render subdirectories
+        for (const item of subdirs) {
+            const folderWrapper = document.createElement("div");
+            folderWrapper.className = "tree-folder-group";
+
+            const folderNode = document.createElement("div");
+            folderNode.className = "tree-node tree-folder";
+            folderNode.style.paddingLeft = `${depth * 14 + 6}px`;
+            folderNode.title = item.relativePath;
+            folderNode.dataset.path = item.relativePath;
+
+            const arrow = document.createElement("span");
+            arrow.className = "tree-arrow";
+            arrow.textContent = "▶";
+
+            const icon = document.createElement("span");
+            icon.className = "tree-icon";
+            icon.textContent = "📁";
+
+            const label = document.createElement("span");
+            label.className = "tree-label";
+            label.textContent = item.name;
+
+            folderNode.appendChild(arrow);
+            folderNode.appendChild(icon);
+            folderNode.appendChild(label);
+
+            const childrenContainer = document.createElement("div");
+            childrenContainer.className = "tree-children";
+
+            const regItem = {
+                handle: item.handle,
+                path: item.relativePath,
+                isDirectory: true,
+                isExpanded: false,
+                childrenLoaded: false,
+                nodeElem: folderNode,
+                arrowElem: arrow,
+                iconElem: icon,
+                childrenElem: childrenContainer,
+                depth: depth + 1
+            };
+            this.nodeRegistry.set(item.relativePath, regItem);
+
+            folderNode.onclick = async (e) => {
+                e.stopPropagation();
+                await this.toggleFolderNode(regItem);
+            };
+
+            folderWrapper.appendChild(folderNode);
+            folderWrapper.appendChild(childrenContainer);
+            containerElem.appendChild(folderWrapper);
+        }
+
+        // Render files
+        for (const item of files) {
+            const fileNode = document.createElement("div");
+            fileNode.className = "tree-node tree-file";
+            fileNode.style.paddingLeft = `${depth * 14 + 6}px`;
+            fileNode.title = item.relativePath;
+            fileNode.dataset.path = item.relativePath;
+
+            const spacer = document.createElement("span");
+            spacer.className = "tree-arrow empty";
+            spacer.textContent = " ";
+
+            const icon = document.createElement("span");
+            icon.className = "tree-icon";
+            icon.textContent = this.getFileIcon(item.name);
+
+            const label = document.createElement("span");
+            label.className = "tree-label";
+            label.textContent = item.name;
+
+            fileNode.appendChild(spacer);
+            fileNode.appendChild(icon);
+            fileNode.appendChild(label);
+
+            const regItem = {
+                handle: item.handle,
+                path: item.relativePath,
+                isDirectory: false,
+                nodeElem: fileNode
+            };
+            this.nodeRegistry.set(item.relativePath, regItem);
+
+            fileNode.onclick = async (e) => {
+                e.stopPropagation();
+                await this.openFileFromTree(item.handle, item.relativePath);
+            };
+
+            containerElem.appendChild(fileNode);
+        }
+
+        if (this.activePath) {
+            this.highlightActiveInTree(this.activePath);
+        }
+    }
+
+    getFileIcon(filename) {
+        const lower = filename.toLowerCase();
+        if (lower.endsWith(".txt")) return "📜";
+        if (lower.endsWith(".conf")) return "⚙️";
+        if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "📋";
+        if (lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp") || lower.endsWith(".h") || lower.endsWith(".inl")) return "🔷";
+        if (lower.endsWith(".json")) return "🟡";
+        if (lower.endsWith(".md")) return "📝";
+        return "📄";
+    }
+
+    async toggleFolderNode(regItem) {
+        if (!regItem.isDirectory) return;
+        regItem.isExpanded = !regItem.isExpanded;
+        
+        if (regItem.isExpanded) {
+            regItem.arrowElem.textContent = "▼";
+            regItem.arrowElem.classList.add("expanded");
+            regItem.iconElem.textContent = "📂";
+            regItem.childrenElem.classList.add("expanded");
+            regItem.childrenElem.style.display = "block";
+
+            if (!regItem.childrenLoaded) {
+                await this.renderDirectoryChildren(regItem.handle, regItem.path, regItem.childrenElem, regItem.depth);
+                regItem.childrenLoaded = true;
+            }
+        } else {
+            regItem.arrowElem.textContent = "▶";
+            regItem.arrowElem.classList.remove("expanded");
+            regItem.iconElem.textContent = "📁";
+            regItem.childrenElem.classList.remove("expanded");
+            regItem.childrenElem.style.display = "none";
+        }
+    }
+
+    async openFileFromTree(fileHandle, relativePath) {
+        if (typeof tabManager === 'undefined') return;
+        try {
+            // Check if this file is already open in an existing tab
+            let existingTab = null;
+            for (const tab of tabManager.tabs) {
+                if (tab.fileHandle) {
+                    try {
+                        if (await tab.fileHandle.isSameEntry(fileHandle)) {
+                            existingTab = tab;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+                if (!existingTab && tab.relativePath && tab.relativePath === relativePath) {
+                    existingTab = tab;
+                    break;
+                }
+            }
+
+            if (existingTab) {
+                tabManager.switchTab(existingTab.id);
+                this.highlightActiveInTree(relativePath);
+                return;
+            }
+
+            const file = await fileHandle.getFile();
+            const contents = await file.text();
+
+            // Decide where to open: reuse current tab if empty/untitled/clean, otherwise open in a new tab!
+            let targetTab;
+            const active = tabManager.activeTab;
+            if (active && !active.fileHandle && active.name === "Untitled" && !active.isDirty() && active.editor.getValue().trim() === "") {
+                targetTab = active;
+            } else {
+                targetTab = tabManager.addTab();
+            }
+
+            targetTab.fileHandle = fileHandle;
+            targetTab.relativePath = relativePath;
+            targetTab.name = file.name;
+            targetTab.lastModified = file.lastModified || Date.now();
+            targetTab.codeHistory = [];
+            targetTab.currentHistoryIndex = -1;
+
+            targetTab.editor.setValue(contents, -1);
+            targetTab.editor.session.setUndoManager(new ace.UndoManager());
+            targetTab.editor.scrollToLine(1, true, true);
+            targetTab.editor.gotoLine(1, 0, false);
+            targetTab.updateEditorMode();
+            targetTab.saveCurrentCodeToHistory();
+            targetTab.lastSavedCode = contents;
+
+            tabManager.renderTabs();
+            tabManager.switchTab(targetTab.id);
+            targetTab.saveToDB();
+
+            this.highlightActiveInTree(relativePath);
+        } catch (err) {
+            console.error("Failed to open file from tree:", err);
+            showSnackbar(`Failed to open "${relativePath}".`);
+        }
+    }
+
+    highlightActiveInTree(relativePath) {
+        this.activePath = relativePath || "";
+        document.querySelectorAll(".tree-node.active").forEach(el => el.classList.remove("active"));
+        if (!relativePath) return;
+
+        const selector = `.tree-node[data-path="${CSS.escape(relativePath)}"]`;
+        const node = document.querySelector(selector);
+        if (node) {
+            node.classList.add("active");
+            // Make sure all parent folders are expanded so node is visible
+            let parent = node.parentElement;
+            while (parent && parent.id !== "folderTreeContainer") {
+                if (parent.classList.contains("tree-children")) {
+                    parent.classList.add("expanded");
+                    parent.style.display = "block";
+                    const folderGroup = parent.parentElement;
+                    if (folderGroup) {
+                        const folderNode = folderGroup.querySelector(".tree-folder");
+                        if (folderNode) {
+                            if (folderNode.dataset.path) {
+                                const parentReg = this.nodeRegistry.get(folderNode.dataset.path);
+                                if (parentReg) {
+                                    parentReg.isExpanded = true;
+                                    parentReg.childrenLoaded = true;
+                                }
+                            }
+                            const arrow = folderNode.querySelector(".tree-arrow");
+                            const icon = folderNode.querySelector(".tree-icon");
+                            if (arrow) {
+                                arrow.textContent = "▼";
+                                arrow.classList.add("expanded");
+                            }
+                            if (icon) icon.textContent = "📂";
+                        }
+                    }
+                }
+                parent = parent.parentElement;
+            }
+            try {
+                node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            } catch (e) {}
+        }
+    }
+
+    collapseAll() {
+        this.nodeRegistry.forEach((regItem) => {
+            if (regItem.isDirectory) {
+                regItem.isExpanded = false;
+                if (regItem.arrowElem) {
+                    regItem.arrowElem.textContent = "▶";
+                    regItem.arrowElem.classList.remove("expanded");
+                }
+                if (regItem.iconElem) regItem.iconElem.textContent = "📁";
+                if (regItem.childrenElem) {
+                    regItem.childrenElem.classList.remove("expanded");
+                    regItem.childrenElem.style.display = "none";
+                }
+            }
+        });
+        document.querySelectorAll(".tree-children").forEach(el => {
+            el.classList.remove("expanded");
+            el.style.display = "none";
+        });
+        document.querySelectorAll(".tree-arrow:not(.empty)").forEach(el => {
+            el.textContent = "▶";
+            el.classList.remove("expanded");
+        });
+        document.querySelectorAll(".tree-folder .tree-icon").forEach(el => {
+            el.textContent = "📁";
+        });
+    }
+
+    async refresh(preserveExpanded = true, isAuto = false) {
+        if (!this.rootHandle) return;
+        
+        if (!isAuto) {
+            showSnackbar(`Refreshing "${this.rootName}"...`);
+        }
+
+        // Preserve all currently expanded folder paths
+        const expandedPaths = new Set();
+        if (preserveExpanded) {
+            this.nodeRegistry.forEach((regItem, path) => {
+                if (regItem.isDirectory && regItem.isExpanded) {
+                    expandedPaths.add(path);
+                }
+            });
+        }
+
+        await this.loadRoot();
+
+        // Re-expand previously open folders in order of hierarchy (shallowest first)
+        if (preserveExpanded && expandedPaths.size > 0) {
+            const sortedPaths = Array.from(expandedPaths).sort((a, b) => {
+                const depthA = a.split("/").length;
+                const depthB = b.split("/").length;
+                return depthA - depthB;
+            });
+
+            for (const path of sortedPaths) {
+                const regItem = this.nodeRegistry.get(path);
+                if (regItem && regItem.isDirectory && !regItem.isExpanded) {
+                    await this.toggleFolderNode(regItem);
+                }
+            }
+        }
+
+        // Re-apply active search filter if any
+        if (this.filterText) {
+            this.applyFilter(this.filterText);
+        }
+
+        // Re-highlight active file in tree
+        if (this.activePath) {
+            this.highlightActiveInTree(this.activePath);
+        } else if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.relativePath) {
+            this.highlightActiveInTree(tabManager.activeTab.relativePath);
+        }
+    }
+
+    startWatcher() {
+        this.stopWatcher();
+        if (!this.rootHandle) return;
+
+        // 1. Native FileSystemObserver (Chrome 129+)
+        if (typeof window.FileSystemObserver !== "undefined") {
+            try {
+                let debounceTimeout = null;
+                this.fsObserver = new window.FileSystemObserver((records) => {
+                    if (!this.rootHandle) return;
+                    clearTimeout(debounceTimeout);
+                    debounceTimeout = setTimeout(() => {
+                        this.checkForFolderChanges();
+                    }, 200);
+                });
+                this.fsObserver.observe(this.rootHandle, { recursive: true });
+            } catch (e) {
+                this.fsObserver = null;
+            }
+        }
+
+        // 2. Window focus & document visibilitychange listeners
+        // (Detects when user returns from File Explorer, terminal, external editor, etc.)
+        this.boundWindowFocus = () => {
+            if (this.rootHandle) {
+                this.checkForFolderChanges();
+            }
+        };
+        window.addEventListener("focus", this.boundWindowFocus);
+        document.addEventListener("visibilitychange", this.boundWindowFocus);
+
+        // 3. Periodic lightweight background polling
+        this.autoRefreshTimer = setInterval(() => {
+            if (document.hasFocus() && this.rootHandle) {
+                this.checkForFolderChanges();
+            }
+        }, 3000);
+    }
+
+    stopWatcher() {
+        if (this.fsObserver) {
+            try {
+                this.fsObserver.disconnect();
+            } catch (e) {}
+            this.fsObserver = null;
+        }
+        if (this.autoRefreshTimer) {
+            clearInterval(this.autoRefreshTimer);
+            this.autoRefreshTimer = null;
+        }
+        if (this.boundWindowFocus) {
+            window.removeEventListener("focus", this.boundWindowFocus);
+            document.removeEventListener("visibilitychange", this.boundWindowFocus);
+            this.boundWindowFocus = null;
+        }
+    }
+
+    async checkForFolderChanges() {
+        if (!this.rootHandle || this.isCheckingForChanges) return;
+        this.isCheckingForChanges = true;
+        try {
+            let changeDetected = false;
+            let detectedName = "";
+
+            // Check root directory entries
+            const currentRootEntries = new Set();
+            try {
+                for await (const [name, entry] of this.rootHandle.entries()) {
+                    if (name.startsWith(".") || name === "node_modules" || name === ".git") continue;
+                    currentRootEntries.add(name);
+                    const regItem = this.nodeRegistry.get(name);
+                    if (!regItem) {
+                        changeDetected = true;
+                        detectedName = name;
+                        break;
+                    }
+                }
+            } catch (permErr) {
+                return;
+            }
+
+            if (!changeDetected) {
+                // Check if any root entry in nodeRegistry was deleted or moved
+                for (const [path, regItem] of this.nodeRegistry.entries()) {
+                    if (!path.includes("/")) {
+                        if (!currentRootEntries.has(path)) {
+                            changeDetected = true;
+                            detectedName = path;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Check all currently expanded directories
+            if (!changeDetected) {
+                for (const [folderPath, regItem] of this.nodeRegistry.entries()) {
+                    if (regItem.isDirectory && regItem.isExpanded && regItem.handle) {
+                        const currentDirEntries = new Set();
+                        try {
+                            for await (const [name, entry] of regItem.handle.entries()) {
+                                if (name.startsWith(".") || name === "node_modules" || name === ".git") continue;
+                                const childPath = `${folderPath}/${name}`;
+                                currentDirEntries.add(childPath);
+                                if (!this.nodeRegistry.has(childPath)) {
+                                    changeDetected = true;
+                                    detectedName = name;
+                                    break;
+                                }
+                            }
+                            if (changeDetected) break;
+
+                            // Check if any known direct child in nodeRegistry was deleted
+                            for (const [childPath, childReg] of this.nodeRegistry.entries()) {
+                                if (childPath.startsWith(folderPath + "/") && childPath.indexOf("/", folderPath.length + 1) === -1) {
+                                    if (!currentDirEntries.has(childPath)) {
+                                        changeDetected = true;
+                                        detectedName = childPath.split("/").pop();
+                                        break;
+                                    }
+                                }
+                            }
+                            if (changeDetected) break;
+                        } catch (dirErr) {
+                            changeDetected = true;
+                            detectedName = folderPath.split("/").pop();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (changeDetected) {
+                await this.refresh(true, true);
+                if (detectedName) {
+                    showSnackbar(`File change detected ("${detectedName}") — Folder tree updated.`);
+                } else {
+                    showSnackbar(`Folder tree updated.`);
+                }
+            }
+        } catch (err) {
+            console.warn("Folder check error:", err);
+        } finally {
+            this.isCheckingForChanges = false;
+        }
+    }
+
+    closeFolderWorkspace() {
+        this.stopWatcher();
+        this.rootHandle = null;
+        this.rootName = "";
+        if (typeof tabManager !== 'undefined') {
+            tabManager.workspaceDirectoryHandle = null;
+        }
+        this.hideSidebar();
+        const toggleItem = document.getElementById("menuItemToggleSidebar");
+        const divider = document.getElementById("menuFolderDivider");
+        if (toggleItem) toggleItem.style.display = "none";
+        if (divider) divider.style.display = "none";
+        this.removeWorkspaceFromDB();
+        showSnackbar("Folder workspace closed.");
+    }
+
+    applyFilter(query) {
+        if (!query) {
+            document.querySelectorAll(".tree-node, .tree-folder-group").forEach(el => {
+                el.style.display = "";
+            });
+            this.nodeRegistry.forEach((regItem) => {
+                if (regItem.isDirectory && regItem.childrenElem) {
+                    if (regItem.isExpanded) {
+                        regItem.childrenElem.classList.add("expanded");
+                        regItem.childrenElem.style.display = "block";
+                    } else {
+                        regItem.childrenElem.classList.remove("expanded");
+                        regItem.childrenElem.style.display = "none";
+                    }
+                }
+            });
+            return;
+        }
+
+        this.nodeRegistry.forEach((regItem) => {
+            if (!regItem.isDirectory) {
+                const matches = regItem.path.toLowerCase().includes(query) || regItem.nodeElem.textContent.toLowerCase().includes(query);
+                regItem.nodeElem.style.display = matches ? "flex" : "none";
+                if (matches) {
+                    let parent = regItem.nodeElem.parentElement;
+                    while (parent && parent.id !== "folderTreeContainer") {
+                        if (parent.classList.contains("tree-children")) {
+                            parent.classList.add("expanded");
+                            parent.style.display = "block";
+                        }
+                        if (parent.classList.contains("tree-folder-group")) {
+                            parent.style.display = "block";
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            }
+        });
+    }
+
+    initResizer() {
+        const resizer = document.getElementById("sidebarResizer");
+        const sidebar = document.getElementById("sidebarArea");
+        const inner = document.getElementById("sidebarInner");
+        if (!resizer || !sidebar) return;
+
+        let startX = 0;
+        let startWidth = 0;
+
+        const onMouseMove = (e) => {
+            if (!this.isResizing) return;
+            const maxAllowedWidth = Math.min(800, Math.floor(window.innerWidth * 0.75));
+            const newWidth = Math.max(180, Math.min(maxAllowedWidth, startWidth + (e.clientX - startX)));
+            sidebar.style.width = `${newWidth}px`;
+            if (inner) inner.style.width = "100%";
+            this.savedSidebarWidth = newWidth;
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.editor) {
+                tabManager.activeTab.editor.resize();
+            }
+        };
+
+        const onMouseUp = () => {
+            if (!this.isResizing) return;
+            this.isResizing = false;
+            sidebar.classList.remove("resizing-active");
+            resizer.classList.remove("resizing");
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+        };
+
+        resizer.addEventListener("mousedown", (e) => {
+            this.isResizing = true;
+            startX = e.clientX;
+            startWidth = sidebar.getBoundingClientRect().width;
+            sidebar.classList.add("resizing-active");
+            resizer.classList.add("resizing");
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+        });
+    }
+
+    async saveWorkspaceToDB(dirHandle) {
+        if (!tabDB || !tabDB.db) return;
+        try {
+            const tx = tabDB.db.transaction([STORE_META], "readwrite");
+            const metaStore = tx.objectStore(STORE_META);
+            metaStore.put({ key: "workspaceDirectoryHandle", value: dirHandle });
+            metaStore.put({ key: "workspaceDirectoryName", value: dirHandle.name });
+        } catch (e) {}
+    }
+
+    async removeWorkspaceFromDB() {
+        if (!tabDB || !tabDB.db) return;
+        try {
+            const tx = tabDB.db.transaction([STORE_META], "readwrite");
+            const metaStore = tx.objectStore(STORE_META);
+            metaStore.delete("workspaceDirectoryHandle");
+            metaStore.delete("workspaceDirectoryName");
+        } catch (e) {}
+    }
+
+    async restoreWorkspaceFromDB() {
+        try {
+            const db = await tabDB.open();
+            const tx = db.transaction([STORE_META], "readonly");
+            const metaStore = tx.objectStore(STORE_META);
+            const req = metaStore.get("workspaceDirectoryHandle");
+            req.onsuccess = async () => {
+                const item = req.result;
+                if (item && item.value) {
+                    const handle = item.value;
+                    try {
+                        const perm = await handle.queryPermission({ mode: "read" });
+                        if (perm === "granted") {
+                            this.rootHandle = handle;
+                            this.rootName = handle.name;
+                            if (typeof tabManager !== 'undefined') {
+                                tabManager.workspaceDirectoryHandle = handle;
+                            }
+                            this.showSidebar();
+                            const folderNameElem = document.getElementById("sidebarFolderName");
+                            if (folderNameElem) {
+                                folderNameElem.textContent = handle.name;
+                                folderNameElem.title = handle.name;
+                            }
+                            const toggleItem = document.getElementById("menuItemToggleSidebar");
+                            const divider = document.getElementById("menuFolderDivider");
+                            if (toggleItem) toggleItem.style.display = "flex";
+                            if (divider) divider.style.display = "block";
+                            await this.loadRoot();
+                            this.startWatcher();
+                        }
+                    } catch (e) {}
+                }
+            };
+        } catch (e) {}
+    }
+}
+
+// Global instance
+const folderTreeManager = new FolderTreeManager();
+
+// Automatically initialize folder tree manager once DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => folderTreeManager.init());
+} else {
+    folderTreeManager.init();
+}
+
 
