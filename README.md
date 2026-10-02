@@ -57,6 +57,6 @@ Works in any modern browser supporting:
 
 ![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/sample_vid-output1.gif)
 ## Darkmode
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode1.png)
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/darkmode_v2.png)
 ## Lightmode
-![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/lightmode1.png)
+![Img](https://github.com/Manuuuu21/rAthena-Text-Editor/blob/main/library/lightmode_v2.png)
