@@ -4869,11 +4869,53 @@ class FolderTreeManager {
                         
                         if (isAbove || isBelow || shouldScroll) {
                             const currentScroll = container.scrollTop;
-                            const targetScroll = currentScroll + (nodeRect.top - containerRect.top) - (containerRect.height / 2) + (nodeRect.height / 2);
-                            container.scrollTo({
-                                top: Math.max(0, targetScroll),
-                                behavior: "smooth"
-                            });
+                            const targetScroll = Math.max(0, currentScroll + (nodeRect.top - containerRect.top) - (containerRect.height / 2) + (nodeRect.height / 2));
+
+                            // Attach wheel and touch listeners once to gracefully stop animation on user input
+                            if (!container._spyScrollWheelBound) {
+                                container._spyScrollWheelBound = true;
+                                container.addEventListener("wheel", () => {
+                                    if (container._spyScrollAnim) {
+                                        cancelAnimationFrame(container._spyScrollAnim);
+                                        container._spyScrollAnim = null;
+                                    }
+                                }, { passive: true });
+                                container.addEventListener("touchstart", () => {
+                                    if (container._spyScrollAnim) {
+                                        cancelAnimationFrame(container._spyScrollAnim);
+                                        container._spyScrollAnim = null;
+                                    }
+                                }, { passive: true });
+                            }
+
+                            // Smooth scroll over 200ms for fast, responsive spy scrolling
+                            if (container._spyScrollAnim) {
+                                cancelAnimationFrame(container._spyScrollAnim);
+                                container._spyScrollAnim = null;
+                            }
+
+                            const startTop = container.scrollTop;
+                            const diff = targetScroll - startTop;
+                            if (Math.abs(diff) < 2) {
+                                container.scrollTop = targetScroll;
+                                return;
+                            }
+
+                            const duration = 300; // 300ms duration
+                            const startTime = performance.now();
+                            const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+                            const step = (now) => {
+                                const elapsed = now - startTime;
+                                const progress = Math.min(elapsed / duration, 1);
+                                container.scrollTop = startTop + (diff * easeOutCubic(progress));
+                                if (progress < 1) {
+                                    container._spyScrollAnim = requestAnimationFrame(step);
+                                } else {
+                                    container._spyScrollAnim = null;
+                                }
+                            };
+                            container._spyScrollAnim = requestAnimationFrame(step);
                         }
                     }, 100);
                 }
