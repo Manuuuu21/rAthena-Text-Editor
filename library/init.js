@@ -3242,15 +3242,37 @@ const tabManager = {
         // Remove from IndexedDB immediately upon closing file
         tabDB.removeTab(id);
 
+        const container = document.getElementById("tabsContainer");
+        const closingBtn = container ? container.querySelector(`.tab-button[data-id="${id}"]`) : null;
+
         this.tabs.splice(index, 1);
         tab.elements.content.remove();
         
         if (this.tabs.length === 0) {
+            if (closingBtn) closingBtn.remove();
             this.addTab();
-        } else if (this.activeTab && this.activeTab.id === id) {
-            this.switchTab(this.tabs[Math.max(0, index - 1)].id);
         } else {
-            this.renderTabs();
+            const nextActiveId = (this.activeTab && this.activeTab.id === id)
+                ? this.tabs[Math.max(0, index - 1)].id
+                : (this.activeTab ? this.activeTab.id : this.tabs[0].id);
+
+            if (this.activeTab && this.activeTab.id === id) {
+                this.switchTab(nextActiveId);
+            }
+
+            if (closingBtn) {
+                closingBtn.classList.add("tab-closing");
+                // Immediately trigger compression/recompression update for the remaining tabs
+                this.updateTabCompression();
+                setTimeout(() => {
+                    if (closingBtn && closingBtn.parentNode) {
+                        closingBtn.remove();
+                    }
+                    this.renderTabs();
+                }, 240);
+            } else {
+                this.renderTabs();
+            }
         }
         this.saveAllTabsToDB();
     },
@@ -3512,8 +3534,19 @@ const tabManager = {
         if (!container || !tabBar) return;
 
         if (this.tabs.length <= 1) {
-            container.classList.remove("is-compressed");
-            container.style.removeProperty("--tab-width");
+            if (container.classList.contains("is-compressed")) {
+                container.style.setProperty("--tab-width", "150px");
+                if (this._uncompressTimeout) clearTimeout(this._uncompressTimeout);
+                this._uncompressTimeout = setTimeout(() => {
+                    if (this.tabs.length <= 1) {
+                        container.classList.remove("is-compressed");
+                        container.style.removeProperty("--tab-width");
+                    }
+                }, 240);
+            } else {
+                container.classList.remove("is-compressed");
+                container.style.removeProperty("--tab-width");
+            }
             return;
         }
 
@@ -3527,20 +3560,39 @@ const tabManager = {
 
         // Only compress if it is near to be full or exceeds the max-width of the tab container
         if (totalNaturalWidth >= availableWidth - 10) {
+            if (this._uncompressTimeout) {
+                clearTimeout(this._uncompressTimeout);
+                this._uncompressTimeout = null;
+            }
             container.classList.add("is-compressed");
             const responsiveWidth = Math.max(36, Math.floor((availableWidth - (this.tabs.length - 1) * 4) / this.tabs.length));
             container.style.setProperty("--tab-width", `${responsiveWidth}px`);
         } else {
-            container.classList.remove("is-compressed");
-            container.style.removeProperty("--tab-width");
+            if (container.classList.contains("is-compressed")) {
+                container.style.setProperty("--tab-width", "150px");
+                if (this._uncompressTimeout) clearTimeout(this._uncompressTimeout);
+                this._uncompressTimeout = setTimeout(() => {
+                    const currentTabs = tabManager ? tabManager.tabs : [];
+                    const currentTotal = currentTabs.reduce((sum, t) => sum + (tabManager ? tabManager.getTabNaturalWidth(t.name) : 150), 0) + (currentTabs.length - 1) * 4;
+                    if (currentTotal < availableWidth - 10) {
+                        container.classList.remove("is-compressed");
+                        container.style.removeProperty("--tab-width");
+                    }
+                }, 240);
+            } else {
+                container.classList.remove("is-compressed");
+                container.style.removeProperty("--tab-width");
+            }
         }
     },
 
     renderTabs() {
         const container = document.getElementById("tabsContainer");
-        const existingButtons = Array.from(container.querySelectorAll('.tab-button'));
+        if (!container) return;
+
+        const existingButtons = Array.from(container.querySelectorAll('.tab-button:not(.tab-closing)'));
         
-        // Record initial positions of all existing buttons for FLIP animation
+        // Record initial positions of all existing buttons for FLIP animation (during drag-and-drop)
         const firstPositions = new Map();
         existingButtons.forEach(btn => {
             const id = btn.dataset.id;
@@ -3549,21 +3601,29 @@ const tabManager = {
             }
         });
 
-        // Remove surplus buttons or clear if count mismatch (simple approach for now)
-        if (existingButtons.length !== this.tabs.length) {
-            container.innerHTML = "";
-            this.tabs.forEach((tab, index) => {
-                const btn = this.createTabButton(tab, index);
-                container.appendChild(btn);
-            });
-            this.updateTabCompression();
-            return;
-        }
+        // 1. Remove buttons for tabs that are no longer in this.tabs and not closing
+        existingButtons.forEach(btn => {
+            const id = btn.dataset.id;
+            if (!this.tabs.some(t => String(t.id) === id)) {
+                btn.remove();
+            }
+        });
 
-        // Update existing buttons
+        // 2. Reconcile buttons for each current tab
         this.tabs.forEach((tab, index) => {
-            const btn = existingButtons.find(b => b.dataset.id === String(tab.id));
-            if (btn) {
+            let btn = container.querySelector(`.tab-button[data-id="${tab.id}"]:not(.tab-closing)`);
+            if (!btn) {
+                btn = this.createTabButton(tab, index);
+                if (existingButtons.length > 0) {
+                    btn.classList.add("tab-opening");
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            if (btn) btn.classList.remove("tab-opening");
+                        });
+                    });
+                }
+                container.appendChild(btn);
+            } else {
                 btn.className = `tab-button ${this.activeTab && this.activeTab.id === tab.id ? 'active' : ''}`;
                 if (tabManager.draggedTabIndex === index) btn.classList.add("dragging");
                 
@@ -3574,64 +3634,61 @@ const tabManager = {
                 
                 // Update close icon
                 const closeIcon = btn.querySelector(".tab-close");
-                const isDirty = tab.isDirty();
-                closeIcon.textContent = isDirty ? '●' : '✖';
-                closeIcon.classList.toggle('dirty', isDirty);
+                if (closeIcon) {
+                    const isDirty = tab.isDirty();
+                    closeIcon.textContent = isDirty ? '●' : '✖';
+                    closeIcon.classList.toggle('dirty', isDirty);
+                }
                 
-                // Update specific index for data transfer
                 btn.dataset.index = index;
                 
                 // Move to correct position in DOM if necessary
-                if (container.children[index] !== btn) {
-                    container.insertBefore(btn, container.children[index]);
+                const nonClosingChildren = Array.from(container.children).filter(el => !el.classList.contains('tab-closing'));
+                if (nonClosingChildren[index] !== btn) {
+                    container.insertBefore(btn, nonClosingChildren[index] || null);
                 }
-            } else {
-                // If button doesn't exist for some reason, re-render all
-                container.innerHTML = "";
-                this.tabs.forEach((t, i) => container.appendChild(this.createTabButton(t, i)));
             }
         });
 
-        // After updating DOM, calculate delta and apply translation transition (FLIP)
-        const updatedButtons = Array.from(container.querySelectorAll('.tab-button'));
-        updatedButtons.forEach(btn => {
-            const id = btn.dataset.id;
-            const firstRect = firstPositions.get(id);
-            if (!firstRect) return;
+        // 3. FLIP animation exclusively for Drag and Drop swaps (preserves exact drag & drop behavior)
+        if (tabManager.draggedTabIndex !== null) {
+            const updatedButtons = Array.from(container.querySelectorAll('.tab-button:not(.tab-closing)'));
+            updatedButtons.forEach(btn => {
+                const id = btn.dataset.id;
+                const firstRect = firstPositions.get(id);
+                if (!firstRect) return;
 
-            // Resolve any currently active transition inline style
-            if (btn._cleanupTransition) {
-                btn._cleanupTransition();
-            }
+                if (btn._cleanupTransition) {
+                    btn._cleanupTransition();
+                }
 
-            const lastRect = btn.getBoundingClientRect();
-            const deltaX = firstRect.left - lastRect.left;
-            const deltaY = firstRect.top - lastRect.top;
+                const lastRect = btn.getBoundingClientRect();
+                const deltaX = firstRect.left - lastRect.left;
+                const deltaY = firstRect.top - lastRect.top;
 
-            // If it moved, perform FLIP animation
-            if (deltaX !== 0 || deltaY !== 0) {
-                btn.style.transition = 'none';
-                btn.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                
-                // Force layout reflow
-                btn.offsetWidth; 
+                if (deltaX !== 0 || deltaY !== 0) {
+                    btn.style.transition = 'none';
+                    btn.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                    
+                    btn.offsetWidth; 
 
-                // Play the transition slide
-                btn.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                btn.style.transform = 'translate(0, 0)';
+                    btn.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    btn.style.transform = 'translate(0, 0)';
 
-                const cleanup = (e) => {
-                    if (!e || e.propertyName === 'transform') {
-                        btn.style.transition = '';
-                        btn.style.transform = '';
-                        btn.removeEventListener('transitionend', cleanup);
-                        btn._cleanupTransition = null;
-                    }
-                };
-                btn.addEventListener('transitionend', cleanup);
-                btn._cleanupTransition = cleanup;
-            }
-        });
+                    const cleanup = (e) => {
+                        if (!e || e.propertyName === 'transform') {
+                            btn.style.transition = '';
+                            btn.style.transform = '';
+                            btn.removeEventListener('transitionend', cleanup);
+                            btn._cleanupTransition = null;
+                        }
+                    };
+                    btn.addEventListener('transitionend', cleanup);
+                    btn._cleanupTransition = cleanup;
+                }
+            });
+        }
+
         this.updateTabCompression();
     },
 

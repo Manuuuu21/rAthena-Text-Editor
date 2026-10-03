@@ -87,7 +87,13 @@ code {
   display: none;
 }
 
-/* Default Tab: exact previous style & width */
+@property --tab-width {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 150px;
+}
+
+/* Default Tab: exact previous style & width with smooth responsive transitions */
 .tab-button {
   height: 38px;
   box-sizing: border-box;
@@ -103,11 +109,52 @@ code {
   gap: 15px;
   white-space: nowrap;
   color: var(--textColor);
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s ease, opacity 0.2s ease, width 0.15s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+              width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              min-width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              max-width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              flex-basis 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              padding 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              gap 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              background 0.2s ease,
+              opacity 0.2s ease;
   min-width: 150px;
   flex: 0 0 auto;
   user-select: none;
   position: relative;
+}
+
+.tab-button.tab-opening {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  flex: 0 0 0px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+}
+
+.tab-button.tab-closing {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  flex: 0 0 0px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  transition: width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              min-width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              max-width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              flex-basis 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              padding 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              margin 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              gap 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+              opacity 0.18s ease !important;
 }
 
 .tab-button:hover {
