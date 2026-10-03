@@ -3963,9 +3963,14 @@ class FolderTreeManager {
         this.isIndexing = false;
         this.currentSearchResults = [];
         this.selectedSearchIndex = -1;
+        this.initialized = false;
+        this.isOpeningFile = false;
     }
 
     init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
         const openBtn = document.getElementById("openBtn");
         const openMenu = document.getElementById("openMenu");
         const openDropdownContainer = document.getElementById("openDropdownContainer");
@@ -4070,10 +4075,12 @@ class FolderTreeManager {
                     this.moveSearchSelection(-1);
                 } else if (e.key === "Enter") {
                     e.preventDefault();
+                    e.stopPropagation();
                     if (this.currentSearchResults && this.currentSearchResults.length > 0) {
                         const targetIdx = this.selectedSearchIndex >= 0 ? this.selectedSearchIndex : 0;
                         const targetItem = this.currentSearchResults[targetIdx];
                         if (targetItem) {
+                            searchInput.blur();
                             this.openFileFromSearch(targetItem);
                         }
                     }
@@ -5119,16 +5126,27 @@ class FolderTreeManager {
     }
 
     async openFileFromSearch(fileItem) {
+        if (!fileItem || this.isOpeningFile) return;
+        this.isOpeningFile = true;
+
         this.closeSearchDropdown();
         this.suppressTreeScroll = false;
 
         const searchInput = document.getElementById("sidebarSearchInput");
         const searchClear = document.getElementById("sidebarSearchClear");
-        if (searchInput) searchInput.value = "";
+        if (searchInput) {
+            searchInput.value = "";
+            searchInput.blur();
+        }
         if (searchClear) searchClear.style.display = "none";
         this.filterText = "";
+        this.currentSearchResults = [];
+        this.selectedSearchIndex = -1;
 
-        if (typeof tabManager === 'undefined') return;
+        if (typeof tabManager === 'undefined') {
+            this.isOpeningFile = false;
+            return;
+        }
 
         try {
             // Check if file is already open in an existing tab
@@ -5146,6 +5164,10 @@ class FolderTreeManager {
                     existingTab = tab;
                     break;
                 }
+                if (!existingTab && tab.name && tab.name === fileItem.name && tab.relativePath === fileItem.relativePath) {
+                    existingTab = tab;
+                    break;
+                }
             }
 
             if (existingTab) {
@@ -5156,6 +5178,15 @@ class FolderTreeManager {
 
             const file = await fileItem.handle.getFile();
             const contents = await file.text();
+
+            // Double check existing tab in case of race condition during async read
+            for (const tab of tabManager.tabs) {
+                if (tab.relativePath && tab.relativePath === fileItem.relativePath) {
+                    tabManager.switchTab(tab.id);
+                    await this.highlightActiveInTree(fileItem.relativePath, tab, true);
+                    return;
+                }
+            }
 
             let targetTab;
             const active = tabManager.activeTab;
@@ -5189,6 +5220,8 @@ class FolderTreeManager {
         } catch (err) {
             console.error("Failed to open file from search:", err);
             showSnackbar(`Failed to open "${fileItem.relativePath}".`);
+        } finally {
+            this.isOpeningFile = false;
         }
     }
 
