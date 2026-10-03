@@ -1,13 +1,59 @@
 /**
  * rAthena Script Linter
  * Provides live syntax checking for common rAthena scripting errors.
+ * Strictly operates only on .txt files (rAthena script files).
  */
 
-function runRathenaLinter(editor) {
+function getEditorFileName(editor, explicitFileName) {
+    if (typeof explicitFileName === "string" && explicitFileName.trim()) {
+        return explicitFileName.trim();
+    }
+    if (explicitFileName && typeof explicitFileName === "object") {
+        if (explicitFileName.name) return explicitFileName.name;
+        if (explicitFileName.relativePath) return explicitFileName.relativePath;
+        if (explicitFileName.fileHandle && explicitFileName.fileHandle.name) return explicitFileName.fileHandle.name;
+    }
+    if (!editor) return "";
+    if (editor.fileName) return editor.fileName;
+    if (editor.tab) {
+        const tab = editor.tab;
+        return tab.name || tab.relativePath || (tab.fileHandle && tab.fileHandle.name) || "";
+    }
+    const session = editor.getSession ? editor.getSession() : null;
+    if (session) {
+        if (session.fileName) return session.fileName;
+        if (session.tab) {
+            const tab = session.tab;
+            return tab.name || tab.relativePath || (tab.fileHandle && tab.fileHandle.name) || "";
+        }
+    }
+    if (typeof tabManager !== "undefined" && tabManager.tabs) {
+        const matchingTab = tabManager.tabs.find(t => t.editor === editor);
+        if (matchingTab) {
+            return matchingTab.name || matchingTab.relativePath || (matchingTab.fileHandle && matchingTab.fileHandle.name) || "";
+        }
+        if (tabManager.activeTab && tabManager.activeTab.editor === editor) {
+            return tabManager.activeTab.name || tabManager.activeTab.relativePath || (tabManager.activeTab.fileHandle && tabManager.activeTab.fileHandle.name) || "";
+        }
+    }
+    return "";
+}
+
+function runRathenaLinter(editor, explicitFileName) {
+    if (!editor) return;
     const session = editor.getSession();
+    if (!session) return;
+
+    // Strictly restrict the rAthena linter to .txt files only
+    const fileName = getEditorFileName(editor, explicitFileName);
+    const lowerName = (fileName || "").toLowerCase().trim();
+    const isTxtFile = lowerName.endsWith(".txt");
+
     const mode = session.getMode();
     const modeId = mode ? (mode.$id || mode.id || "") : "";
-    if (modeId && modeId !== "ace/mode/rathena") {
+    const isRathenaMode = !modeId || modeId === "ace/mode/rathena";
+
+    if (!isTxtFile || !isRathenaMode) {
         session.setAnnotations([]);
         return;
     }

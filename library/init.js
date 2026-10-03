@@ -1142,6 +1142,10 @@ class Tab {
 
     updateEditorMode() {
         if (!this.editor) return;
+        this.editor.tab = this;
+        if (this.editor.session) {
+            this.editor.session.tab = this;
+        }
         const name = (this.name || "").toLowerCase();
         if (name.endsWith(".yml") || name.endsWith(".yaml")) {
             this.editor.session.setMode("ace/mode/rathena_yaml");
@@ -1158,10 +1162,17 @@ class Tab {
             this.minimap.colorCache = {};
             this.minimap.update(true);
         }
+        if (typeof runRathenaLinter === "function") {
+            runRathenaLinter(this.editor, this.name);
+        }
     }
 
     initEditor() {
         this.editor = ace.edit(this.elements.editor.id);
+        this.editor.tab = this;
+        if (this.editor.session) {
+            this.editor.session.tab = this;
+        }
         this.editor.setTheme(currentTheme);
         this.updateEditorMode();
         const localCompletion = typeof localCompletionEnabled !== "undefined" ? localCompletionEnabled : true;
@@ -1199,7 +1210,7 @@ class Tab {
 
         this.editor.on("change", () => {
             if (typeof runRathenaLinter === "function") {
-                runRathenaLinter(this.editor);
+                runRathenaLinter(this.editor, this.name);
             }
             this.updateTabIcon();
             this.scheduleSaveToDB();
