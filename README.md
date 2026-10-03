@@ -31,6 +31,7 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 - `.txt` - Text files
 - `.conf` - Configuration files
 - `.yml` - YAML files
+- `.cpp` - CPP files and all files related to CPP
 
 ## 🛠️ Technology Stack
 
