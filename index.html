@@ -119,10 +119,13 @@
           <button class="sidebar-action-btn close-btn" id="sidebarCloseBtn" title="Close folder workspace">✖</button>
         </div>
       </div>
-      <div class="sidebar-search-box">
-        <span class="sidebar-search-icon">🔍</span>
-        <input type="text" id="sidebarSearchInput" placeholder="Filter files in folder..." autocomplete="off" spellcheck="false" />
-        <button id="sidebarSearchClear" class="sidebar-search-clear" style="display: none;" title="Clear filter">✕</button>
+      <div class="sidebar-search-container" id="sidebarSearchContainer">
+        <div class="sidebar-search-box">
+          <span class="sidebar-search-icon">🔍</span>
+          <input type="text" id="sidebarSearchInput" placeholder="Search file in folder..." autocomplete="off" spellcheck="false" />
+          <button id="sidebarSearchClear" class="sidebar-search-clear" style="display: none;" title="Clear search">✕</button>
+        </div>
+        <div id="sidebarSearchDropdown" class="sidebar-search-dropdown" style="display: none;"></div>
       </div>
       <div id="folderTreeContainer" class="folder-tree-container">
         <!-- Tree nodes populated dynamically -->
