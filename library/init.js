@@ -3151,6 +3151,11 @@ const tabManager = {
         if (typeof folderTreeManager !== 'undefined' && folderTreeManager) {
             folderTreeManager.syncActiveTabWithTree(tab);
         }
+
+        const activeBtn = document.querySelector(`.tab-button[data-id="${tab.id}"]`);
+        if (activeBtn) {
+            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
     },
 
     closeTab(id, e) {
@@ -3444,6 +3449,50 @@ const tabManager = {
         }
     },
 
+    getTabNaturalWidth(name) {
+        if (!this._measureCanvas) {
+            this._measureCanvas = document.createElement("canvas");
+            this._measureCtx = this._measureCanvas.getContext("2d");
+        }
+        if (this._measureCtx) {
+            this._measureCtx.font = "14px sans-serif";
+            const textWidth = this._measureCtx.measureText(name || "").width;
+            // 36px padding (18px left + 18px right) + 15px gap + 18px close button + 2px safety
+            return Math.max(150, Math.ceil(textWidth + 71));
+        }
+        return 150;
+    },
+
+    updateTabCompression() {
+        const container = document.getElementById("tabsContainer");
+        const tabBar = document.getElementById("tabBar");
+        if (!container || !tabBar) return;
+
+        if (this.tabs.length <= 1) {
+            container.classList.remove("is-compressed");
+            container.style.removeProperty("--tab-width");
+            return;
+        }
+
+        const addTabBtn = document.getElementById("addTabBtn");
+        const addBtnWidth = addTabBtn ? addTabBtn.offsetWidth + 8 : 45;
+        // Total available space for tabs inside tabBar
+        const availableWidth = tabBar.clientWidth - addBtnWidth - 24;
+
+        // Calculate sum of natural uncompressed widths of all tabs (with 4px gap)
+        const totalNaturalWidth = this.tabs.reduce((sum, tab) => sum + this.getTabNaturalWidth(tab.name), 0) + (this.tabs.length - 1) * 4;
+
+        // Only compress if it is near to be full or exceeds the max-width of the tab container
+        if (totalNaturalWidth >= availableWidth - 10) {
+            container.classList.add("is-compressed");
+            const responsiveWidth = Math.max(36, Math.floor((availableWidth - (this.tabs.length - 1) * 4) / this.tabs.length));
+            container.style.setProperty("--tab-width", `${responsiveWidth}px`);
+        } else {
+            container.classList.remove("is-compressed");
+            container.style.removeProperty("--tab-width");
+        }
+    },
+
     renderTabs() {
         const container = document.getElementById("tabsContainer");
         const existingButtons = Array.from(container.querySelectorAll('.tab-button'));
@@ -3464,6 +3513,7 @@ const tabManager = {
                 const btn = this.createTabButton(tab, index);
                 container.appendChild(btn);
             });
+            this.updateTabCompression();
             return;
         }
 
@@ -3475,7 +3525,7 @@ const tabManager = {
                 if (tabManager.draggedTabIndex === index) btn.classList.add("dragging");
                 
                 // Update text if changed
-                const label = btn.querySelector("span");
+                const label = btn.querySelector(".tab-title") || btn.querySelector("span");
                 if (label && label.textContent !== tab.name) label.textContent = tab.name;
                 btn.title = tab.relativePath || tab.name;
                 
@@ -3539,6 +3589,7 @@ const tabManager = {
                 btn._cleanupTransition = cleanup;
             }
         });
+        this.updateTabCompression();
     },
 
     createTabButton(tab, index) {
@@ -3550,7 +3601,7 @@ const tabManager = {
         btn.title = tab.relativePath || tab.name;
         
         const isDirty = tab.isDirty();
-        btn.innerHTML = `<span>${tab.name}</span><span class="tab-close">${isDirty ? '●' : '✖'}</span>`;
+        btn.innerHTML = `<span class="tab-title">${tab.name}</span><span class="tab-close">${isDirty ? '●' : '✖'}</span>`;
         
         const closeIcon = btn.querySelector(".tab-close");
         if(isDirty) closeIcon.classList.add('dirty');
@@ -3632,6 +3683,23 @@ const tabManager = {
         return btn;
     }
 };
+
+// Auto-adjust tab compression on tabBar resize
+if (typeof ResizeObserver !== 'undefined') {
+    const tabBarElem = document.getElementById("tabBar");
+    if (tabBarElem) {
+        new ResizeObserver(() => {
+            if (typeof tabManager !== 'undefined' && tabManager.updateTabCompression) {
+                tabManager.updateTabCompression();
+            }
+        }).observe(tabBarElem);
+    }
+}
+window.addEventListener('resize', () => {
+    if (typeof tabManager !== 'undefined' && tabManager.updateTabCompression) {
+        tabManager.updateTabCompression();
+    }
+});
 
 // Global helper: clearChat (called by index.html modal button)
 function clearChat() {
