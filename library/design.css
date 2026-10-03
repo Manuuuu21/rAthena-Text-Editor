@@ -406,16 +406,20 @@ code {
   background: rgba(255, 0, 0, 0.1);
 }
 
-/* Search / Filter box styled like the chat input and modals */
+/* Search Box & Dropdown */
+.sidebar-search-container {
+  position: relative;
+  margin: 8px 10px 6px 10px;
+  flex-shrink: 0;
+}
+
 .sidebar-search-box {
   display: flex;
   align-items: center;
-  margin: 8px 10px 6px 10px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid var(--tooltipBorder);
   border-radius: 6px;
-  flex-shrink: 0;
   gap: 6px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -428,6 +432,7 @@ code {
 .sidebar-search-icon {
   font-size: 12px;
   opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .sidebar-search-box input {
@@ -453,10 +458,118 @@ code {
   cursor: pointer;
   padding: 0 2px;
   font-size: 13px;
+  line-height: 1;
 }
 
 .sidebar-search-clear:hover {
   color: red;
+}
+
+.sidebar-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--toolbarBg);
+  border: 1px solid var(--tooltipBorder);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
+}
+
+.sidebar-search-dropdown::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.sidebar-search-dropdown::-webkit-scrollbar-track {
+  background: var(--scrollbarTrack);
+  border-radius: 4px;
+}
+
+.sidebar-search-dropdown::-webkit-scrollbar-thumb {
+  background: var(--scrollbarThumb);
+  border-radius: 4px;
+}
+
+.sidebar-search-dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbarThumbHover);
+}
+
+.sidebar-search-dropdown-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  padding: 4px 8px 3px 8px;
+  border-bottom: 1px solid var(--tooltipBorder);
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background 0.12s ease;
+}
+
+.search-result-item:hover,
+.search-result-item.selected {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.search-result-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.search-result-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-result-path {
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  color: var(--textColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-path .match-highlight {
+  background: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+  font-weight: 700;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.search-result-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.65;
+  font-style: italic;
 }
 
 .folder-tree-container {
@@ -1006,23 +1119,23 @@ opacity: 0;
 .ace_removed_word { background-color: var(--diffRemovedHighlightBg) !important; position: absolute; z-index: 5 !important; }
 
 /* Generic scrollbar for all containers */
-.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container {
+.chat-messages, .diff-split-container, .diff-modal-box, #tabBar, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container, .sidebar-search-dropdown {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
-.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, #tabBar::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar, .sidebar-search-dropdown::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track {
+.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, #tabBar::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track, .sidebar-search-dropdown::-webkit-scrollbar-track {
     background: var(--scrollbarTrack);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, #tabBar::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb, .sidebar-search-dropdown::-webkit-scrollbar-thumb {
     background: var(--scrollbarThumb);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, #tabBar::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover, .sidebar-search-dropdown::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbarThumbHover);
 }
 

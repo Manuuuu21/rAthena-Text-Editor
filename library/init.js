@@ -3959,6 +3959,10 @@ class FolderTreeManager {
         this.autoRefreshTimer = null;
         this.boundWindowFocus = null;
         this.suppressTreeScroll = false;
+        this.workspaceFiles = [];
+        this.isIndexing = false;
+        this.currentSearchResults = [];
+        this.selectedSearchIndex = -1;
     }
 
     init() {
@@ -4032,33 +4036,72 @@ class FolderTreeManager {
             closeBtn.onclick = () => this.closeFolderWorkspace();
         }
 
-        // Search filter
+        // Search dropdown setup
         const searchInput = document.getElementById("sidebarSearchInput");
         const searchClear = document.getElementById("sidebarSearchClear");
+        const searchContainer = document.getElementById("sidebarSearchContainer");
+
         if (searchInput) {
             let debounceTimer = null;
             searchInput.addEventListener("input", (e) => {
-                const val = e.target.value.trim().toLowerCase();
+                const val = e.target.value.trim();
                 this.filterText = val;
                 if (searchClear) {
                     searchClear.style.display = val ? "inline-block" : "none";
                 }
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
-                    this.applyFilter(val);
-                }, 150);
+                    this.searchFiles(val);
+                }, 80);
+            });
+
+            searchInput.addEventListener("focus", () => {
+                if (this.filterText) {
+                    this.searchFiles(this.filterText);
+                }
+            });
+
+            searchInput.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    this.moveSearchSelection(1);
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    this.moveSearchSelection(-1);
+                } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (this.currentSearchResults && this.currentSearchResults.length > 0) {
+                        const targetIdx = this.selectedSearchIndex >= 0 ? this.selectedSearchIndex : 0;
+                        const targetItem = this.currentSearchResults[targetIdx];
+                        if (targetItem) {
+                            this.openFileFromSearch(targetItem);
+                        }
+                    }
+                } else if (e.key === "Escape") {
+                    this.closeSearchDropdown();
+                    searchInput.blur();
+                }
             });
         }
+
         if (searchClear) {
             searchClear.onclick = () => {
                 if (searchInput) {
                     searchInput.value = "";
                     this.filterText = "";
                     searchClear.style.display = "none";
-                    this.applyFilter("");
+                    this.closeSearchDropdown();
+                    searchInput.focus();
                 }
             };
         }
+
+        // Click outside closes search dropdown
+        document.addEventListener("click", (e) => {
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                this.closeSearchDropdown();
+            }
+        });
 
         // Resizer setup
         this.initResizer();
@@ -4191,6 +4234,7 @@ class FolderTreeManager {
 
         try {
             await this.renderDirectoryChildren(this.rootHandle, "", container, 0);
+            this.indexWorkspaceFiles();
         } catch (e) {
             console.error("Error loading directory root:", e);
             container.innerHTML = `<div class="tree-empty-message">Unable to read folder contents.</div>`;
@@ -4622,7 +4666,7 @@ class FolderTreeManager {
                         const isAbove = nodeRect.top < containerRect.top + 20;
                         const isBelow = nodeRect.bottom > containerRect.bottom - 20;
                         
-                        if (isAbove || isBelow) {
+                        if (isAbove || isBelow || shouldScroll) {
                             const currentScroll = container.scrollTop;
                             const targetScroll = currentScroll + (nodeRect.top - containerRect.top) - (containerRect.height / 2) + (nodeRect.height / 2);
                             container.scrollTo({
@@ -4630,7 +4674,7 @@ class FolderTreeManager {
                                 behavior: "smooth"
                             });
                         }
-                    }, 80);
+                    }, 100);
                 }
             }
         }
@@ -4842,6 +4886,7 @@ class FolderTreeManager {
 
             if (changeDetected) {
                 await this.refresh(true, true);
+                this.indexWorkspaceFiles();
                 if (detectedName) {
                     showSnackbar(`File change detected ("${detectedName}") — Folder tree updated.`);
                 } else {
@@ -4857,6 +4902,14 @@ class FolderTreeManager {
 
     closeFolderWorkspace() {
         this.stopWatcher();
+        this.closeSearchDropdown();
+        this.workspaceFiles = [];
+        this.filterText = "";
+        const searchInput = document.getElementById("sidebarSearchInput");
+        if (searchInput) searchInput.value = "";
+        const searchClear = document.getElementById("sidebarSearchClear");
+        if (searchClear) searchClear.style.display = "none";
+
         this.rootHandle = null;
         this.rootName = "";
         if (typeof tabManager !== 'undefined') {
@@ -4872,43 +4925,300 @@ class FolderTreeManager {
     }
 
     applyFilter(query) {
-        if (!query) {
-            document.querySelectorAll(".tree-node, .tree-folder-group").forEach(el => {
-                el.style.display = "";
-            });
-            this.nodeRegistry.forEach((regItem) => {
-                if (regItem.isDirectory && regItem.childrenElem) {
-                    if (regItem.isExpanded) {
-                        regItem.childrenElem.classList.add("expanded");
-                        regItem.childrenElem.style.display = "block";
-                    } else {
-                        regItem.childrenElem.classList.remove("expanded");
-                        regItem.childrenElem.style.display = "none";
+        // Instead of filtering or hiding nodes in the whole file tree, show search dropdown
+        this.searchFiles(query);
+    }
+
+    async indexWorkspaceFiles() {
+        if (!this.rootHandle) {
+            this.workspaceFiles = [];
+            return;
+        }
+        if (this.isIndexing) return;
+        this.isIndexing = true;
+        const allFiles = [];
+
+        const traverse = async (dirHandle, currentPath) => {
+            try {
+                for await (const [name, entry] of dirHandle.entries()) {
+                    if (name.startsWith(".") || name === "node_modules" || name === ".git" || name === "dist") continue;
+                    const relPath = currentPath ? `${currentPath}/${name}` : name;
+                    if (entry.kind === "directory") {
+                        await traverse(entry, relPath);
+                    } else if (entry.kind === "file") {
+                        allFiles.push({
+                            name: name,
+                            relativePath: relPath,
+                            handle: entry
+                        });
                     }
                 }
-            });
+            } catch (err) {
+                // Ignore inaccessible directories
+            }
+        };
+
+        try {
+            await traverse(this.rootHandle, "");
+            this.workspaceFiles = allFiles;
+            if (this.filterText) {
+                this.searchFiles(this.filterText);
+            }
+        } catch (e) {
+            console.warn("Error indexing workspace files:", e);
+        } finally {
+            this.isIndexing = false;
+        }
+    }
+
+    getAllFiles() {
+        if (this.workspaceFiles && this.workspaceFiles.length > 0) {
+            return this.workspaceFiles;
+        }
+        const fallback = [];
+        this.nodeRegistry.forEach((regItem) => {
+            if (!regItem.isDirectory && regItem.handle) {
+                fallback.push({
+                    name: regItem.path.split("/").pop(),
+                    relativePath: regItem.path,
+                    handle: regItem.handle
+                });
+            }
+        });
+        return fallback;
+    }
+
+    searchFiles(query) {
+        const dropdown = document.getElementById("sidebarSearchDropdown");
+        if (!dropdown) return;
+
+        const q = (query || "").trim();
+        if (!q) {
+            this.closeSearchDropdown();
             return;
         }
 
-        this.nodeRegistry.forEach((regItem) => {
-            if (!regItem.isDirectory) {
-                const matches = regItem.path.toLowerCase().includes(query) || regItem.nodeElem.textContent.toLowerCase().includes(query);
-                regItem.nodeElem.style.display = matches ? "flex" : "none";
-                if (matches) {
-                    let parent = regItem.nodeElem.parentElement;
-                    while (parent && parent.id !== "folderTreeContainer") {
-                        if (parent.classList.contains("tree-children")) {
-                            parent.classList.add("expanded");
-                            parent.style.display = "block";
+        const lowerQ = q.toLowerCase();
+        const files = this.getAllFiles();
+
+        if (!files || files.length === 0) {
+            dropdown.innerHTML = `<div class="search-result-empty">No files in open folder</div>`;
+            dropdown.style.display = "block";
+            this.currentSearchResults = [];
+            this.selectedSearchIndex = -1;
+            return;
+        }
+
+        // Filter files matching query in name or relativePath
+        const matches = files.filter(f => {
+            return f.relativePath.toLowerCase().includes(lowerQ) || f.name.toLowerCase().includes(lowerQ);
+        });
+
+        // Sort: exact filename match, filename starts with, filename contains, path contains
+        matches.sort((a, b) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aPath = a.relativePath.toLowerCase();
+            const bPath = b.relativePath.toLowerCase();
+
+            if (aName === lowerQ && bName !== lowerQ) return -1;
+            if (bName === lowerQ && aName !== lowerQ) return 1;
+
+            const aStarts = aName.startsWith(lowerQ);
+            const bStarts = bName.startsWith(lowerQ);
+            if (aStarts && !bStarts) return -1;
+            if (bStarts && !aStarts) return 1;
+
+            const aContains = aName.includes(lowerQ);
+            const bContains = bName.includes(lowerQ);
+            if (aContains && !bContains) return -1;
+            if (bContains && !aContains) return 1;
+
+            return aPath.localeCompare(bPath);
+        });
+
+        if (matches.length === 0) {
+            dropdown.innerHTML = `<div class="search-result-empty">No files found matching "<b>${this.escapeHtml(q)}</b>"</div>`;
+            dropdown.style.display = "block";
+            this.currentSearchResults = [];
+            this.selectedSearchIndex = -1;
+            return;
+        }
+
+        this.currentSearchResults = matches;
+        this.selectedSearchIndex = -1;
+
+        dropdown.innerHTML = "";
+
+        const header = document.createElement("div");
+        header.className = "sidebar-search-dropdown-header";
+        header.innerHTML = `<span>Matches (${matches.length})</span><span>ESC to close</span>`;
+        dropdown.appendChild(header);
+
+        // Limit results to top 60 items for performance
+        const displayMatches = matches.slice(0, 60);
+
+        displayMatches.forEach((item, idx) => {
+            const itemElem = document.createElement("div");
+            itemElem.className = "search-result-item";
+            itemElem.dataset.index = idx;
+
+            const iconElem = document.createElement("span");
+            iconElem.className = "search-result-icon";
+            iconElem.textContent = this.getFileIcon(item.name);
+
+            const contentElem = document.createElement("div");
+            contentElem.className = "search-result-content";
+
+            const pathElem = document.createElement("div");
+            pathElem.className = "search-result-path";
+            pathElem.title = item.relativePath;
+            pathElem.innerHTML = this.highlightMatch(item.relativePath, q);
+
+            contentElem.appendChild(pathElem);
+            itemElem.appendChild(iconElem);
+            itemElem.appendChild(contentElem);
+
+            itemElem.onclick = async (e) => {
+                e.stopPropagation();
+                await this.openFileFromSearch(item);
+            };
+
+            dropdown.appendChild(itemElem);
+        });
+
+        dropdown.style.display = "block";
+    }
+
+    moveSearchSelection(delta) {
+        const dropdown = document.getElementById("sidebarSearchDropdown");
+        if (!dropdown || dropdown.style.display === "none") return;
+        const items = dropdown.querySelectorAll(".search-result-item");
+        if (items.length === 0) return;
+
+        items.forEach(el => el.classList.remove("selected"));
+
+        this.selectedSearchIndex += delta;
+        if (this.selectedSearchIndex < 0) {
+            this.selectedSearchIndex = items.length - 1;
+        } else if (this.selectedSearchIndex >= items.length) {
+            this.selectedSearchIndex = 0;
+        }
+
+        const selectedEl = items[this.selectedSearchIndex];
+        if (selectedEl) {
+            selectedEl.classList.add("selected");
+            selectedEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    }
+
+    closeSearchDropdown() {
+        const dropdown = document.getElementById("sidebarSearchDropdown");
+        if (dropdown) dropdown.style.display = "none";
+        this.selectedSearchIndex = -1;
+    }
+
+    async openFileFromSearch(fileItem) {
+        this.closeSearchDropdown();
+        this.suppressTreeScroll = false;
+
+        const searchInput = document.getElementById("sidebarSearchInput");
+        const searchClear = document.getElementById("sidebarSearchClear");
+        if (searchInput) searchInput.value = "";
+        if (searchClear) searchClear.style.display = "none";
+        this.filterText = "";
+
+        if (typeof tabManager === 'undefined') return;
+
+        try {
+            // Check if file is already open in an existing tab
+            let existingTab = null;
+            for (const tab of tabManager.tabs) {
+                if (tab.fileHandle && fileItem.handle) {
+                    try {
+                        if (await tab.fileHandle.isSameEntry(fileItem.handle)) {
+                            existingTab = tab;
+                            break;
                         }
-                        if (parent.classList.contains("tree-folder-group")) {
-                            parent.style.display = "block";
-                        }
-                        parent = parent.parentElement;
-                    }
+                    } catch (e) {}
+                }
+                if (!existingTab && tab.relativePath && tab.relativePath === fileItem.relativePath) {
+                    existingTab = tab;
+                    break;
                 }
             }
-        });
+
+            if (existingTab) {
+                tabManager.switchTab(existingTab.id);
+                await this.highlightActiveInTree(fileItem.relativePath, existingTab, true);
+                return;
+            }
+
+            const file = await fileItem.handle.getFile();
+            const contents = await file.text();
+
+            let targetTab;
+            const active = tabManager.activeTab;
+            if (active && !active.fileHandle && active.name === "Untitled" && !active.isDirty() && active.editor.getValue().trim() === "") {
+                targetTab = active;
+            } else {
+                targetTab = tabManager.addTab();
+            }
+
+            targetTab.fileHandle = fileItem.handle;
+            targetTab.relativePath = fileItem.relativePath;
+            targetTab.name = file.name;
+            targetTab.lastModified = file.lastModified || Date.now();
+            targetTab.codeHistory = [];
+            targetTab.currentHistoryIndex = -1;
+
+            targetTab.editor.setValue(contents, -1);
+            targetTab.editor.session.setUndoManager(new ace.UndoManager());
+            targetTab.editor.scrollToLine(1, true, true);
+            targetTab.editor.gotoLine(1, 0, false);
+            targetTab.updateEditorMode();
+            targetTab.saveCurrentCodeToHistory();
+            targetTab.lastSavedCode = contents;
+
+            tabManager.renderTabs();
+            tabManager.switchTab(targetTab.id);
+            targetTab.saveToDB();
+
+            // Expand all ancestors in folder tree, highlight with .active, and spy-scroll to center it in view
+            await this.highlightActiveInTree(fileItem.relativePath, targetTab, true);
+        } catch (err) {
+            console.error("Failed to open file from search:", err);
+            showSnackbar(`Failed to open "${fileItem.relativePath}".`);
+        }
+    }
+
+    highlightMatch(text, query) {
+        if (!query) return this.escapeHtml(text);
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        let result = "";
+        let startIndex = 0;
+        let index = lowerText.indexOf(lowerQuery, startIndex);
+
+        while (index !== -1) {
+            result += this.escapeHtml(text.substring(startIndex, index));
+            result += `<span class="match-highlight">${this.escapeHtml(text.substring(index, index + lowerQuery.length))}</span>`;
+            startIndex = index + lowerQuery.length;
+            index = lowerText.indexOf(lowerQuery, startIndex);
+        }
+        result += this.escapeHtml(text.substring(startIndex));
+        return result;
+    }
+
+    escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/[&<>"']/g, (m) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[m]));
     }
 
     initResizer() {
