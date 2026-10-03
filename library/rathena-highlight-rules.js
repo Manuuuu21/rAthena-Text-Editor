@@ -985,3 +985,264 @@ ace.define("ace/mode/cpp", ["require", "exports", "ace/mode/c_cpp"], function (r
   const c_cpp = require("ace/mode/c_cpp");
   exports.Mode = c_cpp.Mode;
 });
+
+ace.define("ace/mode/lua_highlight_rules", ["require", "exports", "ace/lib/oop", "ace/mode/text_highlight_rules"], function(require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+
+  const LuaHighlightRules = function() {
+    const keywords = (
+      "break|do|else|elseif|end|for|function|goto|if|in|repeat|return|then|until|while"
+    );
+
+    const logicalOperators = "and|not|or";
+    const storageTypes = "local";
+    const builtinConstants = "true|false|nil|_G|_VERSION";
+    const builtinFunctions = (
+      "assert|collectgarbage|dofile|error|getmetatable|ipairs|load|loadfile|loadstring|" +
+      "module|next|pairs|pcall|print|rawequal|rawget|rawlen|rawset|require|select|" +
+      "setmetatable|tonumber|tostring|type|unpack|warn|xpcall"
+    );
+    const standardLibraries = (
+      "coroutine|package|string|table|math|io|os|debug|bit32|utf8|" +
+      "ReqJobName|JobNameTable|ItemSlotTable|AccTable|MonsterTable"
+    );
+
+    const keywordMapper = this.createKeywordMapper({
+      "keyword.control": keywords,
+      "keyword.operator": logicalOperators,
+      "storage.type": storageTypes,
+      "constant.language": builtinConstants,
+      "support.function": builtinFunctions,
+      "support.class": standardLibraries
+    }, "identifier", true);
+
+    const decimalInteger = "(?:(?:[1-9]\\d*)|(?:0))";
+    const hexInteger = "(?:0[xX][\\da-fA-F]+)";
+    const integer = "(?:" + decimalInteger + "|" + hexInteger + ")";
+    const fraction = "(?:\\.\\d+)";
+    const intPartStart = "(?:\\d+)";
+    const pointFloat = "(?:(?:" + intPartStart + "?" + fraction + ")|(?:" + intPartStart + "\\.))";
+    const exponentFloat = "(?:(?:" + pointFloat + "|" + intPartStart + ")[eE][+-]?\\d+)";
+    const floatNumber = "(?:" + exponentFloat + "|" + pointFloat + ")";
+
+    this.$rules = {
+      "start": [
+        {
+          token: "comment.block",
+          regex: "--\\[\\[",
+          next: "block_comment"
+        },
+        {
+          token: "comment.block",
+          regex: "--\\[=\\[",
+          next: "block_comment_eq"
+        },
+        {
+          token: "comment.line",
+          regex: "--.*$"
+        },
+        {
+          token: "string.block",
+          regex: "\\[\\[",
+          next: "block_string"
+        },
+        {
+          token: "string.block",
+          regex: "\\[=\\[",
+          next: "block_string_eq"
+        },
+        {
+          token: "string",
+          regex: '"(?:[^"\\\\]|\\\\.)*"'
+        },
+        {
+          token: "string",
+          regex: "'(?:[^'\\\\]|\\\\.)*'"
+        },
+        {
+          token: "constant.numeric",
+          regex: floatNumber
+        },
+        {
+          token: "constant.numeric",
+          regex: integer + "\\b"
+        },
+        {
+          token: "support.function",
+          regex: "(?<=(?:string|table|math|io|os|debug|coroutine|bit32|utf8)\\.)[a-zA-Z_]\\w*"
+        },
+        {
+          token: "support.function",
+          regex: "\\b[a-zA-Z_]\\w*(?=\\s*\\()"
+        },
+        {
+          token: "support.function",
+          regex: "\\b[a-zA-Z_]\\w*(?=\\s*\\{)"
+        },
+        {
+          token: "support.function",
+          regex: "(?<=:)[a-zA-Z_]\\w*(?=\\s*\\()"
+        },
+        {
+          token: keywordMapper,
+          regex: "[a-zA-Z_]\\w*"
+        },
+        {
+          token: "keyword.operator",
+          regex: "\\+|-|\\*|\\/|\\/\\/|\\^|\\%|\\&|\\~|\\||>>|<<|\\.\\.\\.|\\.\\.|<|<=|>|>=|==|~=|#|="
+        },
+        {
+          token: "paren.lparen",
+          regex: "[\\[\\{\\(]"
+        },
+        {
+          token: "paren.rparen",
+          regex: "[\\]\\}\\)]"
+        },
+        {
+          token: "punctuation.operator",
+          regex: "[,;:]"
+        },
+        {
+          token: "text",
+          regex: "\\s+"
+        }
+      ],
+      "block_comment": [
+        {
+          token: "comment.block",
+          regex: "\\]\\]",
+          next: "start"
+        },
+        {
+          defaultToken: "comment.block"
+        }
+      ],
+      "block_comment_eq": [
+        {
+          token: "comment.block",
+          regex: "\\]=\\]",
+          next: "start"
+        },
+        {
+          defaultToken: "comment.block"
+        }
+      ],
+      "block_string": [
+        {
+          token: "string.block",
+          regex: "\\]\\]",
+          next: "start"
+        },
+        {
+          defaultToken: "string.block"
+        }
+      ],
+      "block_string_eq": [
+        {
+          token: "string.block",
+          regex: "\\]=\\]",
+          next: "start"
+        },
+        {
+          defaultToken: "string.block"
+        }
+      ]
+    };
+
+    this.normalizeRules();
+  };
+
+  oop.inherits(LuaHighlightRules, TextHighlightRules);
+  exports.LuaHighlightRules = LuaHighlightRules;
+});
+
+ace.define("ace/mode/folding/lua", ["require", "exports", "module", "ace/lib/oop", "ace/range", "ace/mode/folding/fold_mode"], function(require, exports, module) {
+  "use strict";
+
+  const oop = require("ace/lib/oop");
+  const Range = require("ace/range").Range;
+  const BaseFoldMode = require("ace/mode/folding/fold_mode").FoldMode;
+
+  const FoldMode = exports.FoldMode = function() {};
+  oop.inherits(FoldMode, BaseFoldMode);
+
+  (function() {
+    this.foldingStartMarker = /(?:\b(?:function|then|do|repeat)\b)|(?:\{|\[(?=[^}\]]*$)|^\s*--\[\[)/;
+    this.foldingStopMarker = /(?:\b(?:end|until)\b)|(?:^[^\[\{]*(\}|\]))|(?:\s*\]\])/;
+
+    this.getFoldWidget = function(session, foldStyle, row) {
+      const line = session.getLine(row);
+      const isStart = this.foldingStartMarker.test(line);
+      const isEnd = this.foldingStopMarker.test(line);
+
+      if (isStart && !isEnd) {
+        return "start";
+      }
+      if (foldStyle === "markbeginend" && isEnd && isStart) {
+        return "end";
+      }
+      if (isEnd) {
+        return "end";
+      }
+      return "";
+    };
+
+    this.getFoldWidgetRange = function(session, foldStyle, row) {
+      const line = session.getLine(row);
+      if (/[\{\[]/.test(line)) {
+        const match = line.match(/[\{\[]/);
+        if (match) {
+          const i = match.index;
+          return session.getBracketRange({row: row, column: i + 1});
+        }
+      }
+      if (/--\[\[/.test(line)) {
+        const startCol = line.indexOf("--[[");
+        const maxRow = session.getLength();
+        for (let r = row; r < maxRow; r++) {
+          const l = session.getLine(r);
+          const endCol = l.indexOf("]]");
+          if (endCol !== -1) {
+            return new Range(row, startCol + 4, r, endCol);
+          }
+        }
+      }
+      if (/\b(?:function|then|do|repeat)\b/.test(line)) {
+        const maxRow = session.getLength();
+        let depth = 1;
+        for (let r = row + 1; r < maxRow; r++) {
+          const l = session.getLine(r);
+          if (/\b(?:function|then|do|repeat)\b/.test(l)) {
+            depth++;
+          }
+          if (/\b(?:end|until)\b/.test(l)) {
+            depth--;
+            if (depth === 0) {
+              return new Range(row, line.length, r, l.length);
+            }
+          }
+        }
+      }
+      return null;
+    };
+  }).call(FoldMode.prototype);
+});
+
+ace.define("ace/mode/lua", ["require", "exports", "ace/lib/oop", "ace/mode/text", "ace/mode/lua_highlight_rules", "ace/mode/folding/lua"], function (require, exports) {
+  const oop = require("ace/lib/oop");
+  const TextMode = require("ace/mode/text").Mode;
+  const LuaHighlightRules = require("ace/mode/lua_highlight_rules").LuaHighlightRules;
+  const LuaFoldMode = require("ace/mode/folding/lua").FoldMode;
+
+  const Mode = function () {
+    this.HighlightRules = LuaHighlightRules;
+    this.foldingRules = new LuaFoldMode();
+    this.$id = "ace/mode/lua";
+    this.lineCommentStart = "--";
+    this.blockComment = { start: "--[[", end: "]]" };
+  };
+  oop.inherits(Mode, TextMode);
+  exports.Mode = Mode;
+});

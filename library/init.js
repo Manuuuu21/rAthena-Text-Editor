@@ -173,8 +173,17 @@ function openDiff(index, tabId) {
         diffNewEditor = setupDiffEditor('diffNew');
     }
 
-    const isYml = tab.name.toLowerCase().endsWith(".yml") || tab.name.toLowerCase().endsWith(".yaml");
-    const diffMode = isYml ? "ace/mode/rathena_yaml" : "ace/mode/rathena";
+    const name = (tab.name || "").toLowerCase();
+    let diffMode = "ace/mode/rathena";
+    if (name.endsWith(".yml") || name.endsWith(".yaml")) {
+        diffMode = "ace/mode/rathena_yaml";
+    } else if (name.endsWith(".conf")) {
+        diffMode = "ace/mode/rathena_conf";
+    } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl")) {
+        diffMode = "ace/mode/c_cpp";
+    } else if (name.endsWith(".lua")) {
+        diffMode = "ace/mode/lua";
+    }
     diffOldEditor.session.setMode(diffMode);
     diffNewEditor.session.setMode(diffMode);
     
@@ -615,6 +624,10 @@ class Minimap {
         
         // Listen to document changes (code typed, loaded, or undone)
         editor.on('change', () => this.scheduleUpdate());
+        editor.session.on('changeMode', () => {
+            this.colorCache = {};
+            this.update(true);
+        });
         editor.renderer.on('afterRender', () => this.update(true));
 
         // Click & Drag interaction on Minimap
@@ -898,10 +911,13 @@ class Minimap {
         if (type.includes('variable.language')) {
             return isLight ? '#005cc5' : '#a6e22e';
         }
-        if (type.includes('variable') || type.includes('identifier')) {
+        if (type.includes('variable')) {
             return isLight ? '#e36209' : '#a6e22e';
         }
-        if (type.includes('operator') || type.includes('punctuation')) {
+        if (type.includes('identifier')) {
+            return isLight ? '#24292e' : '#f8f8f2';
+        }
+        if (type.includes('operator') || type.includes('punctuation') || type.includes('paren')) {
             return isLight ? '#586069' : '#f8f8f2';
         }
 
@@ -909,9 +925,11 @@ class Minimap {
     }
 
     getTokenColor(token) {
-        if (!token) return currentTheme === "ace/theme/github_light_default" ? '#24292e' : '#f8f8f2';
+        const isLight = currentTheme === "ace/theme/github_light_default";
+        const defaultColor = isLight ? '#24292e' : '#f8f8f2';
+        if (!token) return defaultColor;
         const type = token.type || '';
-        if (!type) return currentTheme === "ace/theme/github_light_default" ? '#24292e' : '#f8f8f2';
+        if (!type) return defaultColor;
 
         if (!this.colorCache) this.colorCache = {};
         const cacheKey = `${currentTheme}::${type}`;
@@ -919,8 +937,14 @@ class Minimap {
             return this.colorCache[cacheKey];
         }
 
-        const isLight = currentTheme === "ace/theme/github_light_default";
         let color = null;
+
+        // Plain identifiers, text, parens, and punctuation in Ace render with default editor text color
+        if (type === 'identifier' || type === 'text' || type.startsWith('paren.') || type === 'punctuation.operator') {
+            color = defaultColor;
+            this.colorCache[cacheKey] = color;
+            return color;
+        }
 
         try {
             if (!this.probeSpan) {
@@ -943,8 +967,8 @@ class Minimap {
                 this.probeSpan.className = "ace_" + type.replace(/\./g, " ace_");
                 const computed = window.getComputedStyle(this.probeSpan).color;
                 if (computed && computed !== 'rgba(0, 0, 0, 0)' && computed !== 'transparent') {
-                    const defaultColor = isLight ? 'rgb(36, 41, 46)' : 'rgb(248, 248, 242)';
-                    if (computed !== defaultColor) {
+                    const defaultRgb = isLight ? 'rgb(36, 41, 46)' : 'rgb(248, 248, 242)';
+                    if (computed !== defaultRgb) {
                         color = computed;
                     }
                 }
@@ -1125,8 +1149,14 @@ class Tab {
             this.editor.session.setMode("ace/mode/rathena_conf");
         } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl")) {
             this.editor.session.setMode("ace/mode/c_cpp");
+        } else if (name.endsWith(".lua")) {
+            this.editor.session.setMode("ace/mode/lua");
         } else {
             this.editor.session.setMode("ace/mode/rathena");
+        }
+        if (this.minimap) {
+            this.minimap.colorCache = {};
+            this.minimap.update(true);
         }
     }
 
@@ -1684,10 +1714,11 @@ class Tab {
                 multiple: true,
                 types: [
                     {
-                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h)",
-                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"] }
+                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua)",
+                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"] }
                     },
                     { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                    { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
                     { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
                     { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
                     { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
@@ -1772,7 +1803,7 @@ class Tab {
     async saveToFile() {
         if (!this.fileHandle) {
             let suggested = this.name;
-            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => suggested.toLowerCase().endsWith(ext));
+            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
             if (!hasExt) {
                 suggested += ".txt";
             }
@@ -1781,10 +1812,11 @@ class Tab {
                     suggestedName: suggested,
                     types: [
                         {
-                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h)",
-                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"] }
+                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua)",
+                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"] }
                         },
                         { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                        { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
                         { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
                         { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
                         { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
@@ -1828,7 +1860,7 @@ class Tab {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl"].some(ext => this.name.toLowerCase().endsWith(ext));
+        const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"].some(ext => this.name.toLowerCase().endsWith(ext));
         a.download = hasExt ? this.name : this.name + ".txt";
         a.click();
         URL.revokeObjectURL(url);
@@ -4490,6 +4522,7 @@ class FolderTreeManager {
         if (lower.endsWith(".conf")) return "⚙️";
         if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "📋";
         if (lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp") || lower.endsWith(".h") || lower.endsWith(".inl")) return "🔷";
+        if (lower.endsWith(".lua")) return "🌙";
         if (lower.endsWith(".json")) return "🟡";
         if (lower.endsWith(".md")) return "📝";
         return "📄";
