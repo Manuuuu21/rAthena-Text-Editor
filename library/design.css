@@ -559,49 +559,61 @@ code {
   left: 0;
   right: 0;
   max-height: 280px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--toolbarBg);
   border: 1px solid var(--tooltipBorder);
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   z-index: 1000;
   padding: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
-}
-
-.sidebar-search-dropdown::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.sidebar-search-dropdown::-webkit-scrollbar-track {
-  background: var(--scrollbarTrack);
-  border-radius: 4px;
-}
-
-.sidebar-search-dropdown::-webkit-scrollbar-thumb {
-  background: var(--scrollbarThumb);
-  border-radius: 4px;
-}
-
-.sidebar-search-dropdown::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbarThumbHover);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sidebar-search-dropdown-header {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.6;
-  padding: 4px 8px 3px 8px;
+  padding: 4px 8px 5px 8px;
   border-bottom: 1px solid var(--tooltipBorder);
   margin-bottom: 3px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  user-select: none;
+}
+
+.sidebar-search-results-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  max-height: 240px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
+}
+
+.sidebar-search-results-list::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.sidebar-search-results-list::-webkit-scrollbar-track {
+  background: var(--scrollbarTrack);
+  border-radius: 4px;
+}
+
+.sidebar-search-results-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbarThumb);
+  border-radius: 4px;
+}
+
+.sidebar-search-results-list::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbarThumbHover);
 }
 
 .search-result-item {
@@ -1207,23 +1219,23 @@ opacity: 0;
 .ace_removed_word { background-color: var(--diffRemovedHighlightBg) !important; position: absolute; z-index: 5 !important; }
 
 /* Generic scrollbar for all containers */
-.chat-messages, .diff-split-container, .diff-modal-box, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container, .sidebar-search-dropdown {
+.chat-messages, .diff-split-container, .diff-modal-box, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container, .sidebar-search-dropdown, .sidebar-search-results-list {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
-.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar, .sidebar-search-dropdown::-webkit-scrollbar {
+.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar, .sidebar-search-dropdown::-webkit-scrollbar, .sidebar-search-results-list::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track, .sidebar-search-dropdown::-webkit-scrollbar-track {
+.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track, .sidebar-search-dropdown::-webkit-scrollbar-track, .sidebar-search-results-list::-webkit-scrollbar-track {
     background: var(--scrollbarTrack);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb, .sidebar-search-dropdown::-webkit-scrollbar-thumb {
+.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb, .sidebar-search-dropdown::-webkit-scrollbar-thumb, .sidebar-search-results-list::-webkit-scrollbar-thumb {
     background: var(--scrollbarThumb);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover, .sidebar-search-dropdown::-webkit-scrollbar-thumb:hover {
+.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover, .sidebar-search-dropdown::-webkit-scrollbar-thumb:hover, .sidebar-search-results-list::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbarThumbHover);
 }
 

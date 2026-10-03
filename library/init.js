@@ -5155,6 +5155,9 @@ class FolderTreeManager {
         header.innerHTML = `<span>Matches (${matches.length})</span><span>ESC to close</span>`;
         dropdown.appendChild(header);
 
+        const listContainer = document.createElement("div");
+        listContainer.className = "sidebar-search-results-list";
+
         // Limit results to top 60 items for performance
         const displayMatches = matches.slice(0, 60);
 
@@ -5184,10 +5187,11 @@ class FolderTreeManager {
                 await this.openFileFromSearch(item);
             };
 
-            dropdown.appendChild(itemElem);
+            listContainer.appendChild(itemElem);
         });
 
-        dropdown.style.display = "block";
+        dropdown.appendChild(listContainer);
+        dropdown.style.display = "flex";
     }
 
     moveSearchSelection(delta) {
