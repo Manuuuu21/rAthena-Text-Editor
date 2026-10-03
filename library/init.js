@@ -545,6 +545,27 @@ function toggleDisplayChatBotContainer() {
   }
 }
 
+function ensureChatBotVisible() {
+  const activeTab = (typeof tabManager !== 'undefined') ? tabManager.activeTab : null;
+  let isCurrentlyHidden = false;
+
+  if (activeTab && activeTab.elements && activeTab.elements.chatBotContainer) {
+    const chatBot = activeTab.elements.chatBotContainer;
+    isCurrentlyHidden = (chatBot.style.display === 'none') || (window.getComputedStyle(chatBot).display === 'none');
+  } else if (typeof hideChatBotContainer !== 'undefined') {
+    isCurrentlyHidden = !!hideChatBotContainer;
+  }
+
+  if (isCurrentlyHidden) {
+    setChatBotContainerHidden(false);
+    if (activeTab && activeTab.elements && activeTab.elements.chatMessages) {
+      setTimeout(() => {
+        activeTab.elements.chatMessages.scrollTop = activeTab.elements.chatMessages.scrollHeight;
+      }, 100);
+    }
+  }
+}
+
 function showSnackbar(message) {
     const activeTab = tabManager.activeTab;
     if (!activeTab) return;
@@ -3735,6 +3756,8 @@ document.addEventListener("click", () => {
 });
 
 document.getElementById("explainThis").addEventListener("click", (e) => {
+    document.getElementById("contextMenu").style.display = "none";
+    ensureChatBotVisible();
     if (tabManager.activeTab) {
         tabManager.activeTab.elements.chatInput.value = `Explain this: ${tabManager.latestSelectedText}`;
         tabManager.activeTab.sendMessage();
@@ -3745,7 +3768,8 @@ document.getElementById("askAI").addEventListener("click", (e) => {
     e.stopPropagation();
     document.getElementById("contextMenu").style.display = "none";
     const form = document.getElementById("askAIForm");
-    form.style.left = `${tabManager.menuX}px`;
+    const maxLeft = Math.max(10, window.innerWidth - 270);
+    form.style.left = `${Math.min(tabManager.menuX, maxLeft)}px`;
     form.style.top = `${tabManager.menuY}px`;
     form.style.display = "block";
     document.getElementById("askAIInput").focus();
@@ -3753,6 +3777,7 @@ document.getElementById("askAI").addEventListener("click", (e) => {
 
 document.getElementById("askAIFormElement").addEventListener("submit", (e) => {
     e.preventDefault();
+    ensureChatBotVisible();
     const input = document.getElementById("askAIInput");
     const question = input.value.trim();
     if (question && tabManager.activeTab) {
