@@ -1,4 +1,6 @@
 let currentTheme = "ace/theme/monokai";
+document.documentElement.setAttribute('data-theme', 'dark');
+document.documentElement.classList.add('dark');
 
 function toggleTheme() {
   const root = document.documentElement;
@@ -8,6 +10,8 @@ function toggleTheme() {
   
     if (isLight) {
     // Switching to DARK
+    root.setAttribute('data-theme', 'dark');
+    root.classList.add('dark');
     root.style.setProperty('--tabBarBg', '#2e2e2e');
     root.style.setProperty('--toolbarBg', '#3e3e3e');
     root.style.setProperty('--textColor', '#ddd');
@@ -31,6 +35,18 @@ function toggleTheme() {
     root.style.setProperty('--btnBg', '#444');
     root.style.setProperty('--btnText', '#fff');
     root.style.setProperty('--closeBtnColor', '#bbb');
+    root.style.setProperty('--searchBg', '#202124');
+    root.style.setProperty('--searchColor', '#e8eaed');
+    root.style.setProperty('--searchBorder', '#3c4043');
+    root.style.setProperty('--searchFieldBg', '#2d3035');
+    root.style.setProperty('--searchFieldBorder', '#5f6368');
+    root.style.setProperty('--searchFieldColor', '#f1f3f4');
+    root.style.setProperty('--searchBtnBg', '#3c4043');
+    root.style.setProperty('--searchBtnHoverBg', '#4f5358');
+    root.style.setProperty('--searchBtnColor', '#e8eaed');
+    root.style.setProperty('--searchBtnBorder', '#5f6368');
+    root.style.setProperty('--searchCounterColor', '#9aa0a6');
+    root.style.setProperty('--searchShadow', '0 8px 24px rgba(0, 0, 0, 0.55)');
     
     // rAthena Syntax Highlighting for Dark Mode
     root.style.setProperty('--syntaxString', '#e6db74');
@@ -51,6 +67,8 @@ function toggleTheme() {
     root.style.setProperty('--sidebarResizerHoverBg', '#3b82f6');
   } else {
     // Switching to LIGHT
+    root.setAttribute('data-theme', 'light');
+    root.classList.remove('dark');
     root.style.setProperty('--tabBarBg', '#d8ccc6');
     root.style.setProperty('--toolbarBg', '#f8f1ef');
     root.style.setProperty('--textColor', '#333');
@@ -71,6 +89,18 @@ function toggleTheme() {
     root.style.setProperty('--scrollbarTrack', '#f1f1f1');
     root.style.setProperty('--scrollbarThumb', '#888');
     root.style.setProperty('--scrollbarThumbHover', '#555');
+    root.style.setProperty('--searchBg', '#f8f1ef');
+    root.style.setProperty('--searchColor', '#24292f');
+    root.style.setProperty('--searchBorder', '#d0d7de');
+    root.style.setProperty('--searchFieldBg', '#ffffff');
+    root.style.setProperty('--searchFieldBorder', '#d0d7de');
+    root.style.setProperty('--searchFieldColor', '#24292f');
+    root.style.setProperty('--searchBtnBg', '#eaeef2');
+    root.style.setProperty('--searchBtnHoverBg', '#d0d7de');
+    root.style.setProperty('--searchBtnColor', '#24292f');
+    root.style.setProperty('--searchBtnBorder', '#d0d7de');
+    root.style.setProperty('--searchCounterColor', '#57606a');
+    root.style.setProperty('--searchShadow', '0 8px 24px rgba(0, 0, 0, 0.12)');
     
     // rAthena Syntax Highlighting for Light Mode
     root.style.setProperty('--syntaxString', '#032f62');

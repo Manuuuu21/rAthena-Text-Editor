@@ -32,6 +32,18 @@
   --sidebarResizerBg: #252525;
   --sidebarResizerBorder: rgba(255, 255, 255, 0.08);
   --sidebarResizerHoverBg: #3b82f6;
+  --searchBg: #202124;
+  --searchColor: #e8eaed;
+  --searchBorder: #3c4043;
+  --searchFieldBg: #2d3035;
+  --searchFieldBorder: #5f6368;
+  --searchFieldColor: #f1f3f4;
+  --searchBtnBg: #3c4043;
+  --searchBtnHoverBg: #4f5358;
+  --searchBtnColor: #e8eaed;
+  --searchBtnBorder: #5f6368;
+  --searchCounterColor: #9aa0a6;
+  --searchShadow: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
 html, body {
@@ -1587,22 +1599,22 @@ opacity: 0;
   z-index: 5 !important;
 }
 
-/* Modern Dark-Themed Ace Search Box (Ctrl+F / Ctrl+H) */
+/* Modern Ace Search Box (Ctrl+F / Ctrl+H) - Theme Aligned */
 .ace_search {
-  background: #202124 !important;
-  color: #e8eaed !important;
-  border: 1px solid #3c4043 !important;
+  background: var(--searchBg, #202124) !important;
+  color: var(--searchColor, #e8eaed) !important;
+  border: 1px solid var(--searchBorder, #3c4043) !important;
   border-top: none !important;
   border-radius: 0 0 8px 8px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
+  box-shadow: var(--searchShadow, 0 8px 24px rgba(0, 0, 0, 0.55)) !important;
   padding: 8px 12px 6px 10px !important;
   z-index: 9999 !important;
 }
 
 .ace_search_field {
-  background: #2d3035 !important;
-  color: #f1f3f4 !important;
-  border: 1px solid #5f6368 !important;
+  background: var(--searchFieldBg, #2d3035) !important;
+  color: var(--searchFieldColor, #f1f3f4) !important;
+  border: 1px solid var(--searchFieldBorder, #5f6368) !important;
   border-radius: 4px 0 0 4px !important;
   font-family: inherit !important;
   padding: 4px 8px !important;
@@ -1615,16 +1627,16 @@ opacity: 0;
 }
 
 .ace_searchbtn {
-  background: #3c4043 !important;
-  color: #e8eaed !important;
-  border: 1px solid #5f6368 !important;
+  background: var(--searchBtnBg, #3c4043) !important;
+  color: var(--searchBtnColor, #e8eaed) !important;
+  border: 1px solid var(--searchBtnBorder, #5f6368) !important;
   border-left: none !important;
   padding: 4px 8px !important;
 }
 
 .ace_searchbtn:hover {
-  background: #4f5358 !important;
-  color: #ffffff !important;
+  background: var(--searchBtnHoverBg, #4f5358) !important;
+  color: var(--searchColor, #ffffff) !important;
 }
 
 .ace_searchbtn:last-child {
@@ -1632,15 +1644,15 @@ opacity: 0;
 }
 
 .ace_button {
-  background: #2d3035 !important;
-  color: #bdc1c6 !important;
-  border: 1px solid #5f6368 !important;
+  background: var(--searchFieldBg, #2d3035) !important;
+  color: var(--searchBtnColor, #bdc1c6) !important;
+  border: 1px solid var(--searchBtnBorder, #5f6368) !important;
   border-radius: 4px !important;
 }
 
 .ace_button:hover {
-  background: #3c4043 !important;
-  color: #ffffff !important;
+  background: var(--searchBtnHoverBg, #3c4043) !important;
+  color: var(--searchColor, #ffffff) !important;
 }
 
 .ace_button.checked {
@@ -1650,7 +1662,139 @@ opacity: 0;
 }
 
 .ace_search_counter {
-  color: #9aa0a6 !important;
+  color: var(--searchCounterColor, #9aa0a6) !important;
   font-weight: 500 !important;
+}
+
+.ace_searchbtn_close {
+  position: absolute !important;
+  top: 9px !important;
+  right: 7px !important;
+  width: 16px !important;
+  height: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 3px !important;
+  padding: 0 !important;
+  z-index: 10 !important;
+}
+
+.ace_searchbtn_close::before {
+  content: "✕" !important;
+  display: block !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+  color: #9aa0a6 !important;
+  text-align: center !important;
+}
+
+.ace_searchbtn_close:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.ace_searchbtn_close:hover::before {
+  color: #ffffff !important;
+}
+
+/* Explicit Light Mode Override for Ctrl+F / Ctrl+H (Aligned with light toolbar bgcolor #f8f1ef) */
+.ace-github-light-default .ace_search,
+.ace-github_light_default .ace_search,
+html[data-theme="light"] .ace_search {
+  background: var(--toolbarBg, #f8f1ef) !important;
+  color: #24292f !important;
+  border: 1px solid #d0d7de !important;
+  border-top: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.ace-github-light-default .ace_search_field,
+.ace-github_light_default .ace_search_field,
+html[data-theme="light"] .ace_search_field {
+  background: #ffffff !important;
+  color: #24292f !important;
+  border: 1px solid #d0d7de !important;
+}
+
+.ace-github-light-default .ace_search_field:focus,
+.ace-github_light_default .ace_search_field:focus,
+html[data-theme="light"] .ace_search_field:focus {
+  border-color: #0969da !important;
+  box-shadow: 0 0 0 1px #0969da !important;
+}
+
+.ace-github-light-default .ace_searchbtn,
+.ace-github_light_default .ace_searchbtn,
+html[data-theme="light"] .ace_searchbtn {
+  background: #eaeef2 !important;
+  color: #24292f !important;
+  border: 1px solid #d0d7de !important;
+  border-left: none !important;
+}
+
+.ace-github-light-default .ace_searchbtn:hover,
+.ace-github_light_default .ace_searchbtn:hover,
+html[data-theme="light"] .ace_searchbtn:hover {
+  background: #d0d7de !important;
+  color: #1f2328 !important;
+}
+
+.ace-github-light-default .ace_button,
+.ace-github_light_default .ace_button,
+html[data-theme="light"] .ace_button {
+  background: #ffffff !important;
+  color: #57606a !important;
+  border: 1px solid #d0d7de !important;
+}
+
+.ace-github-light-default .ace_button:hover,
+.ace-github_light_default .ace_button:hover,
+html[data-theme="light"] .ace_button:hover {
+  background: #eaeef2 !important;
+  color: #1f2328 !important;
+}
+
+.ace-github-light-default .ace_button.checked,
+.ace-github_light_default .ace_button.checked,
+html[data-theme="light"] .ace_button.checked {
+  background: rgba(9, 105, 218, 0.12) !important;
+  border-color: #0969da !important;
+  color: #0969da !important;
+}
+
+.ace-github-light-default .ace_search_counter,
+.ace-github_light_default .ace_search_counter,
+html[data-theme="light"] .ace_search_counter {
+  color: #57606a !important;
+}
+
+.ace-github-light-default .ace_searchbtn_close::before,
+.ace-github_light_default .ace_searchbtn_close::before,
+html[data-theme="light"] .ace_searchbtn_close::before {
+  color: #57606a !important;
+}
+
+.ace-github-light-default .ace_searchbtn_close:hover,
+.ace-github_light_default .ace_searchbtn_close:hover,
+html[data-theme="light"] .ace_searchbtn_close:hover {
+  background: #d0d7de !important;
+}
+
+.ace-github-light-default .ace_searchbtn_close:hover::before,
+.ace-github_light_default .ace_searchbtn_close:hover::before,
+html[data-theme="light"] .ace_searchbtn_close:hover::before {
+  color: #1f2328 !important;
+}
+
+.ace-github-light-default .ace_nomatch,
+.ace-github_light_default .ace_nomatch,
+html[data-theme="light"] .ace_nomatch {
+  border-color: #cf222e !important;
+  background-color: #ffebe9 !important;
 }
 
