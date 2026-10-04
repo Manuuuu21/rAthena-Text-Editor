@@ -717,6 +717,31 @@ class Minimap {
         editor.session.setScrollTop(targetScroll);
     }
 
+    scrollToMinimapY(clickY) {
+        const editor = this.tab.editor;
+        if (!editor || !editor.session) return;
+
+        const session = editor.session;
+        const totalLines = session.getLength();
+        if (totalLines === 0) return;
+
+        // Calculate exact document row rendered at clickY on the minimap canvas:
+        // y = row * lineHeight - minimapScrollTop  =>  row = (clickY + minimapScrollTop) / lineHeight
+        const clickedRow = (clickY + this.minimapScrollTop) / this.lineHeight;
+        const targetLine = Math.max(1, Math.min(totalLines, Math.floor(clickedRow) + 1));
+
+        if (typeof editor.scrollToLine === 'function') {
+            editor.scrollToLine(targetLine, true, false, function() {});
+        } else {
+            const editorLineHeight = (editor.renderer && editor.renderer.lineHeight) || 18;
+            const scrollerHeight = (editor.renderer && editor.renderer.$size && editor.renderer.$size.scrollerHeight) || editor.container.clientHeight || this.container.clientHeight || 500;
+            const visibleRowCount = scrollerHeight / editorLineHeight;
+            const targetScrollTop = (targetLine - 1 - visibleRowCount / 2) * editorLineHeight;
+            const maxEditorScroll = this.getMaxEditorScroll();
+            editor.session.setScrollTop(Math.max(0, Math.min(maxEditorScroll, targetScrollTop)));
+        }
+    }
+
     handleMouseDown(e) {
         if (e.button !== 0) return; // Primary mouse button only
         e.preventDefault();
@@ -728,17 +753,16 @@ class Minimap {
         const clickY = e.clientY - rect.top;
         const sliderTop = parseFloat(this.slider.style.top) || 0;
         const sliderHeight = parseFloat(this.slider.style.height) || 25;
-        const maxTravel = this.getMaxSliderTravel();
 
         const isInsideSlider = (clickY >= sliderTop && clickY <= sliderTop + sliderHeight);
         if (isInsideSlider) {
+            this.dragType = 'slider';
             this.grabOffsetY = clickY - sliderTop;
         } else {
-            // Clicked outside slider: center slider on click position and jump immediately
-            const targetTop = Math.max(0, Math.min(maxTravel, clickY - sliderHeight / 2));
-            // Offset ensures no deadzone when dragging starts from beyond the track bounds
-            this.grabOffsetY = clickY - targetTop;
-            this.scrollToSliderTop(targetTop);
+            // Clicked outside slider: scroll editor directly to the clicked line/section
+            this.dragType = 'track';
+            this.lastMouseY = clickY;
+            this.scrollToMinimapY(clickY);
         }
 
         this.isDragging = true;
@@ -751,7 +775,21 @@ class Minimap {
 
             const currentRect = this.container.getBoundingClientRect();
             const currentMouseY = moveEvent.clientY - currentRect.top;
-            this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
+
+            if (this.dragType === 'slider') {
+                this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
+            } else {
+                const dy = currentMouseY - this.lastMouseY;
+                this.lastMouseY = currentMouseY;
+                if (dy !== 0) {
+                    const editorLineHeight = (editor.renderer && editor.renderer.lineHeight) || 18;
+                    const linesDelta = dy / this.lineHeight;
+                    const currentScroll = editor.session.getScrollTop();
+                    const maxScroll = this.getMaxEditorScroll();
+                    const newScroll = Math.max(0, Math.min(maxScroll, currentScroll + (linesDelta * editorLineHeight)));
+                    editor.session.setScrollTop(newScroll);
+                }
+            }
         };
 
         const onMouseUp = () => {
@@ -778,15 +816,15 @@ class Minimap {
         const clickY = touch.clientY - rect.top;
         const sliderTop = parseFloat(this.slider.style.top) || 0;
         const sliderHeight = parseFloat(this.slider.style.height) || 25;
-        const maxTravel = this.getMaxSliderTravel();
 
         const isInsideSlider = (clickY >= sliderTop && clickY <= sliderTop + sliderHeight);
         if (isInsideSlider) {
+            this.dragType = 'slider';
             this.grabOffsetY = clickY - sliderTop;
         } else {
-            const targetTop = Math.max(0, Math.min(maxTravel, clickY - sliderHeight / 2));
-            this.grabOffsetY = clickY - targetTop;
-            this.scrollToSliderTop(targetTop);
+            this.dragType = 'track';
+            this.lastTouchY = clickY;
+            this.scrollToMinimapY(clickY);
         }
 
         this.isDragging = true;
@@ -798,7 +836,19 @@ class Minimap {
             const curTouch = moveEvent.touches[0];
             const currentRect = this.container.getBoundingClientRect();
             const currentMouseY = curTouch.clientY - currentRect.top;
-            this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
+
+            if (this.dragType === 'slider') {
+                this.scrollToSliderTop(currentMouseY - this.grabOffsetY);
+            } else {
+                const dy = currentMouseY - this.lastTouchY;
+                this.lastTouchY = currentMouseY;
+                const editorLineHeight = (editor.renderer && editor.renderer.lineHeight) || 18;
+                const linesDelta = dy / this.lineHeight;
+                const currentScroll = editor.session.getScrollTop();
+                const maxScroll = this.getMaxEditorScroll();
+                const newScroll = Math.max(0, Math.min(maxScroll, currentScroll + (linesDelta * editorLineHeight)));
+                editor.session.setScrollTop(newScroll);
+            }
         };
 
         const onTouchEnd = () => {
@@ -4901,7 +4951,7 @@ class FolderTreeManager {
                                 return;
                             }
 
-                            const duration = 300; // 300ms duration
+                            const duration = 200; // 200ms duration
                             const startTime = performance.now();
                             const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
@@ -4917,7 +4967,7 @@ class FolderTreeManager {
                             };
                             container._spyScrollAnim = requestAnimationFrame(step);
                         }
-                    }, 100);
+                    }, 50);
                 }
             }
         }
