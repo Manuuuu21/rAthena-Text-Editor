@@ -1519,3 +1519,138 @@ opacity: 0;
     box-sizing: content-box !important;
     padding-right: 50px !important;
 }
+
+/* ==========================================================================
+   High-Visibility Search Highlights (Ctrl+F / Ctrl+H & Selected Word)
+   ========================================================================== */
+
+/* All Matched Occurrences (Double-clicked words and search matches: Orange border with NO background) */
+.ace_marker-layer .ace_selected-word,
+.ace_marker-layer .ace_search_highlight,
+.ace-monokai .ace_marker-layer .ace_selected-word,
+.ace-monokai .ace_marker-layer .ace_search_highlight {
+  background-color: transparent !important;
+  border: 1px solid #e5a524 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  z-index: 4 !important;
+}
+
+/* Light Theme Overrides for Matched Occurrences (Border ONLY, NO background) */
+.ace-github-light-default .ace_marker-layer .ace_selected-word,
+.ace-github-light-default .ace_marker-layer .ace_search_highlight,
+.ace-github_light_default .ace_marker-layer .ace_selected-word,
+.ace-github_light_default .ace_marker-layer .ace_search_highlight {
+  background-color: transparent !important;
+  border: 1px solid #d97706 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  z-index: 4 !important;
+}
+
+/* Character-based Mouse Drag Selection (Matching Sublime / VS Code rounded bubbles - ALWAYS transparent gray) */
+.ace-monokai .ace_marker-layer .ace_selection,
+.ace_marker-layer .ace_selection {
+  background: #49483E !important;
+  border: none !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.ace-github-light-default .ace_marker-layer .ace_selection,
+.ace-github_light_default .ace_marker-layer .ace_selection {
+  background: rgba(0, 0, 0, 0.14) !important;
+  border: none !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+/* Current / Active Search Match (Selected search query match: Border WITH background color) */
+.ace_editor.ace_search_match_selected .ace_marker-layer .ace_selection {
+  background-color: rgba(229, 165, 36, 0.28) !important;
+  border: 1px solid #e5a524 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  z-index: 5 !important;
+}
+
+.ace_editor.ace_search_match_selected.ace-github-light-default .ace_marker-layer .ace_selection,
+.ace_editor.ace_search_match_selected.ace-github_light_default .ace_marker-layer .ace_selection {
+  background-color: rgba(217, 119, 6, 0.25) !important;
+  border: 1px solid #d97706 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  z-index: 5 !important;
+}
+
+/* Modern Dark-Themed Ace Search Box (Ctrl+F / Ctrl+H) */
+.ace_search {
+  background: #202124 !important;
+  color: #e8eaed !important;
+  border: 1px solid #3c4043 !important;
+  border-top: none !important;
+  border-radius: 0 0 8px 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
+  padding: 8px 12px 6px 10px !important;
+  z-index: 9999 !important;
+}
+
+.ace_search_field {
+  background: #2d3035 !important;
+  color: #f1f3f4 !important;
+  border: 1px solid #5f6368 !important;
+  border-radius: 4px 0 0 4px !important;
+  font-family: inherit !important;
+  padding: 4px 8px !important;
+}
+
+.ace_search_field:focus {
+  border-color: #00d2ff !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px #00d2ff !important;
+}
+
+.ace_searchbtn {
+  background: #3c4043 !important;
+  color: #e8eaed !important;
+  border: 1px solid #5f6368 !important;
+  border-left: none !important;
+  padding: 4px 8px !important;
+}
+
+.ace_searchbtn:hover {
+  background: #4f5358 !important;
+  color: #ffffff !important;
+}
+
+.ace_searchbtn:last-child {
+  border-radius: 0 4px 4px 0 !important;
+}
+
+.ace_button {
+  background: #2d3035 !important;
+  color: #bdc1c6 !important;
+  border: 1px solid #5f6368 !important;
+  border-radius: 4px !important;
+}
+
+.ace_button:hover {
+  background: #3c4043 !important;
+  color: #ffffff !important;
+}
+
+.ace_button.checked {
+  background: rgba(0, 210, 255, 0.22) !important;
+  border-color: #00d2ff !important;
+  color: #00e5ff !important;
+}
+
+.ace_search_counter {
+  color: #9aa0a6 !important;
+  font-weight: 500 !important;
+}
+

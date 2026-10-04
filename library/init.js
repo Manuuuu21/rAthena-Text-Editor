@@ -147,6 +147,7 @@ function setupDiffEditor(id, readOnly = true) {
     editor.session.setMode("ace/mode/rathena");
     editor.setReadOnly(readOnly);
     editor.setShowPrintMargin(false);
+    editor.setOption("selectionStyle", "text");
     editor.renderer.setScrollMargin(0, 0, 0, 50);
     return editor;
 }
@@ -630,6 +631,139 @@ class Minimap {
         });
         editor.renderer.on('afterRender', () => this.update(true));
 
+        // Listen to search and selection changes so minimap search highlights update in real time
+        editor.session.on('changeBackMarker', () => this.scheduleUpdate());
+        editor.session.on('changeFrontMarker', () => this.scheduleUpdate());
+        editor.selection.on('changeCursor', () => this.scheduleUpdate());
+        editor.selection.on('changeSelection', () => {
+            updateSearchMatchState();
+            this.scheduleUpdate();
+        });
+        editor.on('findSearchBox', () => this.scheduleUpdate());
+
+        const updateSearchMatchState = () => {
+            const sb = editor.searchBox;
+            const session = editor.session;
+            if (!editor.container) return;
+
+            // Clean up any old markers from previous sessions
+            if (session && session.$currentSearchMarker) {
+                session.removeMarker(session.$currentSearchMarker);
+                session.$currentSearchMarker = null;
+            }
+
+            if (!sb || !sb.active || !sb.element || sb.element.style.display === 'none') {
+                editor.container.classList.remove('ace_searchbox_active');
+                editor.container.classList.remove('ace_search_match_selected');
+                return;
+            }
+
+            editor.container.classList.add('ace_searchbox_active');
+
+            const query = sb.searchInput ? sb.searchInput.value : '';
+            if (!query || query.trim() === '') {
+                editor.container.classList.remove('ace_search_match_selected');
+                return;
+            }
+
+            const selRange = editor.getSelectionRange();
+            if (selRange && !selRange.isEmpty() && (!selRange.isMultiLine || !selRange.isMultiLine())) {
+                const selectedText = session ? session.getTextRange(selRange) : '';
+                const isCase = sb.caseSensitiveOption && sb.caseSensitiveOption.checked;
+                const matches = isCase ? (selectedText === query) : (selectedText.toLowerCase() === query.toLowerCase());
+
+                let regexMatches = false;
+                if (!matches && sb.regExpOption && sb.regExpOption.checked && editor.$search && editor.$search.$options && editor.$search.$options.re) {
+                    try {
+                        regexMatches = editor.$search.$options.re.test(selectedText);
+                    } catch (e) {}
+                }
+
+                if (matches || regexMatches) {
+                    editor.container.classList.add('ace_search_match_selected');
+                } else {
+                    editor.container.classList.remove('ace_search_match_selected');
+                }
+            } else {
+                editor.container.classList.remove('ace_search_match_selected');
+            }
+        };
+
+        // Connect searchBox hooks to manage search state and immediately clear minimap when search is closed
+        const connectSearchBoxHooks = () => {
+            const sb = editor.searchBox;
+            if (sb && !sb._minimapHooked) {
+                sb._minimapHooked = true;
+                const origHide = sb.hide;
+                sb.hide = (...args) => {
+                    const res = origHide.apply(sb, args);
+                    updateSearchMatchState();
+                    this.scheduleUpdate();
+                    return res;
+                };
+                const origShow = sb.show;
+                sb.show = (...args) => {
+                    const res = origShow.apply(sb, args);
+                    updateSearchMatchState();
+                    this.scheduleUpdate();
+                    return res;
+                };
+                const origFind = sb.find;
+                sb.find = (...args) => {
+                    const res = origFind.apply(sb, args);
+                    updateSearchMatchState();
+                    this.scheduleUpdate();
+                    return res;
+                };
+                const origFindNext = sb.findNext;
+                sb.findNext = (...args) => {
+                    const res = origFindNext.apply(sb, args);
+                    updateSearchMatchState();
+                    this.scheduleUpdate();
+                    return res;
+                };
+                const origFindPrev = sb.findPrev;
+                sb.findPrev = (...args) => {
+                    const res = origFindPrev.apply(sb, args);
+                    updateSearchMatchState();
+                    this.scheduleUpdate();
+                    return res;
+                };
+                if (sb.searchInput) {
+                    sb.searchInput.addEventListener('input', () => {
+                        updateSearchMatchState();
+                        this.scheduleUpdate();
+                    });
+                }
+            }
+        };
+
+        // When mouse clicking or dragging in the code editor, ensure classic mouse selection style and live minimap updates
+        if (editor.container && !editor.container._hasSelectionResetHook) {
+            editor.container._hasSelectionResetHook = true;
+            editor.container.addEventListener('mousedown', () => {
+                editor.container.classList.remove('ace_search_match_selected');
+            }, true);
+            editor.container.addEventListener('mousemove', (e) => {
+                if (e.buttons === 1) {
+                    this.scheduleUpdate();
+                }
+            }, true);
+        }
+
+        if (editor.searchBox) {
+            connectSearchBoxHooks();
+        } else if (editor.commands) {
+            editor.commands.on('afterExec', (e) => {
+                if (e && e.command && (e.command.name === 'find' || e.command.name === 'replace')) {
+                    setTimeout(() => {
+                        connectSearchBoxHooks();
+                        this.scheduleUpdate();
+                    }, 50);
+                }
+            });
+        }
+
         // Click & Drag interaction on Minimap
         this.container.addEventListener('mousedown', (e) => {
             this.handleMouseDown(e);
@@ -1035,6 +1169,109 @@ class Minimap {
         return color;
     }
 
+    getSearchInfo() {
+        const editor = this.tab.editor;
+        if (!editor || !editor.session) return null;
+
+        const session = editor.session;
+        const sb = editor.searchBox;
+        const isSearchOpen = sb && sb.active && sb.element && sb.element.style.display !== 'none' &&
+                             sb.searchInput && sb.searchInput.value.trim() !== '';
+
+        let re = null;
+        let activeMatch = null;
+
+        const selRange = editor.getSelectionRange();
+        const hasSelection = selRange && !selRange.isEmpty() && (!selRange.isMultiLine || !selRange.isMultiLine());
+
+        if (isSearchOpen) {
+            re = (editor.$search && editor.$search.$options && editor.$search.$options.re) ||
+                 (session.$searchHighlight ? session.$searchHighlight.regExp : null);
+            if (hasSelection) {
+                activeMatch = {
+                    row: selRange.start.row,
+                    startCol: selRange.start.column,
+                    endCol: selRange.end.column
+                };
+            }
+        } else if (hasSelection) {
+            // Double-clicked word or selected word when Ctrl+F searchbox is not open
+            const selectedText = session.getTextRange(selRange);
+            const trimmed = selectedText ? selectedText.trim() : '';
+            // Only trigger on valid identifier/word tokens (letters, numbers, underscores, and rAthena prefixes)
+            if (trimmed.length >= 1 && /^[a-zA-Z0-9_$.#]+$/.test(trimmed)) {
+                if (session.$searchHighlight && session.$searchHighlight.regExp) {
+                    re = session.$searchHighlight.regExp;
+                } else if (typeof editor.$getSelectionHighLightRegexp === 'function') {
+                    re = editor.$getSelectionHighLightRegexp();
+                }
+
+                if (!re) {
+                    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const isWordBoundary = /^\w+$/.test(trimmed);
+                    const pattern = isWordBoundary ? `\\b${escaped}\\b` : escaped;
+                    re = new RegExp(pattern, 'g');
+                }
+
+                activeMatch = {
+                    row: selRange.start.row,
+                    startCol: selRange.start.column,
+                    endCol: selRange.end.column
+                };
+            }
+        }
+
+        if (!re) return null;
+
+        let globalRe;
+        try {
+            const flags = re.flags && re.flags.includes('g') ? re.flags : (re.flags || '') + 'g';
+            globalRe = new RegExp(re.source, flags);
+        } catch (e) {
+            globalRe = re;
+        }
+
+        return { regex: globalRe, activeMatch };
+    }
+
+    getXForColumn(row, col, maxW) {
+        const session = this.tab.editor.session;
+        const tokens = session.getTokens(row);
+        let x = 4;
+
+        if (tokens && tokens.length > 0) {
+            let currentColumn = 0;
+            for (let i = 0; i < tokens.length; i++) {
+                const val = tokens[i].value;
+                const len = val.length;
+
+                if (currentColumn + len >= col) {
+                    const offset = Math.max(0, col - currentColumn);
+                    return Math.min(maxW, x + offset * this.charWidth);
+                }
+
+                if (val.trim() === '') {
+                    x += len * this.charWidth;
+                } else {
+                    const tokenW = Math.max(1.5, Math.min(len * this.charWidth, maxW - x));
+                    x += tokenW + 0.8;
+                }
+
+                currentColumn += len;
+                if (x >= maxW) break;
+            }
+            return Math.min(maxW, x);
+        } else {
+            const line = session.getLine(row) || '';
+            const leadingMatch = line.match(/^\s*/);
+            const leadSpaces = leadingMatch ? leadingMatch[0].length : 0;
+            if (col <= leadSpaces) {
+                return 4 + col * this.charWidth;
+            }
+            return Math.min(maxW, 4 + leadSpaces * this.charWidth + (col - leadSpaces) * this.charWidth);
+        }
+    }
+
     draw(width, height, dpr) {
         const ctx = this.ctx;
         ctx.save();
@@ -1050,6 +1287,7 @@ class Minimap {
 
         const drawH = 2; // 2px thickness with 1px space between lines (lineHeight = 3.0)
 
+        // 1. Draw standard syntax token lines
         for (let row = startLine; row <= endLine; row++) {
             const y = row * this.lineHeight - this.minimapScrollTop;
             const tokens = session.getTokens(row);
@@ -1085,6 +1323,92 @@ class Minimap {
                     ctx.fillStyle = defaultTextColor;
                     ctx.fillRect(x, y, tokenW, drawH);
                 }
+            }
+        }
+
+        // 2. Draw Search Highlights directly on code tokens (ONLY when search is actively open)
+        const searchInfo = this.getSearchInfo();
+        if (searchInfo && searchInfo.regex) {
+            const re = searchInfo.regex;
+            const activeMatch = searchInfo.activeMatch;
+
+            for (let row = startLine; row <= endLine; row++) {
+                const line = session.getLine(row);
+                if (!line) continue;
+
+                re.lastIndex = 0;
+                let match;
+
+                while ((match = re.exec(line)) !== null) {
+                    const matchStart = match.index;
+                    const matchLen = match[0].length || 1;
+                    const matchEnd = matchStart + matchLen;
+                    const y = row * this.lineHeight - this.minimapScrollTop;
+
+                    const matchX = Math.max(2, 4 + (matchStart * this.charWidth));
+                    const matchW = Math.max(5, Math.min(matchLen * this.charWidth, width - 6 - matchX));
+
+                    const isActive = activeMatch && activeMatch.row === row &&
+                                     matchStart <= activeMatch.startCol && matchEnd >= activeMatch.endCol;
+
+                    if (isActive) {
+                        ctx.fillStyle = '#e5a524';
+                        ctx.fillRect(matchX, y, matchW, drawH);
+                    } else {
+                        ctx.fillStyle = 'rgba(229, 165, 36, 0.75)';
+                        ctx.fillRect(matchX, y, matchW, drawH);
+                    }
+
+                    if (re.lastIndex === 0) break;
+                }
+            }
+        }
+
+        // 3. Draw Mouse Drag Selection Highlight on the Minimap (Precisely aligned with code tokens)
+        const selRange = this.tab.editor.getSelectionRange();
+        if (selRange && !selRange.isEmpty()) {
+            const startRow = Math.max(startLine, Math.min(selRange.start.row, selRange.end.row));
+            const endRow = Math.min(endLine, Math.max(selRange.start.row, selRange.end.row));
+
+            const isSelLight = currentTheme === "ace/theme/github_light_default" || document.documentElement.style.getPropertyValue('--minimapBg') === '#f6f8fa';
+            const selColor = isSelLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(255, 255, 255, 0.25)';
+
+            for (let r = startRow; r <= endRow; r++) {
+                const line = session.getLine(r);
+                if (!line || line.trim() === '') continue; // Skip blank lines so no unaligned boxes appear
+
+                const y = r * this.lineHeight - this.minimapScrollTop;
+                let cStart = 0;
+                let cEnd = line.length;
+
+                if (selRange.start.row === selRange.end.row) {
+                    cStart = Math.min(selRange.start.column, selRange.end.column);
+                    cEnd = Math.max(selRange.start.column, selRange.end.column);
+                } else if (r === selRange.start.row) {
+                    cStart = selRange.start.column;
+                    cEnd = line.length;
+                } else if (r === selRange.end.row) {
+                    cStart = 0;
+                    cEnd = selRange.end.column;
+                }
+
+                if (cEnd <= cStart) continue;
+
+                // For middle lines starting at 0, align start with indentation
+                const leadingMatch = line.match(/^\s*/);
+                const leadSpaces = leadingMatch ? leadingMatch[0].length : 0;
+                let effectiveStartCol = cStart;
+                if (cStart === 0 && leadSpaces > 0 && r !== selRange.start.row) {
+                    effectiveStartCol = leadSpaces;
+                }
+
+                const selX = this.getXForColumn(r, effectiveStartCol, width - 4);
+                const selEndX = this.getXForColumn(r, cEnd, width - 4);
+                const selW = Math.max(3, selEndX - selX);
+
+                // Highlight overlay precisely aligned with the 2px text line
+                ctx.fillStyle = selColor;
+                ctx.fillRect(selX, y, selW, drawH);
             }
         }
 
@@ -1230,6 +1554,7 @@ class Tab {
             enableBasicAutocompletion: localCompletion,
             enableLiveAutocompletion: localCompletion,
             fontSize: "14px",
+            selectionStyle: "text",
         });
         this.editor.renderer.setScrollMargin(0, 0, 0, 50);
 
