@@ -4196,7 +4196,16 @@ class FolderTreeManager {
         this.activePath = "";
         this.filterText = "";
         this.isResizing = false;
-        this.savedSidebarWidth = 270;
+
+        let initialWidth = 270;
+        try {
+            const savedLocal = parseInt(localStorage.getItem("sidebarWidth"), 10);
+            if (!isNaN(savedLocal) && savedLocal >= 180 && savedLocal <= 1200) {
+                initialWidth = savedLocal;
+            }
+        } catch (e) {}
+        this.savedSidebarWidth = initialWidth;
+
         this.isCheckingForChanges = false;
         this.fsObserver = null;
         this.autoRefreshTimer = null;
@@ -4213,6 +4222,11 @@ class FolderTreeManager {
     init() {
         if (this.initialized) return;
         this.initialized = true;
+
+        const sidebar = document.getElementById("sidebarArea");
+        if (sidebar && this.savedSidebarWidth) {
+            sidebar.style.width = `${this.savedSidebarWidth}px`;
+        }
 
         const openBtn = document.getElementById("openBtn");
         const openMenu = document.getElementById("openMenu");
@@ -4450,6 +4464,7 @@ class FolderTreeManager {
             const currentW = sidebar.getBoundingClientRect().width;
             if (currentW > 50) {
                 this.savedSidebarWidth = currentW;
+                this.saveSidebarWidth(currentW);
             }
             sidebar.classList.add("sidebar-hidden");
         }
@@ -5544,6 +5559,25 @@ class FolderTreeManager {
         }[m]));
     }
 
+    saveSidebarWidth(width) {
+        if (!width || isNaN(width) || width < 180) return;
+        const roundedWidth = Math.round(width);
+        this.savedSidebarWidth = roundedWidth;
+        try {
+            localStorage.setItem("sidebarWidth", roundedWidth.toString());
+        } catch (e) {}
+
+        if (tabDB) {
+            tabDB.open().then((db) => {
+                try {
+                    const tx = db.transaction([STORE_META], "readwrite");
+                    const metaStore = tx.objectStore(STORE_META);
+                    metaStore.put({ key: "sidebarWidth", value: roundedWidth });
+                } catch (e) {}
+            }).catch(() => {});
+        }
+    }
+
     initResizer() {
         const resizer = document.getElementById("sidebarResizer");
         const sidebar = document.getElementById("sidebarArea");
@@ -5553,16 +5587,23 @@ class FolderTreeManager {
         let startX = 0;
         let startWidth = 0;
 
-        const onMouseMove = (e) => {
-            if (!this.isResizing) return;
+        const updateWidth = (clientX) => {
             const maxAllowedWidth = Math.min(800, Math.floor(window.innerWidth * 0.75));
-            const newWidth = Math.max(180, Math.min(maxAllowedWidth, startWidth + (e.clientX - startX)));
+            const newWidth = Math.max(180, Math.min(maxAllowedWidth, startWidth + (clientX - startX)));
             sidebar.style.width = `${newWidth}px`;
             if (inner) inner.style.width = "100%";
             this.savedSidebarWidth = newWidth;
             if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.editor) {
                 tabManager.activeTab.editor.resize();
+                if (tabManager.activeTab.minimap) {
+                    tabManager.activeTab.minimap.update(false);
+                }
             }
+        };
+
+        const onMouseMove = (e) => {
+            if (!this.isResizing) return;
+            updateWidth(e.clientX);
         };
 
         const onMouseUp = () => {
@@ -5572,9 +5613,16 @@ class FolderTreeManager {
             resizer.classList.remove("resizing");
             document.removeEventListener("mousemove", onMouseMove);
             document.removeEventListener("mouseup", onMouseUp);
+
+            this.saveSidebarWidth(this.savedSidebarWidth);
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+                if (tabManager.activeTab.editor) tabManager.activeTab.editor.resize();
+                if (tabManager.activeTab.minimap) tabManager.activeTab.minimap.update(true);
+            }
         };
 
         resizer.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
             this.isResizing = true;
             startX = e.clientX;
             startWidth = sidebar.getBoundingClientRect().width;
@@ -5583,6 +5631,40 @@ class FolderTreeManager {
             document.addEventListener("mousemove", onMouseMove);
             document.addEventListener("mouseup", onMouseUp);
         });
+
+        // Touch support for resizing
+        const onTouchMove = (e) => {
+            if (!this.isResizing || !e.touches || e.touches.length !== 1) return;
+            updateWidth(e.touches[0].clientX);
+        };
+
+        const onTouchEnd = () => {
+            if (!this.isResizing) return;
+            this.isResizing = false;
+            sidebar.classList.remove("resizing-active");
+            resizer.classList.remove("resizing");
+            document.removeEventListener("touchmove", onTouchMove);
+            document.removeEventListener("touchend", onTouchEnd);
+            document.removeEventListener("touchcancel", onTouchEnd);
+
+            this.saveSidebarWidth(this.savedSidebarWidth);
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+                if (tabManager.activeTab.editor) tabManager.activeTab.editor.resize();
+                if (tabManager.activeTab.minimap) tabManager.activeTab.minimap.update(true);
+            }
+        };
+
+        resizer.addEventListener("touchstart", (e) => {
+            if (!e.touches || e.touches.length !== 1) return;
+            this.isResizing = true;
+            startX = e.touches[0].clientX;
+            startWidth = sidebar.getBoundingClientRect().width;
+            sidebar.classList.add("resizing-active");
+            resizer.classList.add("resizing");
+            document.addEventListener("touchmove", onTouchMove, { passive: true });
+            document.addEventListener("touchend", onTouchEnd);
+            document.addEventListener("touchcancel", onTouchEnd);
+        }, { passive: true });
     }
 
     async saveWorkspaceToDB(dirHandle) {
@@ -5610,6 +5692,26 @@ class FolderTreeManager {
             const db = await tabDB.open();
             const tx = db.transaction([STORE_META], "readonly");
             const metaStore = tx.objectStore(STORE_META);
+
+            // Restore persistent sidebar width from IndexedDB if saved
+            const widthReq = metaStore.get("sidebarWidth");
+            widthReq.onsuccess = () => {
+                if (widthReq.result && typeof widthReq.result.value === 'number') {
+                    const dbWidth = widthReq.result.value;
+                    if (dbWidth >= 180) {
+                        this.savedSidebarWidth = dbWidth;
+                        try { localStorage.setItem("sidebarWidth", dbWidth.toString()); } catch (e) {}
+                        const sidebar = document.getElementById("sidebarArea");
+                        if (sidebar && !sidebar.classList.contains("sidebar-hidden")) {
+                            sidebar.style.width = `${dbWidth}px`;
+                            if (typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.editor) {
+                                tabManager.activeTab.editor.resize();
+                            }
+                        }
+                    }
+                }
+            };
+
             const req = metaStore.get("workspaceDirectoryHandle");
             req.onsuccess = async () => {
                 const item = req.result;
