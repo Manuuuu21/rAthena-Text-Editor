@@ -210,7 +210,7 @@ function openDiff(index, tabId) {
         diffMode = "ace/mode/rathena_yaml";
     } else if (name.endsWith(".conf")) {
         diffMode = "ace/mode/rathena_conf";
-    } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl")) {
+    } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl") || name.endsWith(".inc")) {
         diffMode = "ace/mode/c_cpp";
     } else if (name.endsWith(".lua")) {
         diffMode = "ace/mode/lua";
@@ -1555,7 +1555,7 @@ class Tab {
             this.editor.session.setMode("ace/mode/rathena_yaml");
         } else if (name.endsWith(".conf")) {
             this.editor.session.setMode("ace/mode/rathena_conf");
-        } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl")) {
+        } else if (name.endsWith(".cpp") || name.endsWith(".c") || name.endsWith(".hpp") || name.endsWith(".h") || name.endsWith(".cc") || name.endsWith(".cxx") || name.endsWith(".c++") || name.endsWith(".h++") || name.endsWith(".inl") || name.endsWith(".inc")) {
             this.editor.session.setMode("ace/mode/c_cpp");
         } else if (name.endsWith(".lua")) {
             this.editor.session.setMode("ace/mode/lua");
@@ -2130,13 +2130,13 @@ class Tab {
                 multiple: true,
                 types: [
                     {
-                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua)",
-                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"] }
+                        description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua, *.inc)",
+                        accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"] }
                     },
                     { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
                     { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
                     { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
-                    { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
+                    { description: "C / C++ Header & Include Files (*.hpp, *.h, *.inl, *.inc)", accept: { "text/plain": [".hpp", ".h", ".inl", ".inc"] } },
                     { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
                     { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
                 ],
@@ -2219,7 +2219,7 @@ class Tab {
     async saveToFile() {
         if (!this.fileHandle) {
             let suggested = this.name;
-            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
+            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
             if (!hasExt) {
                 suggested += ".txt";
             }
@@ -2228,13 +2228,13 @@ class Tab {
                     suggestedName: suggested,
                     types: [
                         {
-                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua)",
-                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"] }
+                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua, *.inc)",
+                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"] }
                         },
                         { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
                         { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
                         { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
-                        { description: "C / C++ Header Files (*.hpp, *.h, *.inl)", accept: { "text/plain": [".hpp", ".h", ".inl"] } },
+                        { description: "C / C++ Header & Include Files (*.hpp, *.h, *.inl, *.inc)", accept: { "text/plain": [".hpp", ".h", ".inl", ".inc"] } },
                         { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
                         { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
                     ]
@@ -2276,7 +2276,7 @@ class Tab {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".lua"].some(ext => this.name.toLowerCase().endsWith(ext));
+        const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"].some(ext => this.name.toLowerCase().endsWith(ext));
         a.download = hasExt ? this.name : this.name + ".txt";
         a.click();
         URL.revokeObjectURL(url);
@@ -5030,7 +5030,7 @@ class FolderTreeManager {
         if (lower.endsWith(".txt")) return "📜";
         if (lower.endsWith(".conf")) return "⚙️";
         if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return "📋";
-        if (lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp") || lower.endsWith(".h") || lower.endsWith(".inl")) return "🔷";
+        if (lower.endsWith(".cpp") || lower.endsWith(".c") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp") || lower.endsWith(".h") || lower.endsWith(".inl") || lower.endsWith(".inc")) return "🔷";
         if (lower.endsWith(".lua")) return "🌙";
         if (lower.endsWith(".json")) return "🟡";
         if (lower.endsWith(".md")) return "📝";
