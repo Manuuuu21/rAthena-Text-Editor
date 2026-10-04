@@ -3295,12 +3295,32 @@ const tabManager = {
         const container = document.getElementById("tabsContainer");
         const closingBtn = container ? container.querySelector(`.tab-button[data-id="${id}"]`) : null;
 
+        // Immediately start the closing collapse & fade animation before DOM state changes
+        if (closingBtn) {
+            closingBtn.classList.remove("active");
+            closingBtn.classList.add("tab-closing");
+        }
+
         this.tabs.splice(index, 1);
         tab.elements.content.remove();
         
         if (this.tabs.length === 0) {
-            if (closingBtn) closingBtn.remove();
-            this.addTab();
+            // When closing the last remaining tab, smoothly animate in a new Untitled tab
+            const newTab = new Tab(this.nextId++, "Untitled");
+            this.tabs.push(newTab);
+            this.renderTabs(true);
+            this.switchTab(newTab.id);
+            tabDB.saveTab(newTab, 0);
+            tabDB.saveActiveTabId(newTab.id);
+
+            if (closingBtn) {
+                setTimeout(() => {
+                    if (closingBtn && closingBtn.parentNode) {
+                        closingBtn.remove();
+                    }
+                    this.renderTabs();
+                }, 240);
+            }
         } else {
             const nextActiveId = (this.activeTab && this.activeTab.id === id)
                 ? this.tabs[Math.max(0, index - 1)].id
@@ -3308,20 +3328,20 @@ const tabManager = {
 
             if (this.activeTab && this.activeTab.id === id) {
                 this.switchTab(nextActiveId);
+            } else {
+                this.renderTabs();
             }
 
+            // Immediately trigger compression/recompression update for the remaining tabs
+            this.updateTabCompression();
+
             if (closingBtn) {
-                closingBtn.classList.add("tab-closing");
-                // Immediately trigger compression/recompression update for the remaining tabs
-                this.updateTabCompression();
                 setTimeout(() => {
                     if (closingBtn && closingBtn.parentNode) {
                         closingBtn.remove();
                     }
                     this.renderTabs();
                 }, 240);
-            } else {
-                this.renderTabs();
             }
         }
         this.saveAllTabsToDB();
@@ -3636,7 +3656,7 @@ const tabManager = {
         }
     },
 
-    renderTabs() {
+    renderTabs(animateNewTabs = false) {
         const container = document.getElementById("tabsContainer");
         if (!container) return;
 
@@ -3660,11 +3680,12 @@ const tabManager = {
         });
 
         // 2. Reconcile buttons for each current tab
+        const hasClosing = container.querySelector('.tab-button.tab-closing') !== null;
         this.tabs.forEach((tab, index) => {
             let btn = container.querySelector(`.tab-button[data-id="${tab.id}"]:not(.tab-closing)`);
             if (!btn) {
                 btn = this.createTabButton(tab, index);
-                if (existingButtons.length > 0) {
+                if (existingButtons.length > 0 || hasClosing || animateNewTabs) {
                     btn.classList.add("tab-opening");
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
