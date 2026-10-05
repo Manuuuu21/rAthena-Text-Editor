@@ -2947,9 +2947,7 @@ class TokenTooltip {
         editor.tokenTooltip = this;
         this.editor = editor;
         this.activeEmbeddedEditors = [];
-        this.hoverTimeout = null;
-        this.pendingToken = null;
-        this.cachedEvent = null;
+        this.isMouseOverTooltip = false;
         
         let Tooltip;
         try {
@@ -2968,7 +2966,7 @@ class TokenTooltip {
         editor.on("mousemove", this.onMouseMove);
         editor.on("mouseout", this.onMouseOut);
         if (editor.container) {
-            editor.container.addEventListener("mouseleave", this.hideTooltip);
+            editor.container.addEventListener("mouseleave", () => this.hideTooltip(true));
         }
     }
 
@@ -2985,7 +2983,8 @@ class TokenTooltip {
         this.activeEmbeddedEditors = [];
     }
 
-    hideTooltip() {
+    hideTooltip(force = false) {
+        if (!force && this.isMouseOverTooltip) return;
         if (this.hoverTimeout) {
             clearTimeout(this.hoverTimeout);
             this.hoverTimeout = null;
@@ -3008,10 +3007,26 @@ class TokenTooltip {
         }
         options = options || {};
 
-        if (spriteCache.has(url)) {
+        if (!options.bypassCache && spriteCache.has(url)) {
             callback(null, spriteCache.get(url));
             return;
         }
+
+        const tryNextFallback = (err) => {
+            const fallbackList = [].concat(options.fallbackUrls || []).concat(options.fallbackUrl ? [options.fallbackUrl] : []);
+            if (fallbackList.length > 0) {
+                const nextUrl = fallbackList[0];
+                const restUrls = fallbackList.slice(1);
+                const isNextGif = nextUrl.toLowerCase().endsWith(".gif");
+                this.loadTransparentSprite(nextUrl, {
+                    isGif: isNextGif,
+                    fallbackUrls: restUrls,
+                    bypassCache: options.bypassCache
+                }, callback);
+                return;
+            }
+            callback(err || new Error("Failed to load sprite from all sources"));
+        };
 
         // If it is an animated monster GIF, load directly to preserve animation frames & native transparency
         if (options.isGif) {
@@ -3028,18 +3043,7 @@ class TokenTooltip {
                 callback(null, result);
             };
             img.onerror = () => {
-                // If GIF is unavailable, seamlessly fallback to PNG if provided
-                if (options.fallbackUrl) {
-                    this.loadTransparentSprite(options.fallbackUrl, { isGif: false }, (fallbackErr, fallbackRes) => {
-                        if (fallbackErr || !fallbackRes) {
-                            callback(fallbackErr || new Error("Failed to load sprite"));
-                        } else {
-                            callback(null, { ...fallbackRes, isGif: false });
-                        }
-                    });
-                    return;
-                }
-                callback(new Error("Failed to load monster GIF"));
+                tryNextFallback(new Error("Failed to load monster GIF"));
             };
             img.src = url;
             return;
@@ -3157,12 +3161,12 @@ class TokenTooltip {
                     callback(null, fallback);
                 };
                 fallbackImg.onerror = (err) => {
-                    callback(err || new Error("Failed to load sprite"));
+                    tryNextFallback(err || new Error("Failed to load sprite"));
                 };
                 fallbackImg.src = url;
                 return;
             }
-            callback(new Error("Failed to load sprite"));
+            tryNextFallback(new Error("Failed to load sprite"));
         };
         img.src = url;
     }
@@ -3447,13 +3451,20 @@ class TokenTooltip {
                     const typeLabel = isItem ? "Item" : "Monster";
                     
                     // Monsters use animated GIF from RateMyServer with fallback to iRO Wiki PNG
-                    // Items use iRO Wiki PNG with transparent canvas extraction
+                    // Monsters use animated GIF from RateMyServer with fallback to Divine Pride and iRO Wiki
+                    // Items use iRO Wiki PNG with fallback to Divine Pride
                     const primaryUrl = isItem 
                         ? `https://db.irowiki.org/image/item/${spriteTarget.id}.png`
                         : `https://file5s.ratemyserver.net/mobs/${spriteTarget.id}.gif`;
-                    const fallbackUrl = isItem 
-                        ? null 
-                        : `https://db.irowiki.org/image/monster/${spriteTarget.id}.png`;
+                    const fallbackUrls = isItem 
+                        ? [
+                            `https://static.divine-pride.net/images/items/item/${spriteTarget.id}.png`,
+                            `https://static.divine-pride.net/images/items/collection/${spriteTarget.id}.png`
+                          ]
+                        : [
+                            `https://static.divine-pride.net/images/mobs/png/${spriteTarget.id}.png`,
+                            `https://db.irowiki.org/image/monster/${spriteTarget.id}.png`
+                          ];
 
                     const badgeColor = isItem ? "#38bdf8" : "#c084fc";
                     const badgeBg = isItem ? "rgba(56, 189, 248, 0.15)" : "rgba(192, 132, 252, 0.15)";
@@ -3468,15 +3479,20 @@ class TokenTooltip {
                         : (spriteTarget.command ? `Command: ${spriteTarget.command}()` : (spriteTarget.context || "Script Reference"));
 
                     const html = `
-                        <div class="sprite-tooltip-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: ${isMonster ? '170px' : '250px'}; max-width: 320px;">
+                        <div class="sprite-tooltip-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: ${isMonster ? '180px' : '250px'}; max-width: 320px;">
                             ${isMonster ? `
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                                 <span style="font-size: 11.5px; font-weight: 700; color: var(--tooltipHeaderColor, #c084fc); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;">
                                     Animated GIF
                                 </span>
-                                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder};">
-                                    Monster
-                                </span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <button id="sprite-reload-btn" type="button" title="Refresh sprite (bypass cache)" style="background: transparent; border: 1px solid var(--tooltipDivider, rgba(255,255,255,0.15)); color: var(--searchCounterColor, #9aa0a6); cursor: pointer; padding: 1px 5px; font-size: 11px; border-radius: 4px; line-height: 1.2; transition: all 0.15s ease;">
+                                        ↻
+                                    </button>
+                                    <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder};">
+                                        Monster
+                                    </span>
+                                </div>
                             </div>
                             ` : `
                             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--tooltipDivider, rgba(255,255,255,0.1)); padding-bottom: 7px; margin-bottom: 8px;">
@@ -3490,9 +3506,14 @@ class TokenTooltip {
                                     </div>
                                     ` : ''}
                                 </div>
-                                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; display: inline-flex; align-items: center; gap: 4px;">
-                                    ${typeLabel}
-                                </span>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <button id="sprite-reload-btn" type="button" title="Refresh sprite (bypass cache)" style="background: transparent; border: 1px solid var(--tooltipDivider, rgba(255,255,255,0.15)); color: var(--searchCounterColor, #9aa0a6); cursor: pointer; padding: 1px 5px; font-size: 11px; border-radius: 4px; line-height: 1.2; transition: all 0.15s ease;">
+                                        ↻
+                                    </button>
+                                    <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; display: inline-flex; align-items: center; gap: 4px;">
+                                        ${typeLabel}
+                                    </span>
+                                </div>
                             </div>
                             `}
 
@@ -3503,7 +3524,13 @@ class TokenTooltip {
                                 </div>
                                 <img id="sprite-preview-img" class="sprite-preview-img" style="display: none;" alt="${displayName}" title="${displayName}" />
                                 <div id="sprite-preview-error" style="display: none; color: #ef4444; font-size: 11px; text-align: center; padding: 12px 6px;">
-                                    No sprite found for ${typeLabel} #${spriteTarget.id}
+                                    <div style="font-weight: 600; margin-bottom: 2px;">Image not found for ${typeLabel} #${spriteTarget.id}</div>
+                                    <div style="color: var(--searchCounterColor, #888); font-size: 10px; margin-bottom: 8px;">
+                                        (Custom ID or temporarily unavailable)
+                                    </div>
+                                    <button id="sprite-error-retry-btn" type="button" style="background: rgba(255,255,255,0.08); border: 1px solid var(--tooltipDivider, #555); color: var(--tooltipHeaderColor, #38bdf8); font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin: 0 auto;">
+                                        <span>↻</span> Retry Refresh
+                                    </button>
                                 </div>
                             </div>
 
@@ -3530,50 +3557,97 @@ class TokenTooltip {
                             element._hasWheelEvent = true;
                         }
 
+                        if (!element._hasMouseListeners) {
+                            element._hasMouseListeners = true;
+                            element.addEventListener("mouseenter", () => {
+                                this.isMouseOverTooltip = true;
+                            });
+                            element.addEventListener("mouseleave", () => {
+                                this.isMouseOverTooltip = false;
+                                this.hideTooltip(true);
+                            });
+                        }
+
                         const targetTokenVal = cached.tokenVal;
-                        this.loadTransparentSprite(primaryUrl, { isGif: isMonster, fallbackUrl: fallbackUrl, isItem: isItem }, (err, res) => {
-                            if (this.currentToken !== targetTokenVal) return;
+                        const triggerLoad = (bypassCache = false) => {
+                            if (bypassCache) {
+                                spriteCache.delete(primaryUrl);
+                                fallbackUrls.forEach(u => spriteCache.delete(u));
+                            }
                             const loader = element.querySelector("#sprite-preview-loader");
                             const imgEl = element.querySelector("#sprite-preview-img");
                             const errEl = element.querySelector("#sprite-preview-error");
                             const dimEl = element.querySelector("#sprite-preview-dim");
                             const linkEl = element.querySelector("#sprite-preview-link");
 
-                            if (loader) loader.style.display = "none";
+                            if (loader) loader.style.display = "flex";
+                            if (imgEl) imgEl.style.display = "none";
+                            if (errEl) errEl.style.display = "none";
 
-                            if (err || !res) {
-                                if (errEl) errEl.style.display = "block";
-                            } else {
-                                if (imgEl) {
-                                    imgEl.src = res.dataUrl;
-                                    if (isItem) {
-                                        const scale = res.width <= 32 ? 2 : 1;
-                                        imgEl.style.width = (res.width * scale) + "px";
-                                        imgEl.style.height = (res.height * scale) + "px";
-                                        if (dimEl) dimEl.textContent = `${res.width}×${res.height}px` + (scale > 1 ? ` (${scale}×)` : "");
-                                    } else {
-                                        // Monster GIF / Sprite
-                                        if (res.width <= 44 && res.height <= 44) {
-                                            const scale = 2;
+                            this.loadTransparentSprite(primaryUrl, {
+                                isGif: isMonster,
+                                fallbackUrls: fallbackUrls,
+                                isItem: isItem,
+                                bypassCache: bypassCache
+                            }, (err, res) => {
+                                if (this.currentToken !== targetTokenVal) return;
+
+                                if (loader) loader.style.display = "none";
+
+                                if (err || !res) {
+                                    if (errEl) errEl.style.display = "block";
+                                    if (dimEl) dimEl.textContent = "Offline / 404";
+                                } else {
+                                    if (imgEl) {
+                                        imgEl.src = res.dataUrl;
+                                        if (isItem) {
+                                            const scale = res.width <= 32 ? 2 : 1;
                                             imgEl.style.width = (res.width * scale) + "px";
                                             imgEl.style.height = (res.height * scale) + "px";
-                                            if (dimEl) dimEl.textContent = `${res.width}×${res.height}px (2×)`;
+                                            if (dimEl) dimEl.textContent = `${res.width}×${res.height}px` + (scale > 1 ? ` (${scale}×)` : "");
                                         } else {
-                                            imgEl.style.width = "auto";
-                                            imgEl.style.height = "auto";
-                                            imgEl.style.maxWidth = "200px";
-                                            imgEl.style.maxHeight = "165px";
-                                            if (dimEl) dimEl.textContent = `${res.width}×${res.height}px`;
+                                            // Monster GIF / Sprite
+                                            if (res.width <= 44 && res.height <= 44) {
+                                                const scale = 2;
+                                                imgEl.style.width = (res.width * scale) + "px";
+                                                imgEl.style.height = (res.height * scale) + "px";
+                                                if (dimEl) dimEl.textContent = `${res.width}×${res.height}px (2×)`;
+                                            } else {
+                                                imgEl.style.width = "auto";
+                                                imgEl.style.height = "auto";
+                                                imgEl.style.maxWidth = "200px";
+                                                imgEl.style.maxHeight = "165px";
+                                                if (dimEl) dimEl.textContent = `${res.width}×${res.height}px`;
+                                            }
+                                        }
+                                        imgEl.style.display = "block";
+                                        if (linkEl && res.sourceUrl) {
+                                            linkEl.href = res.sourceUrl;
+                                            const isRMS = res.sourceUrl.includes("ratemyserver");
+                                            const isDP = res.sourceUrl.includes("divine-pride");
+                                            linkEl.textContent = isRMS ? "RateMyServer GIF ↗" : (isDP ? "Divine Pride ↗" : "iRO Wiki Image ↗");
                                         }
                                     }
-                                    imgEl.style.display = "block";
-                                    if (linkEl && res.sourceUrl) {
-                                        linkEl.href = res.sourceUrl;
-                                        linkEl.textContent = res.isGif ? "RateMyServer GIF ↗" : "iRO Wiki Image ↗";
-                                    }
                                 }
-                            }
-                        });
+                            });
+                        };
+
+                        const reloadBtn = element.querySelector("#sprite-reload-btn");
+                        if (reloadBtn) {
+                            reloadBtn.onclick = (ev) => {
+                                ev.stopPropagation();
+                                triggerLoad(true);
+                            };
+                        }
+                        const errorRetryBtn = element.querySelector("#sprite-error-retry-btn");
+                        if (errorRetryBtn) {
+                            errorRetryBtn.onclick = (ev) => {
+                                ev.stopPropagation();
+                                triggerLoad(true);
+                            };
+                        }
+
+                        triggerLoad(false);
                     }
                 } else if (cached.docData) {
                     if (element) {
@@ -3694,6 +3768,10 @@ class TokenTooltip {
             return;
         }
 
+        if (this.isMouseOverTooltip) {
+            return;
+        }
+
         if (element && this.currentToken) {
             const rect = element.getBoundingClientRect();
             const buffer = 10;
@@ -3707,6 +3785,7 @@ class TokenTooltip {
     }
 
     onMouseOut(e) {
+        if (this.isMouseOverTooltip) return;
         const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
         if (element && e && e.domEvent && element.contains(e.domEvent.relatedTarget)) {
             return;
