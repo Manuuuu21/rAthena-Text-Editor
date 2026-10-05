@@ -2888,6 +2888,59 @@ function parseNewTooltipDocs() {
     }
 }
 
+const spriteCache = new Map();
+
+const COMMON_RATHENA_CONSTANTS = {
+    // Potions
+    "red_potion": { id: 501, name: "Red Potion", type: "item" },
+    "orange_potion": { id: 502, name: "Orange Potion", type: "item" },
+    "yellow_potion": { id: 503, name: "Yellow Potion", type: "item" },
+    "white_potion": { id: 504, name: "White Potion", type: "item" },
+    "blue_potion": { id: 505, name: "Blue Potion", type: "item" },
+    "green_potion": { id: 506, name: "Green Potion", type: "item" },
+    // Common fruits & supplies
+    "apple": { id: 512, name: "Apple", type: "item" },
+    "banana": { id: 513, name: "Banana", type: "item" },
+    "grape": { id: 514, name: "Grape", type: "item" },
+    "carrot": { id: 515, name: "Carrot", type: "item" },
+    "sweet_potato": { id: 516, name: "Sweet Potato", type: "item" },
+    "meat": { id: 517, name: "Meat", type: "item" },
+    "yggdrasilberry": { id: 607, name: "Yggdrasil Berry", type: "item" },
+    "yggdrasil_berry": { id: 607, name: "Yggdrasil Berry", type: "item" },
+    "yggdrasilseed": { id: 608, name: "Yggdrasil Seed", type: "item" },
+    "yggdrasil_seed": { id: 608, name: "Yggdrasil Seed", type: "item" },
+    "wing_of_fly": { id: 601, name: "Fly Wing", type: "item" },
+    "fly_wing": { id: 601, name: "Fly Wing", type: "item" },
+    "wing_of_butterfly": { id: 602, name: "Butterfly Wing", type: "item" },
+    "butterfly_wing": { id: 602, name: "Butterfly Wing", type: "item" },
+    "magnifier": { id: 610, name: "Magnifier", type: "item" },
+    "empty_bottle": { id: 713, name: "Empty Bottle", type: "item" },
+    "jellopy": { id: 909, name: "Jellopy", type: "item" },
+    "knife": { id: 1201, name: "Knife", type: "item" },
+    "cutter": { id: 1202, name: "Cutter", type: "item" },
+    "main_gauche": { id: 1207, name: "Main Gauche", type: "item" },
+    "poring_card": { id: 4001, name: "Poring Card", type: "item" },
+    
+    // Common Mobs
+    "poring": { id: 1002, name: "Poring", type: "monster" },
+    "fabre": { id: 1007, name: "Fabre", type: "monster" },
+    "lunatic": { id: 1063, name: "Lunatic", type: "monster" },
+    "pecopeco": { id: 1019, name: "Peco Peco", type: "monster" },
+    "peco_peco": { id: 1019, name: "Peco Peco", type: "monster" },
+    "baphomet": { id: 1039, name: "Baphomet", type: "monster" },
+    "angeling": { id: 1096, name: "Angeling", type: "monster" },
+    "deviling": { id: 1582, name: "Deviling", type: "monster" },
+    "ghostring": { id: 1120, name: "Ghostring", type: "monster" },
+    "maya": { id: 1147, name: "Maya", type: "monster" },
+    "drake": { id: 1112, name: "Drake", type: "monster" },
+    "eddga": { id: 1115, name: "Eddga", type: "monster" },
+    "moonlight": { id: 1150, name: "Moonlight Flower", type: "monster" },
+    "phreeoni": { id: 1159, name: "Phreeoni", type: "monster" },
+    "doppelganger": { id: 1046, name: "Doppelganger", type: "monster" },
+    "orc_hero": { id: 1087, name: "Orc Hero", type: "monster" },
+    "orc_lord": { id: 1190, name: "Orc Lord", type: "monster" }
+};
+
 class TokenTooltip {
     constructor(editor) {
         if (editor.tokenTooltip) return;
@@ -2941,7 +2994,363 @@ class TokenTooltip {
         this.cachedEvent = null;
         this.destroyActiveEmbeddedEditors();
         this.currentToken = null;
+        const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
+        if (element) {
+            element.classList.remove("sprite_tooltip");
+        }
         this.tooltip.hide();
+    }
+
+    loadTransparentSprite(url, options, callback) {
+        if (typeof options === 'function') {
+            callback = options;
+            options = {};
+        }
+        options = options || {};
+
+        if (spriteCache.has(url)) {
+            callback(null, spriteCache.get(url));
+            return;
+        }
+
+        // If it is an animated monster GIF, load directly to preserve animation frames & native transparency
+        if (options.isGif) {
+            const img = new Image();
+            img.onload = () => {
+                const result = {
+                    dataUrl: url,
+                    width: img.naturalWidth || 60,
+                    height: img.naturalHeight || 60,
+                    isGif: true,
+                    sourceUrl: url
+                };
+                spriteCache.set(url, result);
+                callback(null, result);
+            };
+            img.onerror = () => {
+                // If GIF is unavailable, seamlessly fallback to PNG if provided
+                if (options.fallbackUrl) {
+                    this.loadTransparentSprite(options.fallbackUrl, { isGif: false }, (fallbackErr, fallbackRes) => {
+                        if (fallbackErr || !fallbackRes) {
+                            callback(fallbackErr || new Error("Failed to load sprite"));
+                        } else {
+                            callback(null, { ...fallbackRes, isGif: false });
+                        }
+                    });
+                    return;
+                }
+                callback(new Error("Failed to load monster GIF"));
+            };
+            img.src = url;
+            return;
+        }
+
+        // Static PNG with canvas transparent background extraction
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            try {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext("2d", { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0);
+
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imgData.data;
+                const w = canvas.width;
+                const h = canvas.height;
+
+                const getPixel = (x, y) => {
+                    const idx = (y * w + x) * 4;
+                    return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+                };
+
+                const tl = getPixel(0, 0);
+                const tr = getPixel(w - 1, 0);
+                const bl = getPixel(0, h - 1);
+                const br = getPixel(w - 1, h - 1);
+
+                // Check if any corner is already transparent
+                const isCornerTransparent = tl[3] === 0 || tr[3] === 0 || bl[3] === 0 || br[3] === 0;
+
+                if (!isCornerTransparent) {
+                    const isMatching = (p1, p2, tol = 16) => {
+                        return Math.abs(p1[0] - p2[0]) <= tol &&
+                               Math.abs(p1[1] - p2[1]) <= tol &&
+                               Math.abs(p1[2] - p2[2]) <= tol;
+                    };
+
+                    let bgCol = null;
+                    if (isMatching(tl, tr) && isMatching(tl, bl)) bgCol = tl;
+                    else if (isMatching(tl, tr) || isMatching(tl, br)) bgCol = tl;
+                    else if (isMatching(tr, br)) bgCol = tr;
+                    else if (isMatching(bl, br)) bgCol = bl;
+                    else bgCol = tl;
+
+                    if (bgCol) {
+                        const visited = new Uint8Array(w * h);
+                        const queue = [];
+
+                        const isBg = (x, y) => {
+                            const idx = (y * w + x) * 4;
+                            return Math.abs(data[idx] - bgCol[0]) <= 22 &&
+                                   Math.abs(data[idx + 1] - bgCol[1]) <= 22 &&
+                                   Math.abs(data[idx + 2] - bgCol[2]) <= 22;
+                        };
+
+                        for (let x = 0; x < w; x++) {
+                            if (isBg(x, 0)) { queue.push(x, 0); visited[x] = 1; }
+                            if (isBg(x, h - 1)) { queue.push(x, h - 1); visited[(h - 1) * w + x] = 1; }
+                        }
+                        for (let y = 0; y < h; y++) {
+                            if (isBg(0, y) && !visited[y * w]) { queue.push(0, y); visited[y * w] = 1; }
+                            if (isBg(w - 1, y) && !visited[y * w + (w - 1)]) { queue.push(w - 1, y); visited[y * w + (w - 1)] = 1; }
+                        }
+
+                        let qHead = 0;
+                        while (qHead < queue.length) {
+                            const qx = queue[qHead++];
+                            const qy = queue[qHead++];
+                            const pIdx = (qy * w + qx) * 4;
+                            data[pIdx + 3] = 0;
+
+                            const neighbors = [[qx + 1, qy], [qx - 1, qy], [qx, qy + 1], [qx, qy - 1]];
+                            for (let n = 0; n < 4; n++) {
+                                const nx = neighbors[n][0];
+                                const ny = neighbors[n][1];
+                                if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                                    const vIdx = ny * w + nx;
+                                    if (!visited[vIdx] && isBg(nx, ny)) {
+                                        visited[vIdx] = 1;
+                                        queue.push(nx, ny);
+                                    }
+                                }
+                            }
+                        }
+
+                        ctx.putImageData(imgData, 0, 0);
+                    }
+                }
+
+                const result = {
+                    dataUrl: canvas.toDataURL("image/png"),
+                    width: w,
+                    height: h,
+                    isGif: false,
+                    sourceUrl: url
+                };
+                spriteCache.set(url, result);
+                callback(null, result);
+            } catch (err) {
+                const fallback = { dataUrl: url, width: img.naturalWidth || 40, height: img.naturalHeight || 40, isGif: false, sourceUrl: url };
+                spriteCache.set(url, fallback);
+                callback(null, fallback);
+            }
+        };
+        img.onerror = () => {
+            if (img.crossOrigin) {
+                const fallbackImg = new Image();
+                fallbackImg.onload = () => {
+                    const fallback = { dataUrl: url, width: fallbackImg.naturalWidth || 40, height: fallbackImg.naturalHeight || 40, isGif: false, sourceUrl: url };
+                    spriteCache.set(url, fallback);
+                    callback(null, fallback);
+                };
+                fallbackImg.onerror = (err) => {
+                    callback(err || new Error("Failed to load sprite"));
+                };
+                fallbackImg.src = url;
+                return;
+            }
+            callback(new Error("Failed to load sprite"));
+        };
+        img.src = url;
+    }
+
+    detectSpriteTarget(line, col, token) {
+        if (!line || col < 0) return null;
+        if (token && token.type && token.type.indexOf("comment") !== -1) {
+            return null;
+        }
+
+        let start = col;
+        while (start > 0 && /[a-zA-Z0-9_]/.test(line[start - 1])) start--;
+        let end = col;
+        while (end < line.length && /[a-zA-Z0-9_]/.test(line[end])) end++;
+        const word = line.substring(start, end).trim();
+        if (!word) return null;
+
+        const isNum = /^\d+$/.test(word);
+        let numId = isNum ? parseInt(word, 10) : 0;
+        let constName = "";
+
+        if (!isNum) {
+            const lowerWord = word.toLowerCase();
+            if (COMMON_RATHENA_CONSTANTS[lowerWord]) {
+                const mapped = COMMON_RATHENA_CONSTANTS[lowerWord];
+                numId = mapped.id;
+                constName = mapped.name;
+                return { type: mapped.type, id: numId, name: constName, context: "Constant" };
+            }
+            return null;
+        }
+
+        if (numId <= 0) return null;
+
+        const after = line.substring(end);
+
+        // Shop item pattern: e.g. 501:100 or -1,501:100
+        if (/^:\d+/.test(after)) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+            return { type: "item", id: numId, name: known ? known.name : "", context: "Shop Item" };
+        }
+
+        let stmtStart = start - 1;
+        while (stmtStart >= 0 && line[stmtStart] !== ";" && line[stmtStart] !== "{" && line[stmtStart] !== "}") {
+            stmtStart--;
+        }
+        const stmt = line.substring(stmtStart + 1, start).trim();
+
+        let parenDepth = 0;
+        let lastOpenParenIdx = -1;
+        for (let i = stmt.length - 1; i >= 0; i--) {
+            if (stmt[i] === ")") parenDepth++;
+            else if (stmt[i] === "(") {
+                if (parenDepth === 0) {
+                    lastOpenParenIdx = i;
+                    break;
+                }
+                parenDepth--;
+            }
+        }
+
+        let cmd = "";
+        let argsStr = "";
+
+        if (lastOpenParenIdx !== -1) {
+            const beforeParen = stmt.substring(0, lastOpenParenIdx).trim();
+            const cmdMatch = beforeParen.match(/([a-zA-Z0-9_]+)$/);
+            if (cmdMatch) {
+                cmd = cmdMatch[1].toLowerCase();
+                argsStr = stmt.substring(lastOpenParenIdx + 1);
+            }
+        } else {
+            const cmdMatch = stmt.match(/^([a-zA-Z0-9_]+)\b([\s\S]*)$/);
+            if (cmdMatch) {
+                cmd = cmdMatch[1].toLowerCase();
+                argsStr = cmdMatch[2];
+            }
+        }
+
+        if (!cmd) {
+            if (/(item|equip|card)/i.test(stmt) && (/=|\bset\b/i.test(stmt))) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+                return { type: "item", id: numId, name: known ? known.name : "", context: "Variable Assignment" };
+            }
+            if (/(mob|monster)/i.test(stmt) && (/=|\bset\b/i.test(stmt))) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+                return { type: "monster", id: numId, name: known ? known.name : "", context: "Variable Assignment" };
+            }
+            return null;
+        }
+
+        let commas = 0;
+        let inQuotes = false;
+        let quoteChar = "";
+        for (let i = 0; i < argsStr.length; i++) {
+            const ch = argsStr[i];
+            if ((ch === "\"" || ch === "\'") && (i === 0 || argsStr[i-1] !== "\\")) {
+                if (!inQuotes) { inQuotes = true; quoteChar = ch; }
+                else if (quoteChar === ch) { inQuotes = false; }
+            } else if (!inQuotes && ch === ",") {
+                commas++;
+            }
+        }
+        const argIndex = commas;
+
+        const itemArg0 = [
+            "getitem", "getitembound", "rentitem", "delitem", "delitem2", "rentitem2",
+            "countitem", "countitem2", "checkweight", "checkweight2", "equip", "makeitem",
+            "itemskill", "consumeitem", "additem", "delitemfromcart", "cartdelitem",
+            "storage_delitem", "guildstorage_delitem", "failedrefitem", "successrefitem",
+            "downrefitem", "searchitem", "checkitem", "getiteminfo", "getitemname"
+        ];
+
+        if (itemArg0.includes(cmd) && argIndex === 0) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+            return { type: "item", id: numId, name: known ? known.name : "", command: cmd, argIndex: 0 };
+        }
+
+        if (cmd === "getitem2" || cmd === "getitembound2") {
+            if (argIndex === 0) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+                return { type: "item", id: numId, name: known ? known.name : "", command: cmd, argIndex: 0 };
+            }
+            if (argIndex >= 5 && argIndex <= 8) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+                return { type: "item", id: numId, name: known ? known.name : "", command: cmd, argIndex, isCard: true };
+            }
+        }
+
+        if ((cmd === "monster" || cmd === "strmonster") && argIndex === 4) {
+            let mobName = "";
+            const parts = argsStr.split(",");
+            if (parts.length > 3) {
+                mobName = parts[3].trim().replace(/^["']|["']$/g, "");
+            }
+            if (!mobName) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+                if (known) mobName = known.name;
+            }
+            return { type: "monster", id: numId, command: cmd, argIndex: 4, name: mobName };
+        }
+
+        if (cmd === "areamonster" && argIndex === 6) {
+            let mobName = "";
+            const parts = argsStr.split(",");
+            if (parts.length > 5) {
+                mobName = parts[5].trim().replace(/^["']|["']$/g, "");
+            }
+            if (!mobName) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+                if (known) mobName = known.name;
+            }
+            return { type: "monster", id: numId, command: cmd, argIndex: 6, name: mobName };
+        }
+
+        if (cmd === "summon" && argIndex === 1) {
+            let mobName = "";
+            const parts = argsStr.split(",");
+            if (parts.length > 0) {
+                mobName = parts[0].trim().replace(/^["']|["']$/g, "");
+            }
+            if (!mobName) {
+                const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+                if (known) mobName = known.name;
+            }
+            return { type: "monster", id: numId, command: cmd, argIndex: 1, name: mobName };
+        }
+
+        if ((cmd === "makepet" || cmd === "spawn" || cmd === "unitspawn") && argIndex === 0) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+            return { type: "monster", id: numId, command: cmd, argIndex: 0, name: known ? known.name : "" };
+        }
+
+        if (cmd === "clone" && argIndex === 5) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+            return { type: "monster", id: numId, command: cmd, argIndex: 5, name: known ? known.name : "" };
+        }
+
+        if (/(item|equip|card)/i.test(cmd) && (/=|\bset\b/i.test(stmt))) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
+            return { type: "item", id: numId, name: known ? known.name : "", context: "Variable Assignment" };
+        }
+        if (/(mob|monster)/i.test(cmd) && (/=|\bset\b/i.test(stmt))) {
+            const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "monster" && c.id === numId);
+            return { type: "monster", id: numId, name: known ? known.name : "", context: "Variable Assignment" };
+        }
+
+        return null;
     }
 
     onMouseMove(e) {
@@ -2952,23 +3361,30 @@ class TokenTooltip {
         const editor = this.editor;
         const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
 
-        // If mouse is already over the tooltip, don't hide it or update position
         if (element && element.contains(e.domEvent.target)) {
             return;
         }
 
         const pos = e.getDocumentPosition();
         const token = editor.session.getTokenAt(pos.row, pos.column);
+        const line = editor.session.getLine(pos.row);
         
         let isValidToken = false;
         let tokenVal = null;
         let docData = null;
+        let spriteData = null;
 
-        if (token && (token.type.indexOf("support.function") !== -1 || 
-                      token.type.indexOf("keyword") !== -1 || 
-                      token.type.indexOf("identifier") !== -1 || 
-                      token.type.indexOf("constant") !== -1 ||
-                      token.type.indexOf("variable") !== -1)) {
+        // 1. Check if hovering over an itemID or monsterID in script
+        const spriteTarget = this.detectSpriteTarget(line, pos.column, token);
+        if (spriteTarget) {
+            spriteData = spriteTarget;
+            tokenVal = "sprite:" + spriteTarget.type + ":" + spriteTarget.id;
+            isValidToken = true;
+        } else if (token && (token.type.indexOf("support.function") !== -1 || 
+                             token.type.indexOf("keyword") !== -1 || 
+                             token.type.indexOf("identifier") !== -1 || 
+                             token.type.indexOf("constant") !== -1 ||
+                             token.type.indexOf("variable") !== -1)) {
             tokenVal = token.value;
             docData = rathenaDocMap[tokenVal];
             if (!docData && (tokenVal.startsWith('$') || tokenVal.startsWith('@'))) {
@@ -2980,24 +3396,22 @@ class TokenTooltip {
         }
 
         if (isValidToken) {
-            // Case 1: We are already showing this token's tooltip
             if (this.currentToken === tokenVal) {
                 return;
             }
 
-            // Case 2: We are already waiting/pending display for this same token
             if (this.pendingToken === tokenVal) {
                 this.cachedEvent = {
                     clientX: e.clientX,
                     clientY: e.clientY,
                     pos: pos,
                     docData: docData,
+                    spriteData: spriteData,
                     tokenVal: tokenVal
                 };
                 return;
             }
 
-            // Case 3: A new token is hovered, or we were waiting for a different one
             if (this.hoverTimeout) {
                 clearTimeout(this.hoverTimeout);
             }
@@ -3012,6 +3426,7 @@ class TokenTooltip {
                 clientY: e.clientY,
                 pos: pos,
                 docData: docData,
+                spriteData: spriteData,
                 tokenVal: tokenVal
             };
 
@@ -3023,78 +3438,217 @@ class TokenTooltip {
                 this.pendingToken = null;
                 this.hoverTimeout = null;
 
-                const html = `
-                    <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 6px; margin-bottom: 10px; color: var(--tooltipHeaderColor); font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.4;">
-                        ${cached.docData.signature}
-                    </div>
-                    <div style="line-height: 1.5; font-size: 11.5px; font-family: 'Inter', -apple-system, sans-serif;">
-                        ${cached.docData.description}
-                    </div>
-                `;
-                
-                this.tooltip.show("", cached.clientX, cached.clientY);
                 const element = this.tooltip.getElement ? this.tooltip.getElement() : this.tooltip.element;
-                if (element) {
-                    element.innerHTML = html;
-                    element.scrollTop = 0; // Ensure scroll always starts at the top
-                    element.style.display = "block";
-                    
-                    if (!element._hasWheelEvent) {
-                        element.addEventListener('wheel', (evt) => {
-                            evt.stopPropagation();
-                        }, { passive: false });
-                        element._hasWheelEvent = true;
-                    }
 
-                    // Dynamically initialize any embedded Ace Editor instances inside the tooltip first
-                    const editorContainers = element.querySelectorAll(".tooltip-ace-editor");
-                    const rawCodeScripts = element.querySelectorAll(".tooltip-ace-raw-code");
-                    for (let i = 0; i < editorContainers.length; i++) {
-                        const container = editorContainers[i];
-                        const scriptTag = rawCodeScripts[i];
-                        if (container && scriptTag) {
-                            const codeText = scriptTag.textContent || scriptTag.innerText;
-                            try {
-                                const embeddedEditor = ace.edit(container);
-                                embeddedEditor.setValue(codeText, -1);
-                                embeddedEditor.setTheme(currentTheme);
-                                embeddedEditor.session.setMode("ace/mode/rathena");
-                                embeddedEditor.setReadOnly(true);
-                                embeddedEditor.setShowPrintMargin(false);
-                                embeddedEditor.renderer.setShowGutter(true);
-                                embeddedEditor.setShowFoldWidgets(false);
-                                embeddedEditor.setOption("scrollPastEnd", 0);
-                                embeddedEditor.setOptions({
-                                    maxLines: 12,
-                                    minLines: 3,
-                                    fontSize: "11px",
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                    highlightActiveLine: false,
-                                    highlightGutterLine: false,
-                                    showLineNumbers: true,
-                                    showGutter: true,
-                                    showFoldWidgets: false,
-                                    fadeFoldWidgets: false
-                                });
-                                // Make the cursor/selection completely invisible to make it true read-only style
-                                embeddedEditor.renderer.$cursorLayer.element.style.opacity = 0;
-                                this.activeEmbeddedEditors.push(embeddedEditor);
-                            } catch (err) {
-                                console.error("Error creating embedded Ace editor inside tooltip:", err);
+                if (cached.spriteData) {
+                    const spriteTarget = cached.spriteData;
+                    const isItem = spriteTarget.type === "item";
+                    const isMonster = spriteTarget.type === "monster";
+                    const typeLabel = isItem ? "Item" : "Monster";
+                    
+                    // Monsters use animated GIF from RateMyServer with fallback to iRO Wiki PNG
+                    // Items use iRO Wiki PNG with transparent canvas extraction
+                    const primaryUrl = isItem 
+                        ? `https://db.irowiki.org/image/item/${spriteTarget.id}.png`
+                        : `https://file5s.ratemyserver.net/mobs/${spriteTarget.id}.gif`;
+                    const fallbackUrl = isItem 
+                        ? null 
+                        : `https://db.irowiki.org/image/monster/${spriteTarget.id}.png`;
+
+                    const badgeColor = isItem ? "#38bdf8" : "#c084fc";
+                    const badgeBg = isItem ? "rgba(56, 189, 248, 0.15)" : "rgba(192, 132, 252, 0.15)";
+                    const badgeBorder = isItem ? "rgba(56, 189, 248, 0.35)" : "rgba(192, 132, 252, 0.35)";
+
+                    const displayName = spriteTarget.name 
+                        ? `${typeLabel} #${spriteTarget.id} (${spriteTarget.name})`
+                        : `${typeLabel} #${spriteTarget.id}`;
+
+                    const subDetail = spriteTarget.isCard 
+                        ? "Socketed Card Reference" 
+                        : (spriteTarget.command ? `Command: ${spriteTarget.command}()` : (spriteTarget.context || "Script Reference"));
+
+                    const html = `
+                        <div class="sprite-tooltip-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: ${isMonster ? '170px' : '250px'}; max-width: 320px;">
+                            ${isMonster ? `
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                                <span style="font-size: 11.5px; font-weight: 700; color: var(--tooltipHeaderColor, #c084fc); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;">
+                                    Animated GIF
+                                </span>
+                                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder};">
+                                    Monster
+                                </span>
+                            </div>
+                            ` : `
+                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--tooltipDivider, rgba(255,255,255,0.1)); padding-bottom: 7px; margin-bottom: 8px;">
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--tooltipHeaderColor, #60a5fa); font-family: 'JetBrains Mono', monospace;">
+                                        ${displayName}
+                                    </div>
+                                    ${subDetail && !subDetail.startsWith('Command:') ? `
+                                    <div style="font-size: 11px; color: var(--searchCounterColor, #9aa0a6); margin-top: 1px;">
+                                        ${subDetail}
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; display: inline-flex; align-items: center; gap: 4px;">
+                                    ${typeLabel}
+                                </span>
+                            </div>
+                            `}
+
+                            <div class="sprite-preview-stage" style="min-height: ${isItem ? '80px' : '120px'};">
+                                <div id="sprite-preview-loader" style="font-size: 11.5px; color: var(--searchCounterColor, #888); display: flex; align-items: center; gap: 7px;">
+                                    <span style="display: inline-block; width: 12px; height: 12px; border: 2px solid ${badgeColor}; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                                    ${isMonster ? 'Loading animated monster GIF...' : 'Loading transparent item sprite...'}
+                                </div>
+                                <img id="sprite-preview-img" class="sprite-preview-img" style="display: none;" alt="${displayName}" title="${displayName}" />
+                                <div id="sprite-preview-error" style="display: none; color: #ef4444; font-size: 11px; text-align: center; padding: 12px 6px;">
+                                    No sprite found for ${typeLabel} #${spriteTarget.id}
+                                </div>
+                            </div>
+
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: 10.5px; color: var(--searchCounterColor, #888);">
+                                <span id="sprite-preview-dim" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; white-space: nowrap;"></span>
+                                <a id="sprite-preview-link" href="${primaryUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--tooltipHeaderColor, #38bdf8); text-decoration: none; font-size: 10.5px; white-space: nowrap; flex-shrink: 0;">
+                                    ${isMonster ? "RateMyServer GIF ↗" : "iRO Wiki Image ↗"}
+                                </a>
+                            </div>
+                        </div>
+                    `;
+
+                    this.tooltip.show("", cached.clientX, cached.clientY);
+                    if (element) {
+                        element.classList.add("sprite_tooltip");
+                        element.innerHTML = html;
+                        element.scrollTop = 0;
+                        element.style.display = "block";
+
+                        if (!element._hasWheelEvent) {
+                            element.addEventListener('wheel', (evt) => {
+                                evt.stopPropagation();
+                            }, { passive: false });
+                            element._hasWheelEvent = true;
+                        }
+
+                        const targetTokenVal = cached.tokenVal;
+                        this.loadTransparentSprite(primaryUrl, { isGif: isMonster, fallbackUrl: fallbackUrl, isItem: isItem }, (err, res) => {
+                            if (this.currentToken !== targetTokenVal) return;
+                            const loader = element.querySelector("#sprite-preview-loader");
+                            const imgEl = element.querySelector("#sprite-preview-img");
+                            const errEl = element.querySelector("#sprite-preview-error");
+                            const dimEl = element.querySelector("#sprite-preview-dim");
+                            const linkEl = element.querySelector("#sprite-preview-link");
+
+                            if (loader) loader.style.display = "none";
+
+                            if (err || !res) {
+                                if (errEl) errEl.style.display = "block";
+                            } else {
+                                if (imgEl) {
+                                    imgEl.src = res.dataUrl;
+                                    if (isItem) {
+                                        const scale = res.width <= 32 ? 2 : 1;
+                                        imgEl.style.width = (res.width * scale) + "px";
+                                        imgEl.style.height = (res.height * scale) + "px";
+                                        if (dimEl) dimEl.textContent = `${res.width}×${res.height}px` + (scale > 1 ? ` (${scale}×)` : "");
+                                    } else {
+                                        // Monster GIF / Sprite
+                                        if (res.width <= 44 && res.height <= 44) {
+                                            const scale = 2;
+                                            imgEl.style.width = (res.width * scale) + "px";
+                                            imgEl.style.height = (res.height * scale) + "px";
+                                            if (dimEl) dimEl.textContent = `${res.width}×${res.height}px (2×)`;
+                                        } else {
+                                            imgEl.style.width = "auto";
+                                            imgEl.style.height = "auto";
+                                            imgEl.style.maxWidth = "200px";
+                                            imgEl.style.maxHeight = "165px";
+                                            if (dimEl) dimEl.textContent = `${res.width}×${res.height}px`;
+                                        }
+                                    }
+                                    imgEl.style.display = "block";
+                                    if (linkEl && res.sourceUrl) {
+                                        linkEl.href = res.sourceUrl;
+                                        linkEl.textContent = res.isGif ? "RateMyServer GIF ↗" : "iRO Wiki Image ↗";
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } else if (cached.docData) {
+                    if (element) {
+                        element.classList.remove("sprite_tooltip");
+                    }
+                    const html = `
+                        <div style="border-bottom: 1px solid var(--tooltipDivider); padding-bottom: 6px; margin-bottom: 10px; color: var(--tooltipHeaderColor); font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.4;">
+                            ${cached.docData.signature}
+                        </div>
+                        <div style="line-height: 1.5; font-size: 11.5px; font-family: 'Inter', -apple-system, sans-serif;">
+                            ${cached.docData.description}
+                        </div>
+                    `;
+                    
+                    this.tooltip.show("", cached.clientX, cached.clientY);
+                    if (element) {
+                        element.innerHTML = html;
+                        element.scrollTop = 0;
+                        element.style.display = "block";
+                        
+                        if (!element._hasWheelEvent) {
+                            element.addEventListener('wheel', (evt) => {
+                                evt.stopPropagation();
+                            }, { passive: false });
+                            element._hasWheelEvent = true;
+                        }
+
+                        const editorContainers = element.querySelectorAll(".tooltip-ace-editor");
+                        const rawCodeScripts = element.querySelectorAll(".tooltip-ace-raw-code");
+                        for (let i = 0; i < editorContainers.length; i++) {
+                            const container = editorContainers[i];
+                            const scriptTag = rawCodeScripts[i];
+                            if (container && scriptTag) {
+                                const codeText = scriptTag.textContent || scriptTag.innerText;
+                                try {
+                                    const embeddedEditor = ace.edit(container);
+                                    embeddedEditor.setValue(codeText, -1);
+                                    embeddedEditor.setTheme(currentTheme);
+                                    embeddedEditor.session.setMode("ace/mode/rathena");
+                                    embeddedEditor.setReadOnly(true);
+                                    embeddedEditor.setShowPrintMargin(false);
+                                    embeddedEditor.renderer.setShowGutter(true);
+                                    embeddedEditor.setShowFoldWidgets(false);
+                                    embeddedEditor.setOption("scrollPastEnd", 0);
+                                    embeddedEditor.setOptions({
+                                        maxLines: 12,
+                                        minLines: 3,
+                                        fontSize: "11px",
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                        highlightActiveLine: false,
+                                        highlightGutterLine: false,
+                                        showLineNumbers: true,
+                                        showGutter: true,
+                                        showFoldWidgets: false,
+                                        fadeFoldWidgets: false
+                                    });
+                                    embeddedEditor.renderer.$cursorLayer.element.style.opacity = 0;
+                                    this.activeEmbeddedEditors.push(embeddedEditor);
+                                } catch (err) {
+                                    console.error("Error creating embedded Ace editor inside tooltip:", err);
+                                }
                             }
                         }
                     }
+                }
 
-                    // Measure the exact bounding rect of the rendered tooltip with embedded code editor
+                if (element) {
                     const rect = element.getBoundingClientRect();
-                    const tooltipWidth = rect.width || 450;
-                    const tooltipHeight = rect.height || 280;
+                    const tooltipWidth = rect.width || (cached.spriteData ? 280 : 450);
+                    const tooltipHeight = rect.height || (cached.spriteData ? 180 : 280);
 
-                    // Determine available space above, below, right and left
                     const spaceAbove = cached.clientY;
                     const spaceBelow = window.innerHeight - cached.clientY;
 
-                    let x = cached.clientX + 15; // default 15px margin to prevent cursor overlap
+                    let x = cached.clientX + 15;
                     let y = cached.clientY + 15;
 
                     if (spaceBelow >= tooltipHeight + 25) {
@@ -3120,7 +3674,6 @@ class TokenTooltip {
                         }
                     }
 
-                    // Horizontal bounds fallback adjustment
                     if (y === cached.clientY + 15 || y === cached.clientY - tooltipHeight - 15) {
                         if (x + tooltipWidth > window.innerWidth - 10) {
                             x = cached.clientX - tooltipWidth - 15;
@@ -3130,22 +3683,19 @@ class TokenTooltip {
                         }
                     }
 
-                    // Safety boundaries clamping
                     x = Math.max(10, Math.min(window.innerWidth - tooltipWidth - 10, x));
                     y = Math.max(10, Math.min(window.innerHeight - tooltipHeight - 10, y));
 
                     element.style.left = x + "px";
                     element.style.top = y + "px";
                 }
-            }, 1000);
+            }, 600);
 
             return;
         }
 
-        // If we have a tooltip active, check if mouse is moving towards it
         if (element && this.currentToken) {
             const rect = element.getBoundingClientRect();
-            // A small 10px buffer around the tooltip to allow the mouse to reach it
             const buffer = 10;
             if (e.clientX >= rect.left - buffer && e.clientX <= rect.right + buffer &&
                 e.clientY >= rect.top - buffer && e.clientY <= rect.bottom + buffer) {
