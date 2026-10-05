@@ -936,7 +936,7 @@ code {
   height: 25px;
   background: var(--minimapSliderBg);
   border: 1px solid var(--minimapSliderBorder);
-  border-left: 3px solid var(--tooltipHeaderColor, #66d9ef);
+  /* border-left: 3px solid var(--tooltipHeaderColor, #66d9ef); */
   box-sizing: border-box;
   cursor: grab;
   transition: background 0.1s ease;
