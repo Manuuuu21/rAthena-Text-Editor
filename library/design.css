@@ -695,8 +695,21 @@ code {
 
 .search-result-icon {
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   line-height: 1;
+}
+
+.file-icon-svg {
+  width: 14px;
+  height: 15px;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .search-result-content {
@@ -807,6 +820,8 @@ code {
   align-items: center;
   justify-content: center;
   width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .tree-label {
@@ -921,7 +936,7 @@ code {
   height: 25px;
   background: var(--minimapSliderBg);
   border: 1px solid var(--minimapSliderBorder);
-  /* border-left: 3px solid var(--tooltipHeaderColor, #66d9ef); */
+  border-left: 3px solid var(--tooltipHeaderColor, #66d9ef);
   box-sizing: border-box;
   cursor: grab;
   transition: background 0.1s ease;
