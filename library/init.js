@@ -2,6 +2,11 @@ let currentTheme = "ace/theme/monokai";
 document.documentElement.setAttribute('data-theme', 'dark');
 document.documentElement.classList.add('dark');
 
+function normalizeCode(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/\r\n|\r/g, '\n');
+}
+
 function toggleTheme() {
   const root = document.documentElement;
   const isLight = currentTheme === "ace/theme/github_light_default";
@@ -460,32 +465,91 @@ let activeExternalModified = 0;
 
 function openExternalConflictModal(tab, diskContent, diskModified) {
     closeExternalConflictModal();
-    if (tab && diskContent !== undefined) {
-        if (tab.diskSaveTimeout) {
-            clearTimeout(tab.diskSaveTimeout);
-            tab.diskSaveTimeout = null;
-        }
-        const cursor = tab.editor.getCursorPosition();
-        const scrollTop = tab.editor.session.getScrollTop();
-        tab.lastSavedCode = diskContent;
-        if (diskModified) tab.lastModified = diskModified;
-        tab.editor.setValue(diskContent, -1);
-        tab.editor.session.setUndoManager(new ace.UndoManager());
-        try {
-            tab.editor.moveCursorToPosition(cursor);
-            tab.editor.session.setScrollTop(scrollTop);
-        } catch (e) {}
-        tab.saveCurrentCodeToHistory();
-        tab.updateTabIcon();
-        tab.updateTitle();
-        tab.saveToDB();
-        showSnackbar(`"${tab.name}" updated with external changes.`);
+    if (!tab) return;
+    activeConflictTab = tab;
+    activeExternalContent = diskContent;
+    activeExternalModified = diskModified || Date.now();
+
+    const modal = document.getElementById('externalConflictModal');
+    if (!modal) return;
+    const header = document.getElementById('externalConflictHeader');
+    if (header) header.textContent = `⚠️ External File Change: "${tab.name}"`;
+    const msg = document.getElementById('externalConflictMessage');
+    if (msg) {
+        msg.innerHTML = `<strong>"${tab.name}"</strong> was modified externally on disk (e.g. by Notepad or another tool).<br/><br/>You also have unsaved edits in this editor. What would you like to do?`;
     }
+
+    const keepBtn = document.getElementById('conflictKeepBtn');
+    if (keepBtn) {
+        keepBtn.onclick = () => {
+            if (activeConflictTab) {
+                showSnackbar(`Kept editor edits for "${activeConflictTab.name}".`);
+            }
+            closeExternalConflictModal();
+        };
+    }
+
+    const reloadBtn = document.getElementById('conflictReloadBtn');
+    if (reloadBtn) {
+        reloadBtn.onclick = () => {
+            if (activeConflictTab && activeExternalContent !== undefined) {
+                const target = activeConflictTab;
+                const content = activeExternalContent;
+                const mod = activeExternalModified;
+                if (target.diskSaveTimeout) {
+                    clearTimeout(target.diskSaveTimeout);
+                    target.diskSaveTimeout = null;
+                }
+                const oldCode = target.editor.getValue();
+                const cursor = target.editor.getCursorPosition();
+                const scrollTop = target.editor.session.getScrollTop();
+                const scrollLeft = target.editor.session.getScrollLeft();
+                target.lastSavedCode = content;
+                target.lastModified = mod;
+                target.editor.setValue(content, -1);
+                target.editor.session.setUndoManager(new ace.UndoManager());
+                try {
+                    target.editor.moveCursorToPosition(cursor);
+                    target.editor.session.setScrollTop(scrollTop);
+                    target.editor.session.setScrollLeft(scrollLeft);
+                } catch (e) {}
+                target.updateTabIcon();
+                target.updateTitle();
+                target.saveCurrentCodeToHistory();
+                target.saveToDB();
+                target.recordChange(oldCode, content, new Date(mod || Date.now()));
+                showSnackbar(`"${target.name}" reloaded from disk.`);
+            }
+            closeExternalConflictModal();
+        };
+    }
+
+    const diffBtn = document.getElementById('conflictDiffBtn');
+    if (diffBtn) {
+        diffBtn.onclick = () => {
+            if (activeConflictTab && activeExternalContent !== undefined) {
+                const target = activeConflictTab;
+                const oldCode = target.editor.getValue();
+                const diffIndex = target.recordChange(oldCode, activeExternalContent, new Date(activeExternalModified || Date.now()));
+                closeExternalConflictModal();
+                if (diffIndex !== null) {
+                    openDiff(diffIndex, target.id);
+                }
+            } else {
+                closeExternalConflictModal();
+            }
+        };
+    }
+
+    modal.style.display = 'flex';
 }
 
 function closeExternalConflictModal() {
     const modal = document.getElementById('externalConflictModal');
     if (modal) modal.style.display = 'none';
+    activeConflictTab = null;
+    activeExternalContent = "";
+    activeExternalModified = 0;
 }
 
 window.onclick = function(event) {
@@ -1494,6 +1558,8 @@ class Tab {
         this.relativePath = "";
         this.lastSavedCode = "";
         this.lastModified = 0;
+        this.isSaving = false;
+        this.lastSavedAt = 0;
         this.isCheckingExternal = false;
         this.timerCounterForGlobal = 0;
         this.chatSessionNum = 0;
@@ -1667,7 +1733,9 @@ class Tab {
             name: 'saveToFileSystem',
             bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
             exec: (editor) => {
-                this.saveToFile();
+                if (!this.isSaving) {
+                    this.saveToFile();
+                }
             },
             readOnly: false
         });
@@ -1753,9 +1821,17 @@ class Tab {
                 if (existingTab) {
                     tabManager.switchTab(existingTab.id);
                     const oldCode = existingTab.editor.getValue();
-                    const wasEdited = (contents !== oldCode || contents !== existingTab.lastSavedCode);
+                    const normDisk = normalizeCode(contents);
+                    const normSaved = normalizeCode(existingTab.lastSavedCode || '');
+                    const normEditor = normalizeCode(oldCode);
+                    const wasDiskEdited = (normDisk !== normSaved && normDisk !== normEditor);
 
-                    if (wasEdited) {
+                    if (wasDiskEdited) {
+                        if (existingTab.isDirty()) {
+                            existingTab.lastModified = file.lastModified || Date.now();
+                            openExternalConflictModal(existingTab, contents, file.lastModified || Date.now());
+                            continue;
+                        }
                         if (existingTab.diskSaveTimeout) {
                             clearTimeout(existingTab.diskSaveTimeout);
                             existingTab.diskSaveTimeout = null;
@@ -1785,9 +1861,7 @@ class Tab {
                         }
                         showSnackbar(`"${existingTab.name}" updated with external changes.`);
                     } else {
-                        existingTab.lastSavedCode = contents;
-                        existingTab.updateTabIcon();
-                        existingTab.updateTitle();
+                        existingTab.lastModified = file.lastModified || Date.now();
                     }
                     continue;
                 }
@@ -1982,7 +2056,7 @@ class Tab {
     }
 
     isDirty() {
-        return this.editor.getValue() !== this.lastSavedCode;
+        return normalizeCode(this.editor.getValue()) !== normalizeCode(this.lastSavedCode);
     }
 
     updateTabIcon() {
@@ -2046,7 +2120,7 @@ class Tab {
     }
 
     async autoSaveToFile() {
-        if (!this.fileHandle || !this.isDirty() || typeof autoSaveEnabled === 'undefined' || !autoSaveEnabled) return;
+        if (!this.fileHandle || !this.isDirty() || this.isSaving || typeof autoSaveEnabled === 'undefined' || !autoSaveEnabled) return;
         try {
             let perm = 'granted';
             if (typeof this.fileHandle.queryPermission === 'function') {
@@ -2061,29 +2135,42 @@ class Tab {
     }
 
     async writeToDisk(showSnack = true) {
-        if (!this.fileHandle) return false;
+        if (!this.fileHandle || this.isSaving) return false;
+        this.isSaving = true;
         try {
             const currentCode = this.editor.getValue();
+            const prevSavedCode = this.lastSavedCode;
             const saveDate = new Date();
             const writable = await this.fileHandle.createWritable();
             await writable.write(currentCode);
             await writable.close();
 
+            this.lastSavedCode = currentCode;
+            this.lastSavedAt = Date.now();
+
             try {
                 const updatedFile = await this.fileHandle.getFile();
                 this.lastModified = updatedFile.lastModified || Date.now();
+                if (typeof folderTreeManager !== 'undefined' && folderTreeManager.nodeRegistry) {
+                    const reg = folderTreeManager.nodeRegistry.get(this.relativePath) ||
+                        Array.from(folderTreeManager.nodeRegistry.values()).find(r => !r.isDirectory && (r.path === this.relativePath || r.path.endsWith('/' + this.name) || r.path === this.name));
+                    if (reg) {
+                        reg.lastModified = this.lastModified;
+                        reg.lastSize = updatedFile.size || 0;
+                        reg.isModifiedExternally = false;
+                        reg.lastSavedAt = Date.now();
+                        if (folderTreeManager.markFileModifiedInTree) {
+                            folderTreeManager.markFileModifiedInTree(reg, false);
+                        }
+                    }
+                }
             } catch (e) {
                 this.lastModified = Date.now();
             }
 
-            const diffIndex = this.recordChange(this.lastSavedCode, currentCode, saveDate);
-            this.lastSavedCode = currentCode;
+            const diffIndex = this.recordChange(prevSavedCode, currentCode, saveDate);
             this.updateTabIcon();
             this.saveToDB();
-
-            if (typeof folderTreeManager !== 'undefined' && folderTreeManager.rootHandle) {
-                folderTreeManager.checkForFolderChanges();
-            }
 
             if (showSnack) {
                 showSnackbar(`Saved "${this.name}" to file location.`);
@@ -2113,11 +2200,17 @@ class Tab {
                 showSnackbar(`Write permission needed for "${this.name}". Use Ctrl+S or click Save to authorize.`);
             }
             return false;
+        } finally {
+            this.isSaving = false;
         }
     }
 
     async checkExternalChange(force = false) {
-        if (!this.fileHandle || this.isCheckingExternal) return;
+        if (!this.fileHandle || this.isCheckingExternal || this.isSaving) return;
+        // Ignore self-induced filesystem events if we saved this tab recently
+        if (Date.now() - (this.lastSavedAt || 0) < 2500) {
+            return;
+        }
         this.isCheckingExternal = true;
         try {
             const file = await this.fileHandle.getFile();
@@ -2127,13 +2220,33 @@ class Tab {
             }
 
             const diskContent = await file.text();
+            const normDisk = normalizeCode(diskContent);
+            const normSaved = normalizeCode(this.lastSavedCode || '');
+            const normEditor = normalizeCode(this.editor.getValue());
 
-            if (diskContent === this.lastSavedCode && diskContent === this.editor.getValue()) {
+            // 1. If disk content matches what this app saved/loaded OR matches current editor content,
+            // NO external conflict occurred!
+            if (normDisk === normSaved || normDisk === normEditor) {
                 this.lastModified = diskModified;
+                if (normDisk === normEditor && normDisk !== normSaved) {
+                    this.lastSavedCode = diskContent;
+                    this.updateTabIcon();
+                }
                 return;
             }
 
-            // File was edited externally (e.g. from notepad.exe)
+            // 2. Disk content actually changed externally!
+            // But if the user is currently editing the file in this app (editor has unsaved edits):
+            if (normEditor !== normSaved) {
+                // There is a conflict: local unsaved edits in app VS external edits on disk!
+                // DO NOT REVERT OR OVERWRITE THE USER'S WORK!
+                this.lastModified = diskModified;
+                openExternalConflictModal(this, diskContent, diskModified);
+                return;
+            }
+
+            // 3. User's editor is clean (no unsaved edits in this app).
+            // It is safe to reload the genuine external changes into the editor.
             const oldCode = this.editor.getValue();
             const cursor = this.editor.getCursorPosition();
             const scrollTop = this.editor.session.getScrollTop();
@@ -2304,9 +2417,17 @@ class Tab {
                     const diskContent = await file.text();
                     const diskModified = file.lastModified || Date.now();
                     const oldCode = existingTab.editor.getValue();
-                    const wasEdited = (diskContent !== oldCode || diskContent !== existingTab.lastSavedCode);
+                    const normDisk = normalizeCode(diskContent);
+                    const normSaved = normalizeCode(existingTab.lastSavedCode || '');
+                    const normEditor = normalizeCode(oldCode);
+                    const wasDiskEdited = (normDisk !== normSaved && normDisk !== normEditor);
 
-                    if (wasEdited) {
+                    if (wasDiskEdited) {
+                        if (existingTab.isDirty()) {
+                            existingTab.lastModified = diskModified;
+                            openExternalConflictModal(existingTab, diskContent, diskModified);
+                            continue;
+                        }
                         if (existingTab.diskSaveTimeout) {
                             clearTimeout(existingTab.diskSaveTimeout);
                             existingTab.diskSaveTimeout = null;
@@ -2338,9 +2459,7 @@ class Tab {
                         }
                         showSnackbar(`"${existingTab.name}" updated with external changes.`);
                     } else {
-                        existingTab.lastSavedCode = diskContent;
-                        existingTab.updateTabIcon();
-                        existingTab.updateTitle();
+                        existingTab.lastModified = diskModified;
                     }
                     continue;
                 }
@@ -2396,6 +2515,7 @@ class Tab {
     }
 
     async saveToFile() {
+        if (this.isSaving) return false;
         if (!this.fileHandle) {
             let suggested = this.name;
             const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
@@ -5056,7 +5176,9 @@ document.addEventListener("keydown", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
-            tabManager.activeTab.saveToFile();
+            if (!tabManager.activeTab.isSaving) {
+                tabManager.activeTab.saveToFile();
+            }
         }
         return;
     }
@@ -7295,9 +7417,17 @@ class FolderTreeManager {
                     const contents = await file.text();
                     const diskModified = file.lastModified || Date.now();
                     const oldCode = existingTab.editor.getValue();
-                    const wasEdited = (contents !== oldCode || contents !== existingTab.lastSavedCode);
+                    const normDisk = normalizeCode(contents);
+                    const normSaved = normalizeCode(existingTab.lastSavedCode || '');
+                    const normEditor = normalizeCode(oldCode);
+                    const wasDiskEdited = (normDisk !== normSaved && normDisk !== normEditor);
 
-                    if (wasEdited) {
+                    if (wasDiskEdited) {
+                        if (existingTab.isDirty()) {
+                            existingTab.lastModified = diskModified;
+                            openExternalConflictModal(existingTab, contents, diskModified);
+                            return;
+                        }
                         if (existingTab.diskSaveTimeout) {
                             clearTimeout(existingTab.diskSaveTimeout);
                             existingTab.diskSaveTimeout = null;
@@ -7327,9 +7457,7 @@ class FolderTreeManager {
                         }
                         showSnackbar(`"${existingTab.name}" updated with external changes.`);
                     } else {
-                        existingTab.lastSavedCode = contents;
-                        existingTab.updateTabIcon();
-                        existingTab.updateTitle();
+                        existingTab.lastModified = diskModified;
                     }
                 } catch(e) {}
                 return;
@@ -7779,11 +7907,21 @@ class FolderTreeManager {
             let changeDetected = false;
             let detectedName = "";
 
-            // Check root directory entries
+            // Check root directory entries (ignoring hidden, temporary, and swap files)
+            const isIgnoredName = (n) => {
+                if (!n || typeof n !== "string") return true;
+                return n.startsWith(".") ||
+                    n.endsWith(".crswap") ||
+                    n.endsWith(".tmp") ||
+                    n.endsWith("~") ||
+                    n === "node_modules" ||
+                    n === ".git";
+            };
+
             const currentRootEntries = new Set();
             try {
                 for await (const [name, entry] of this.rootHandle.entries()) {
-                    if (name.startsWith(".") || name === "node_modules" || name === ".git") continue;
+                    if (isIgnoredName(name)) continue;
                     currentRootEntries.add(name);
                     const regItem = this.nodeRegistry.get(name);
                     if (!regItem) {
@@ -7816,7 +7954,7 @@ class FolderTreeManager {
                         const currentDirEntries = new Set();
                         try {
                             for await (const [name, entry] of regItem.handle.entries()) {
-                                if (name.startsWith(".") || name === "node_modules" || name === ".git") continue;
+                                if (isIgnoredName(name)) continue;
                                 const childPath = `${folderPath}/${name}`;
                                 currentDirEntries.add(childPath);
                                 if (!this.nodeRegistry.has(childPath)) {
@@ -7929,12 +8067,16 @@ class FolderTreeManager {
                                 }
 
                                 if (openTab) {
-                                    // If open in tab, let tab sync cleanly
-                                    openTab.checkExternalChange(true);
+                                    // If open in tab, let tab sync cleanly (skip if saving or saved by this app recently)
+                                    if (!openTab.isSaving && (Date.now() - (openTab.lastSavedAt || 0) > 2500)) {
+                                        openTab.checkExternalChange(true);
+                                    }
                                 } else {
                                     // File is NOT open in any tab! Highlight in tree and notify via snackbar!
-                                    this.markFileModifiedInTree(regItem, true);
-                                    showSnackbar(`"${fileName}" in folder was modified externally.`);
+                                    if (Date.now() - (regItem.lastSavedAt || 0) > 2500) {
+                                        this.markFileModifiedInTree(regItem, true);
+                                        showSnackbar(`"${fileName}" in folder was modified externally.`);
+                                    }
                                 }
                             } else if (!regItem.lastModified) {
                                 regItem.lastModified = currentMod;
