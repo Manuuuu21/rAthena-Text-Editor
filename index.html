@@ -26,6 +26,7 @@
       <p><label><input type="checkbox" id="toggleTooltip"> Enabled Documentation Tooltip</label></p>
       <p><label><input type="checkbox" id="toggleHideChatBot"> Hide chatbot container</label></p>
       <p><label><input type="checkbox" id="toggleAutoSave"> Autosave in 1.5 seconds</label></p>
+      <p><label><input type="checkbox" id="toggleTreeDoubleClick"> Double click to open the file</label></p>
     </div>
   </div>
 
@@ -101,6 +102,24 @@
           <button id="conflictDiffBtn" style="background: #007bff; color: white; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer;">Compare (Diff)</button>
           <button id="conflictReloadBtn" style="background: #dc3545; color: white; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer;">Reload from Disk</button>
           <button id="conflictKeepBtn" class="cancel-btn" style="padding: 7px 14px; border-radius: 8px; cursor: pointer;">Keep Editor Version</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete File/Folder Confirmation Modal -->
+  <div class="modal-overlay" id="deleteItemConfirmModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="deleteItemHeader">Confirm Delete</h2>
+        <button class="close-btn" onclick="if (typeof folderTreeManager !== 'undefined') folderTreeManager.closeDeleteModal()">✖</button>
+      </div>
+      <hr/>
+      <div style="padding: 15px 0;">
+        <p id="deleteItemMessage">Are you sure you want to delete this item?</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+          <button id="deleteItemCancelBtn" class="cancel-btn" onclick="if (typeof folderTreeManager !== 'undefined') folderTreeManager.closeDeleteModal()" style="padding: 7px 15px; border-radius: 8px; cursor: pointer;">Cancel</button>
+          <button id="deleteItemConfirmBtn" style="background: #dc3545; color: white; border: none; padding: 7px 16px; border-radius: 8px; cursor: pointer; font-weight: 600;">Delete</button>
         </div>
       </div>
     </div>
@@ -209,6 +228,45 @@
     <button type="submit" id="askAISubmit"
       style="padding: 6px 10px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer;">➜</button>
   </form>
+</div>
+
+<!-- Folder & File Tree Context Menu -->
+<div id="treeContextMenu" class="tree-context-menu" style="display: none;">
+  <div class="tree-menu-item" id="treeMenuNewFile" data-action="new-file">
+    <span class="tree-menu-icon">📄</span>
+    <span class="tree-menu-label">New File</span>
+  </div>
+  <div class="tree-menu-item" id="treeMenuNewFolder" data-action="new-folder">
+    <span class="tree-menu-icon">📁</span>
+    <span class="tree-menu-label">New Folder</span>
+  </div>
+  <div class="tree-menu-divider" id="treeMenuDivider1"></div>
+  <div class="tree-menu-item" id="treeMenuCut" data-action="cut">
+    <span class="tree-menu-icon">✂️</span>
+    <span class="tree-menu-label">Cut</span>
+    <span class="tree-menu-shortcut">Ctrl+X</span>
+  </div>
+  <div class="tree-menu-item" id="treeMenuCopy" data-action="copy">
+    <span class="tree-menu-icon">📋</span>
+    <span class="tree-menu-label">Copy</span>
+    <span class="tree-menu-shortcut">Ctrl+C</span>
+  </div>
+  <div class="tree-menu-item" id="treeMenuPaste" data-action="paste">
+    <span class="tree-menu-icon">📥</span>
+    <span class="tree-menu-label">Paste</span>
+    <span class="tree-menu-shortcut">Ctrl+V</span>
+  </div>
+  <div class="tree-menu-divider" id="treeMenuDivider2"></div>
+  <div class="tree-menu-item" id="treeMenuRename" data-action="rename">
+    <span class="tree-menu-icon">✏️</span>
+    <span class="tree-menu-label">Rename</span>
+    <span class="tree-menu-shortcut">F2</span>
+  </div>
+  <div class="tree-menu-item danger" id="treeMenuDelete" data-action="delete">
+    <span class="tree-menu-icon">🗑️</span>
+    <span class="tree-menu-label">Delete</span>
+    <span class="tree-menu-shortcut">Del</span>
+  </div>
 </div>
 
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
