@@ -497,6 +497,11 @@ window.onclick = function(event) {
   if (typeof folderTreeManager !== 'undefined' && folderTreeManager.closeContextMenu && (!event.target.closest || !event.target.closest('#treeContextMenu'))) {
     folderTreeManager.closeContextMenu();
   }
+  if (typeof folderTreeManager !== 'undefined' && folderTreeManager.clearTreeSelection) {
+    if (!event.target.closest || (!event.target.closest('#folderTreeContainer') && !event.target.closest('#treeContextMenu') && !event.target.closest('.modal') && !event.target.closest('.modal-overlay'))) {
+      folderTreeManager.clearTreeSelection();
+    }
+  }
 }
 
 let minimapEnabled = localStorage.getItem("minimapEnabled") !== "false";
@@ -6022,7 +6027,7 @@ class FolderTreeManager {
                 }
             };
             containerElem.onclick = (e) => {
-                if (e.target === containerElem || e.target.classList.contains("tree-empty-message") || e.target.id === "folderTreeContainer") {
+                if (!e.target.closest || !e.target.closest(".tree-node")) {
                     this.clearTreeSelection();
                 }
             };
@@ -6235,6 +6240,32 @@ class FolderTreeManager {
             }, true);
         }
 
+        if (!this._treeSelectionOutsideBound) {
+            this._treeSelectionOutsideBound = true;
+            const handleOutsideSelection = (e) => {
+                // If nothing is selected in the tree, avoid unnecessary work
+                if (!this.selectedTreeItem && (!this.selectedTreeItems || this.selectedTreeItems.length === 0)) {
+                    if (!document.querySelector(".tree-node.tree-selected")) return;
+                }
+
+                // If clicking directly on a tree file or folder, allow tree node handlers to process it
+                if (e.target && e.target.closest && e.target.closest(".tree-node")) return;
+
+                // If clicking inside the tree context menu, preserve selection so menu actions (copy/cut/delete) work
+                if (e.target && e.target.closest && e.target.closest("#treeContextMenu")) return;
+
+                // If clicking inside any modal or dialog overlay, preserve selection
+                if (e.target && e.target.closest && (e.target.closest(".modal") || e.target.closest(".modal-overlay"))) return;
+
+                // User clicked outside the folder tree (or on empty space in tree container) -> clear selection
+                this.clearTreeSelection();
+            };
+
+            window.addEventListener("pointerdown", handleOutsideSelection, true);
+            window.addEventListener("mousedown", handleOutsideSelection, true);
+            window.addEventListener("click", handleOutsideSelection, true);
+        }
+
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
                 this.closeContextMenu();
@@ -6243,6 +6274,7 @@ class FolderTreeManager {
                     document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
                     this.treeClipboard = null;
                 }
+                this.clearTreeSelection();
             }
 
             if (e.key === "Enter") {
