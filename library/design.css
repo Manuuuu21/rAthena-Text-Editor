@@ -1862,3 +1862,37 @@ html[data-theme="light"] .ace_nomatch {
   background-color: #ffebe9 !important;
 }
 
+/* External File Modified Indicator in Folder Tree */
+.tree-node.file-externally-modified {
+  position: relative;
+}
+
+.tree-modified-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  display: inline-block;
+  margin-left: auto;
+  margin-right: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.65);
+  animation: tree-dot-pulse 2s infinite ease-in-out;
+}
+
+html[data-theme="light"] .tree-modified-dot {
+  background-color: #0284c7;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.5);
+}
+
+@keyframes tree-dot-pulse {
+  0%, 100% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+

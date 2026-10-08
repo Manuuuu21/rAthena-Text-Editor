@@ -457,15 +457,23 @@ let activeExternalModified = 0;
 function openExternalConflictModal(tab, diskContent, diskModified) {
     closeExternalConflictModal();
     if (tab && diskContent !== undefined) {
+        if (tab.diskSaveTimeout) {
+            clearTimeout(tab.diskSaveTimeout);
+            tab.diskSaveTimeout = null;
+        }
         const cursor = tab.editor.getCursorPosition();
         const scrollTop = tab.editor.session.getScrollTop();
-        tab.editor.setValue(diskContent, -1);
-        tab.editor.moveCursorToPosition(cursor);
-        tab.editor.session.setScrollTop(scrollTop);
         tab.lastSavedCode = diskContent;
         if (diskModified) tab.lastModified = diskModified;
+        tab.editor.setValue(diskContent, -1);
+        tab.editor.session.setUndoManager(new ace.UndoManager());
+        try {
+            tab.editor.moveCursorToPosition(cursor);
+            tab.editor.session.setScrollTop(scrollTop);
+        } catch (e) {}
         tab.saveCurrentCodeToHistory();
         tab.updateTabIcon();
+        tab.updateTitle();
         tab.saveToDB();
         showSnackbar(`"${tab.name}" updated with external changes.`);
     }
@@ -1716,6 +1724,43 @@ class Tab {
 
                 if (existingTab) {
                     tabManager.switchTab(existingTab.id);
+                    const oldCode = existingTab.editor.getValue();
+                    const wasEdited = (contents !== oldCode || contents !== existingTab.lastSavedCode);
+
+                    if (wasEdited) {
+                        if (existingTab.diskSaveTimeout) {
+                            clearTimeout(existingTab.diskSaveTimeout);
+                            existingTab.diskSaveTimeout = null;
+                        }
+                        existingTab.lastSavedCode = contents;
+                        existingTab.lastModified = file.lastModified || Date.now();
+                        existingTab.editor.setValue(contents, -1);
+                        existingTab.editor.session.setUndoManager(new ace.UndoManager());
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                        existingTab.saveCurrentCodeToHistory();
+                        existingTab.saveToDB();
+
+                        const diffIndex = existingTab.recordChange(oldCode, contents, new Date(file.lastModified || Date.now()));
+                        if (diffIndex !== null) {
+                            const diffData = existingTab.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                            const additions = diffData.additions || 0;
+                            const removals = diffData.removals || 0;
+                            let aiMessage = `<p>File was modified externally (e.g. Notepad).<br/><br/>
+                                            <span style="font-size:10px"><b>Time Edited:</b> ${(new Date(file.lastModified || Date.now())).toLocaleString()}<br/>
+                                            <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
+                            aiMessage += `<div class="diff-actions">
+                                            <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${existingTab.id})">View Changes</button>
+                                            <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${existingTab.id})">Restore Code here</button>
+                                          </div>`;
+                            existingTab.addMessage(aiMessage, 'ai');
+                        }
+                        showSnackbar(`"${existingTab.name}" updated with external changes.`);
+                    } else {
+                        existingTab.lastSavedCode = contents;
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                    }
                     continue;
                 }
 
@@ -1743,15 +1788,17 @@ class Tab {
                     tabManager.lastDirectoryHandle = handle;
                 }
 
+                targetTab.lastSavedCode = contents;
+                targetTab.lastModified = file.lastModified || 0;
                 targetTab.editor.setValue(contents, -1);
                 targetTab.editor.session.setUndoManager(new ace.UndoManager());
                 targetTab.editor.scrollToLine(1, true, true);
                 targetTab.editor.gotoLine(1, 0, false);
                 targetTab.name = file.name;
-                targetTab.lastModified = file.lastModified || 0;
                 targetTab.updateEditorMode();
                 targetTab.saveCurrentCodeToHistory();
-                targetTab.lastSavedCode = contents;
+                targetTab.updateTabIcon();
+                targetTab.updateTitle();
                 tabManager.renderTabs();
                 tabManager.switchTab(targetTab.id);
                 targetTab.saveToDB();
@@ -2019,33 +2066,72 @@ class Tab {
         }
     }
 
-    async checkExternalChange() {
+    async checkExternalChange(force = false) {
         if (!this.fileHandle || this.isCheckingExternal) return;
         this.isCheckingExternal = true;
         try {
             const file = await this.fileHandle.getFile();
-            if (this.lastModified && file.lastModified <= this.lastModified) {
+            const diskModified = file.lastModified || 0;
+            if (!force && this.lastModified && diskModified === this.lastModified) {
                 return;
             }
 
             const diskContent = await file.text();
 
             if (diskContent === this.lastSavedCode && diskContent === this.editor.getValue()) {
-                this.lastModified = file.lastModified;
+                this.lastModified = diskModified;
                 return;
             }
 
+            // File was edited externally (e.g. from notepad.exe)
+            const oldCode = this.editor.getValue();
             const cursor = this.editor.getCursorPosition();
             const scrollTop = this.editor.session.getScrollTop();
-            this.editor.setValue(diskContent, -1);
-            this.editor.moveCursorToPosition(cursor);
-            this.editor.session.setScrollTop(scrollTop);
+            const scrollLeft = this.editor.session.getScrollLeft();
+
+            // Cancel any pending auto-save to disk so external edits aren't overwritten
+            if (this.diskSaveTimeout) {
+                clearTimeout(this.diskSaveTimeout);
+                this.diskSaveTimeout = null;
+            }
+
+            // Set lastSavedCode and lastModified first so editor change listener knows it is clean!
             this.lastSavedCode = diskContent;
-            this.lastModified = file.lastModified;
-            this.saveCurrentCodeToHistory();
+            this.lastModified = diskModified;
+
+            // Update editor value
+            this.editor.setValue(diskContent, -1);
+            this.editor.session.setUndoManager(new ace.UndoManager());
+            try {
+                this.editor.moveCursorToPosition(cursor);
+                this.editor.session.setScrollTop(scrollTop);
+                this.editor.session.setScrollLeft(scrollLeft);
+            } catch (e) {}
+
+            // Ensure it always stays completely clean
             this.updateTabIcon();
+            this.updateTitle();
+            this.saveCurrentCodeToHistory();
             this.saveToDB();
             closeExternalConflictModal();
+
+            // Record diff history
+            const diffIndex = this.recordChange(oldCode, diskContent, new Date(diskModified || Date.now()));
+            if (diffIndex !== null) {
+                const diffData = this.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                const additions = diffData.additions || 0;
+                const removals = diffData.removals || 0;
+                let aiMessage = `<p>File was modified externally (e.g. Notepad).<br/><br/>
+                                <span style="font-size:10px"><b>Time Edited:</b> ${(new Date(diskModified || Date.now())).toLocaleString()}<br/>
+                                <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
+                aiMessage += `<div class="diff-actions">
+                                <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${this.id})">View Changes</button>
+                                <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${this.id})">Restore Code here</button>
+                              </div>`;
+                this.addMessage(aiMessage, 'ai');
+            }
+
+            // Always give a snackbar notification if edited!
             showSnackbar(`"${this.name}" updated with external changes.`);
         } catch (err) {
             // Silently handle if permission not granted or file moved
@@ -2165,6 +2251,47 @@ class Tab {
 
                 if (existingTab) {
                     tabManager.switchTab(existingTab.id);
+                    const diskContent = await file.text();
+                    const diskModified = file.lastModified || Date.now();
+                    const oldCode = existingTab.editor.getValue();
+                    const wasEdited = (diskContent !== oldCode || diskContent !== existingTab.lastSavedCode);
+
+                    if (wasEdited) {
+                        if (existingTab.diskSaveTimeout) {
+                            clearTimeout(existingTab.diskSaveTimeout);
+                            existingTab.diskSaveTimeout = null;
+                        }
+                        existingTab.lastSavedCode = diskContent;
+                        existingTab.lastModified = diskModified;
+                        existingTab.editor.setValue(diskContent, -1);
+                        existingTab.editor.session.setUndoManager(new ace.UndoManager());
+                        existingTab.editor.scrollToLine(1, true, true);
+                        existingTab.editor.gotoLine(1, 0, false);
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                        existingTab.saveCurrentCodeToHistory();
+                        existingTab.saveToDB();
+
+                        const diffIndex = existingTab.recordChange(oldCode, diskContent, new Date(diskModified));
+                        if (diffIndex !== null) {
+                            const diffData = existingTab.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                            const additions = diffData.additions || 0;
+                            const removals = diffData.removals || 0;
+                            let aiMessage = `<p>File was modified externally (e.g. Notepad).<br/><br/>
+                                            <span style="font-size:10px"><b>Time Edited:</b> ${(new Date(diskModified)).toLocaleString()}<br/>
+                                            <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
+                            aiMessage += `<div class="diff-actions">
+                                            <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${existingTab.id})">View Changes</button>
+                                            <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${existingTab.id})">Restore Code here</button>
+                                          </div>`;
+                            existingTab.addMessage(aiMessage, 'ai');
+                        }
+                        showSnackbar(`"${existingTab.name}" updated with external changes.`);
+                    } else {
+                        existingTab.lastSavedCode = diskContent;
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                    }
                     continue;
                 }
 
@@ -2190,6 +2317,8 @@ class Tab {
                 targetTab.fileHandle = handle;
                 tabManager.lastDirectoryHandle = handle;
                 const contents = await file.text();
+                targetTab.lastSavedCode = contents;
+                targetTab.lastModified = file.lastModified || 0;
                 targetTab.editor.setValue(contents, -1);
                 targetTab.editor.session.setUndoManager(new ace.UndoManager());
                 targetTab.editor.scrollToLine(1, true, true);
@@ -2203,10 +2332,10 @@ class Tab {
                         }
                     } catch (e) {}
                 }
-                targetTab.lastModified = file.lastModified || 0;
                 targetTab.updateEditorMode();
                 targetTab.saveCurrentCodeToHistory();
-                targetTab.lastSavedCode = contents;
+                targetTab.updateTabIcon();
+                targetTab.updateTitle();
                 tabManager.renderTabs();
                 tabManager.switchTab(targetTab.id);
                 targetTab.saveToDB();
@@ -4918,8 +5047,15 @@ document.addEventListener("keydown", (e) => {
 
 // External File Change Detection (Syncing external edits from Notepad / other editors)
 window.addEventListener("focus", () => {
-    if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
-        tabManager.activeTab.checkExternalChange();
+    if (typeof tabManager !== 'undefined') {
+        if (tabManager.activeTab) {
+            tabManager.activeTab.checkExternalChange(true);
+        }
+        tabManager.tabs.forEach(tab => {
+            if (tab !== tabManager.activeTab && tab.fileHandle) {
+                tab.checkExternalChange();
+            }
+        });
     }
 });
 
@@ -4960,8 +5096,15 @@ document.addEventListener("visibilitychange", () => {
             tabManager.flushAllTabsToDB();
         }
     } else if (document.visibilityState === "visible") {
-        if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
-            tabManager.activeTab.checkExternalChange();
+        if (typeof tabManager !== 'undefined') {
+            if (tabManager.activeTab) {
+                tabManager.activeTab.checkExternalChange(true);
+            }
+            tabManager.tabs.forEach(tab => {
+                if (tab !== tabManager.activeTab && tab.fileHandle) {
+                    tab.checkExternalChange();
+                }
+            });
         }
     }
 });
@@ -4971,7 +5114,7 @@ setInterval(() => {
     if (document.hasFocus() && typeof tabManager !== 'undefined' && tabManager.activeTab && tabManager.activeTab.fileHandle) {
         tabManager.activeTab.checkExternalChange();
     }
-}, 3000);
+}, 2000);
 
 document.addEventListener("click", () => {
     document.getElementById("contextMenu").style.display = "none";
@@ -5629,12 +5772,26 @@ class FolderTreeManager {
                 handle: item.handle,
                 path: item.relativePath,
                 isDirectory: false,
-                nodeElem: fileNode
+                nodeElem: fileNode,
+                lastModified: 0,
+                lastSize: 0,
+                isModifiedExternally: false
             };
             this.nodeRegistry.set(item.relativePath, regItem);
 
+            // Read initial file metadata asynchronously
+            if (typeof item.handle.getFile === "function") {
+                item.handle.getFile().then(f => {
+                    if (f) {
+                        regItem.lastModified = f.lastModified || 0;
+                        regItem.lastSize = f.size || 0;
+                    }
+                }).catch(() => {});
+            }
+
             fileNode.onclick = async (e) => {
                 e.stopPropagation();
+                this.clearFileModifiedInTree(regItem);
                 await this.openFileFromTree(item.handle, item.relativePath);
             };
 
@@ -5698,9 +5855,37 @@ class FolderTreeManager {
         }
     }
 
+    markFileModifiedInTree(regItem, modified = true) {
+        if (!regItem || !regItem.nodeElem) return;
+        regItem.isModifiedExternally = modified;
+        let dot = regItem.nodeElem.querySelector(".tree-modified-dot");
+        if (modified) {
+            if (!dot) {
+                dot = document.createElement("span");
+                dot.className = "tree-modified-dot";
+                dot.title = "Modified externally in Notepad / external editor";
+                regItem.nodeElem.appendChild(dot);
+            }
+            regItem.nodeElem.classList.add("file-externally-modified");
+            regItem.nodeElem.title = `${regItem.path} (Modified externally)`;
+        } else {
+            if (dot) dot.remove();
+            regItem.nodeElem.classList.remove("file-externally-modified");
+            regItem.nodeElem.title = regItem.path;
+        }
+    }
+
+    clearFileModifiedInTree(regItem) {
+        this.markFileModifiedInTree(regItem, false);
+    }
+
     async openFileFromTree(fileHandle, relativePath) {
         if (typeof tabManager === 'undefined') return;
         this.suppressTreeScroll = true;
+        const currentReg = this.nodeRegistry.get(relativePath);
+        if (currentReg) {
+            this.clearFileModifiedInTree(currentReg);
+        }
         try {
             // Check if this file is already open in an existing tab
             let existingTab = null;
@@ -5722,6 +5907,48 @@ class FolderTreeManager {
             if (existingTab) {
                 tabManager.switchTab(existingTab.id);
                 await this.highlightActiveInTree(relativePath, existingTab, false);
+                try {
+                    const file = await fileHandle.getFile();
+                    const contents = await file.text();
+                    const diskModified = file.lastModified || Date.now();
+                    const oldCode = existingTab.editor.getValue();
+                    const wasEdited = (contents !== oldCode || contents !== existingTab.lastSavedCode);
+
+                    if (wasEdited) {
+                        if (existingTab.diskSaveTimeout) {
+                            clearTimeout(existingTab.diskSaveTimeout);
+                            existingTab.diskSaveTimeout = null;
+                        }
+                        existingTab.lastSavedCode = contents;
+                        existingTab.lastModified = diskModified;
+                        existingTab.editor.setValue(contents, -1);
+                        existingTab.editor.session.setUndoManager(new ace.UndoManager());
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                        existingTab.saveCurrentCodeToHistory();
+                        existingTab.saveToDB();
+
+                        const diffIndex = existingTab.recordChange(oldCode, contents, new Date(diskModified));
+                        if (diffIndex !== null) {
+                            const diffData = existingTab.diffHistory[diffIndex] || { additions: 0, removals: 0 };
+                            const additions = diffData.additions || 0;
+                            const removals = diffData.removals || 0;
+                            let aiMessage = `<p>File was modified externally (e.g. Notepad).<br/><br/>
+                                            <span style="font-size:10px"><b>Time Edited:</b> ${(new Date(diskModified)).toLocaleString()}<br/>
+                                            <b><span style="color: #2ea043;">+${additions}</span> <span style="color: #f85149;">-${removals}</span> lines changed</b></span></p>`;
+                            aiMessage += `<div class="diff-actions">
+                                            <button class="diff-btn view" onclick="openDiff(${diffIndex}, ${existingTab.id})">View Changes</button>
+                                            <button class="diff-btn restore" onclick="restoreFromDiff(${diffIndex}, 'new', ${existingTab.id})">Restore Code here</button>
+                                          </div>`;
+                            existingTab.addMessage(aiMessage, 'ai');
+                        }
+                        showSnackbar(`"${existingTab.name}" updated with external changes.`);
+                    } else {
+                        existingTab.lastSavedCode = contents;
+                        existingTab.updateTabIcon();
+                        existingTab.updateTitle();
+                    }
+                } catch(e) {}
                 return;
             }
 
@@ -5740,6 +5967,7 @@ class FolderTreeManager {
             targetTab.fileHandle = fileHandle;
             targetTab.relativePath = relativePath;
             targetTab.name = file.name;
+            targetTab.lastSavedCode = contents;
             targetTab.lastModified = file.lastModified || Date.now();
             targetTab.codeHistory = [];
             targetTab.currentHistoryIndex = -1;
@@ -5750,7 +5978,8 @@ class FolderTreeManager {
             targetTab.editor.gotoLine(1, 0, false);
             targetTab.updateEditorMode();
             targetTab.saveCurrentCodeToHistory();
-            targetTab.lastSavedCode = contents;
+            targetTab.updateTabIcon();
+            targetTab.updateTitle();
 
             tabManager.renderTabs();
             tabManager.switchTab(targetTab.id);
@@ -6212,6 +6441,47 @@ class FolderTreeManager {
                     showSnackbar(`File change detected ("${detectedName}") — Folder tree updated.`);
                 } else {
                     showSnackbar(`Folder tree updated.`);
+                }
+            } else {
+                // Check for content/timestamp changes in all files in the tree (including unopened files like addtimer deltimer.txt)
+                for (const [filePath, regItem] of this.nodeRegistry.entries()) {
+                    if (!regItem.isDirectory && regItem.handle) {
+                        try {
+                            const fileObj = await regItem.handle.getFile();
+                            const currentMod = fileObj.lastModified || 0;
+                            const currentSize = fileObj.size || 0;
+
+                            if (regItem.lastModified && (currentMod !== regItem.lastModified || currentSize !== regItem.lastSize)) {
+                                regItem.lastModified = currentMod;
+                                regItem.lastSize = currentSize;
+
+                                const fileName = filePath.split("/").pop();
+
+                                // Check if this file is open in any editor tab
+                                let openTab = null;
+                                if (typeof tabManager !== 'undefined') {
+                                    for (const tab of tabManager.tabs) {
+                                        if (tab.fileHandle && (tab.name === fileName || tab.relativePath === filePath)) {
+                                            openTab = tab;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (openTab) {
+                                    // If open in tab, let tab sync cleanly
+                                    openTab.checkExternalChange(true);
+                                } else {
+                                    // File is NOT open in any tab! Highlight in tree and notify via snackbar!
+                                    this.markFileModifiedInTree(regItem, true);
+                                    showSnackbar(`"${fileName}" in folder was modified externally.`);
+                                }
+                            } else if (!regItem.lastModified) {
+                                regItem.lastModified = currentMod;
+                                regItem.lastSize = currentSize;
+                            }
+                        } catch (e) {}
+                    }
                 }
             }
         } catch (err) {
