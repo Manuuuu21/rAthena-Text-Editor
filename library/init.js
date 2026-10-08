@@ -395,6 +395,10 @@ function openModal() {
   if (toggleAutoSaveElem && typeof autoSaveEnabled !== 'undefined') {
     toggleAutoSaveElem.checked = autoSaveEnabled;
   }
+  const toggleTreeDblElem = document.getElementById('toggleTreeDoubleClick');
+  if (toggleTreeDblElem && typeof treeDoubleClickOpen !== 'undefined') {
+    toggleTreeDblElem.checked = treeDoubleClickOpen;
+  }
   document.getElementById('modalOverlay').style.display = 'flex';
 }
 
@@ -489,6 +493,10 @@ window.onclick = function(event) {
   if (event.target.id == 'clearChatModal') closeClearChatModal();
   if (event.target.id == 'closeTabConfirmModal') closeCloseTabConfirmModal();
   if (event.target.id == 'externalConflictModal') closeExternalConflictModal();
+  if (event.target.id == 'deleteItemConfirmModal' && typeof folderTreeManager !== 'undefined') folderTreeManager.closeDeleteModal();
+  if (typeof folderTreeManager !== 'undefined' && folderTreeManager.closeContextMenu && (!event.target.closest || !event.target.closest('#treeContextMenu'))) {
+    folderTreeManager.closeContextMenu();
+  }
 }
 
 let minimapEnabled = localStorage.getItem("minimapEnabled") !== "false";
@@ -496,6 +504,7 @@ let localCompletionEnabled = localStorage.getItem("localCompletionEnabled") !== 
 let documentationTooltipEnabled = localStorage.getItem("documentationTooltipEnabled") === "true";
 let hideChatBotContainer = localStorage.getItem("hideChatBotContainer") === "true";
 let autoSaveEnabled = localStorage.getItem("autoSaveEnabled") === "true";
+let treeDoubleClickOpen = localStorage.getItem("treeDoubleClickOpen") === "true";
 
 const toggleAutoSaveElem = document.getElementById("toggleAutoSave");
 if (toggleAutoSaveElem) {
@@ -507,6 +516,20 @@ if (toggleAutoSaveElem) {
       showSnackbar("Autosave in 1.5 seconds enabled.");
     } else {
       showSnackbar("Autosave disabled.");
+    }
+  });
+}
+
+const toggleTreeDblElem = document.getElementById("toggleTreeDoubleClick");
+if (toggleTreeDblElem) {
+  toggleTreeDblElem.checked = treeDoubleClickOpen;
+  toggleTreeDblElem.addEventListener("change", function () {
+    treeDoubleClickOpen = this.checked;
+    localStorage.setItem("treeDoubleClickOpen", treeDoubleClickOpen);
+    if (treeDoubleClickOpen) {
+      showSnackbar("Double click to open file enabled.");
+    } else {
+      showSnackbar("Double click to open file disabled.");
     }
   });
 }
@@ -1863,6 +1886,23 @@ class Tab {
         this.updateHistoryButtons();
         this.visibleCount = 10;
         this.updateMessageVisibility(false);
+
+        if (this.fileHandle && typeof folderTreeManager !== 'undefined' && folderTreeManager && folderTreeManager.rootHandle) {
+            folderTreeManager.rootHandle.resolve(this.fileHandle).then(parts => {
+                if (parts && parts.length > 0) {
+                    const resolvedPath = parts.join('/');
+                    if (this.relativePath !== resolvedPath) {
+                        this.relativePath = resolvedPath;
+                        this.updateTitle();
+                        this.saveToDB();
+                        if (typeof tabManager !== 'undefined') {
+                            tabManager.renderTabs();
+                        }
+                    }
+                }
+            }).catch(() => {});
+        }
+
         this.updateTitle();
         this.checkExternalChange();
         // Use timeout to prevent scroll-to-focus issues during tab transition
@@ -1875,10 +1915,15 @@ class Tab {
     }
 
     updateTitle() {
+        const displayName = this.relativePath || this.name;
         if (typeof tabManager !== 'undefined' && tabManager.activeTab === this) {
             const prefix = this.isDirty() ? '● ' : '';
-            const displayName = this.relativePath || this.name;
             document.title = `${prefix}${displayName} - rAthena Text Editor`;
+        }
+        // Always ensure the tab button DOM element has its title attribute matching the tab location
+        const btn = document.querySelector(`.tab-button[data-id="${this.id}"]`);
+        if (btn) {
+            btn.title = displayName;
         }
     }
 
@@ -5365,11 +5410,19 @@ class FolderTreeManager {
         this.selectedSearchIndex = -1;
         this.initialized = false;
         this.isOpeningFile = false;
+        this.treeClipboard = null;
+        this.selectedTreeItem = null;
+        this.selectedTreeItems = [];
+        this.contextMenuItem = null;
+        this.pendingDeleteItem = null;
+        this.pendingDeleteItems = [];
     }
 
     init() {
         if (this.initialized) return;
         this.initialized = true;
+
+        this.initContextMenu();
 
         const sidebar = document.getElementById("sidebarArea");
         if (sidebar && this.savedSidebarWidth) {
@@ -5517,6 +5570,35 @@ class FolderTreeManager {
 
         // Resizer setup
         this.initResizer();
+
+        // Drag to root workspace folder via sidebar header
+        const sidebarTitle = document.getElementById("sidebarTitle");
+        if (sidebarTitle && !sidebarTitle._hasDropListener) {
+            sidebarTitle._hasDropListener = true;
+            sidebarTitle.ondragover = (e) => {
+                if (!this.draggedTreeItem) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                sidebarTitle.classList.add("tree-drop-target");
+            };
+            sidebarTitle.ondragleave = () => {
+                sidebarTitle.classList.remove("tree-drop-target");
+            };
+            sidebarTitle.ondrop = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                sidebarTitle.classList.remove("tree-drop-target");
+                if (!this.draggedTreeItem) return;
+                const source = this.draggedTreeItem;
+                this.draggedTreeItem = null;
+                await this.moveItemToFolder(source, {
+                    isDirectory: true,
+                    handle: this.rootHandle,
+                    path: "",
+                    isRoot: true
+                });
+            };
+        }
 
         // Restore workspace folder from IndexedDB if previously saved
         this.restoreWorkspaceFromDB();
@@ -5730,13 +5812,60 @@ class FolderTreeManager {
                 arrowElem: arrow,
                 iconElem: icon,
                 childrenElem: childrenContainer,
-                depth: depth + 1
+                depth: depth + 1,
+                parentHandle: dirHandle,
+                parentPath: parentPath
             };
             this.nodeRegistry.set(item.relativePath, regItem);
 
+            folderNode.setAttribute("draggable", "true");
+            folderNode.ondragstart = (e) => {
+                e.stopPropagation();
+                this.draggedTreeItem = regItem;
+                folderNode.classList.add("tree-node-dragging");
+                e.dataTransfer.setData("text/plain", regItem.path);
+                e.dataTransfer.effectAllowed = "move";
+            };
+            folderNode.ondragend = () => {
+                folderNode.classList.remove("tree-node-dragging");
+                document.querySelectorAll(".tree-drop-target").forEach(el => el.classList.remove("tree-drop-target"));
+                this.draggedTreeItem = null;
+            };
+            folderNode.ondragover = (e) => {
+                if (!this.draggedTreeItem || this.draggedTreeItem === regItem) return;
+                if (this.draggedTreeItem.isDirectory && (regItem.path === this.draggedTreeItem.path || regItem.path.startsWith(this.draggedTreeItem.path + "/"))) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
+                folderNode.classList.add("tree-drop-target");
+            };
+            folderNode.ondragleave = () => {
+                folderNode.classList.remove("tree-drop-target");
+            };
+            folderNode.ondrop = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                folderNode.classList.remove("tree-drop-target");
+                if (!this.draggedTreeItem || this.draggedTreeItem === regItem) return;
+                const source = this.draggedTreeItem;
+                this.draggedTreeItem = null;
+                await this.moveItemToFolder(source, regItem);
+            };
+
             folderNode.onclick = async (e) => {
                 e.stopPropagation();
-                await this.toggleFolderNode(regItem);
+                if (e.ctrlKey || e.metaKey) {
+                    this.toggleTreeItemSelection(regItem);
+                } else {
+                    this.setSelectedTreeItem(regItem);
+                    await this.toggleFolderNode(regItem);
+                }
+            };
+
+            folderNode.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showContextMenu(e, regItem);
             };
 
             folderWrapper.appendChild(folderNode);
@@ -5775,7 +5904,10 @@ class FolderTreeManager {
                 nodeElem: fileNode,
                 lastModified: 0,
                 lastSize: 0,
-                isModifiedExternally: false
+                isModifiedExternally: false,
+                depth: depth,
+                parentHandle: dirHandle,
+                parentPath: parentPath
             };
             this.nodeRegistry.set(item.relativePath, regItem);
 
@@ -5789,13 +5921,123 @@ class FolderTreeManager {
                 }).catch(() => {});
             }
 
+            fileNode.setAttribute("draggable", "true");
+            fileNode.ondragstart = (e) => {
+                e.stopPropagation();
+                this.draggedTreeItem = regItem;
+                fileNode.classList.add("tree-node-dragging");
+                e.dataTransfer.setData("text/plain", regItem.path);
+                e.dataTransfer.effectAllowed = "move";
+            };
+            fileNode.ondragend = () => {
+                fileNode.classList.remove("tree-node-dragging");
+                document.querySelectorAll(".tree-drop-target").forEach(el => el.classList.remove("tree-drop-target"));
+                this.draggedTreeItem = null;
+            };
+            fileNode.ondragover = (e) => {
+                if (!this.draggedTreeItem || this.draggedTreeItem === regItem) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = "move";
+                fileNode.classList.add("tree-drop-target");
+            };
+            fileNode.ondragleave = () => {
+                fileNode.classList.remove("tree-drop-target");
+            };
+            fileNode.ondrop = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileNode.classList.remove("tree-drop-target");
+                if (!this.draggedTreeItem || this.draggedTreeItem === regItem) return;
+                const source = this.draggedTreeItem;
+                this.draggedTreeItem = null;
+                await this.moveItemToFolder(source, {
+                    isDirectory: true,
+                    handle: regItem.parentHandle || this.rootHandle,
+                    path: regItem.parentPath || "",
+                    isRoot: !regItem.parentPath
+                });
+            };
+
             fileNode.onclick = async (e) => {
                 e.stopPropagation();
-                this.clearFileModifiedInTree(regItem);
-                await this.openFileFromTree(item.handle, item.relativePath);
+                if (e.ctrlKey || e.metaKey) {
+                    this.toggleTreeItemSelection(regItem);
+                } else {
+                    this.setSelectedTreeItem(regItem);
+                    if (!treeDoubleClickOpen) {
+                        this.clearFileModifiedInTree(regItem);
+                        await this.openFileFromTree(item.handle, item.relativePath);
+                    }
+                }
+            };
+
+            fileNode.ondblclick = async (e) => {
+                e.stopPropagation();
+                if (e.ctrlKey || e.metaKey) return;
+                this.setSelectedTreeItem(regItem);
+                if (treeDoubleClickOpen) {
+                    this.clearFileModifiedInTree(regItem);
+                    await this.openFileFromTree(item.handle, item.relativePath);
+                }
+            };
+
+            fileNode.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showContextMenu(e, regItem);
             };
 
             containerElem.appendChild(fileNode);
+        }
+
+        if (depth === 0) {
+            containerElem.ondragover = (e) => {
+                if (!this.draggedTreeItem) return;
+                if (e.target === containerElem || e.target.classList.contains("tree-empty-message") || e.target.id === "folderTreeContainer") {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    containerElem.classList.add("tree-drop-target");
+                }
+            };
+            containerElem.ondragleave = (e) => {
+                if (e.target === containerElem) {
+                    containerElem.classList.remove("tree-drop-target");
+                }
+            };
+            containerElem.ondrop = async (e) => {
+                containerElem.classList.remove("tree-drop-target");
+                if (e.target === containerElem || e.target.classList.contains("tree-empty-message") || e.target.id === "folderTreeContainer") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!this.draggedTreeItem) return;
+                    const source = this.draggedTreeItem;
+                    this.draggedTreeItem = null;
+                    await this.moveItemToFolder(source, {
+                        isDirectory: true,
+                        handle: this.rootHandle,
+                        path: "",
+                        isRoot: true
+                    });
+                }
+            };
+            containerElem.onclick = (e) => {
+                if (e.target === containerElem || e.target.classList.contains("tree-empty-message") || e.target.id === "folderTreeContainer") {
+                    this.clearTreeSelection();
+                }
+            };
+            containerElem.oncontextmenu = (e) => {
+                if (e.target === containerElem || e.target.classList.contains("tree-empty-message")) {
+                    e.preventDefault();
+                    this.showContextMenu(e, {
+                        handle: this.rootHandle,
+                        path: "",
+                        isDirectory: true,
+                        isRoot: true,
+                        nodeElem: null
+                    });
+                }
+            };
         }
         
         // Mark active file in tree if it was rendered in this directory, without scrolling or re-expanding
@@ -5879,12 +6121,1121 @@ class FolderTreeManager {
         this.markFileModifiedInTree(regItem, false);
     }
 
+    setSelectedTreeItem(regItem) {
+        this.selectedTreeItem = regItem || null;
+        this.selectedTreeItems = regItem ? [regItem] : [];
+        this.updateTreeSelectionUI();
+    }
+
+    toggleTreeItemSelection(regItem) {
+        if (!regItem || regItem.isRoot) return;
+        if (!this.selectedTreeItems) {
+            this.selectedTreeItems = [];
+        }
+
+        const idx = this.selectedTreeItems.findIndex(it => it === regItem || (it.path === regItem.path && it.isDirectory === regItem.isDirectory));
+        if (idx >= 0) {
+            this.selectedTreeItems.splice(idx, 1);
+            this.selectedTreeItem = this.selectedTreeItems.length > 0 ? this.selectedTreeItems[this.selectedTreeItems.length - 1] : null;
+        } else {
+            this.selectedTreeItems.push(regItem);
+            this.selectedTreeItem = regItem;
+        }
+        this.updateTreeSelectionUI();
+    }
+
+    clearTreeSelection() {
+        this.selectedTreeItem = null;
+        this.selectedTreeItems = [];
+        this.updateTreeSelectionUI();
+    }
+
+    updateTreeSelectionUI() {
+        document.querySelectorAll(".tree-node.tree-selected").forEach(el => el.classList.remove("tree-selected"));
+        if (this.selectedTreeItems && this.selectedTreeItems.length > 0) {
+            for (const item of this.selectedTreeItems) {
+                if (item && item.nodeElem) {
+                    item.nodeElem.classList.add("tree-selected");
+                }
+            }
+        }
+    }
+
+    hasTreeClipboard() {
+        if (!this.treeClipboard) return false;
+        if (this.treeClipboard.items && this.treeClipboard.items.length > 0) return true;
+        if (this.treeClipboard.item) return true;
+        return false;
+    }
+
+    getClipboardItems() {
+        if (!this.treeClipboard) return [];
+        if (this.treeClipboard.items && this.treeClipboard.items.length > 0) return this.treeClipboard.items;
+        if (this.treeClipboard.item) return [this.treeClipboard.item];
+        return [];
+    }
+
+    getClipboardCount() {
+        return this.getClipboardItems().length;
+    }
+
+    initContextMenu() {
+        const menu = document.getElementById("treeContextMenu");
+        if (menu && !menu._hasListener) {
+            menu._hasListener = true;
+            menu.addEventListener("click", (e) => {
+                const item = e.target.closest(".tree-menu-item");
+                if (!item || item.classList.contains("disabled")) return;
+                const action = item.dataset.action;
+                const target = this.contextMenuItem || this.selectedTreeItem || { isDirectory: true, handle: this.rootHandle, isRoot: true, path: "" };
+
+                if (action === "new-file") {
+                    this.startInlineCreate(target, "file");
+                } else if (action === "new-folder") {
+                    this.startInlineCreate(target, "folder");
+                } else if (action === "cut") {
+                    this.cutItem(target);
+                } else if (action === "copy") {
+                    this.copyItem(target);
+                } else if (action === "paste") {
+                    this.pasteItem(target);
+                } else if (action === "rename") {
+                    this.startInlineRename(target);
+                } else if (action === "delete") {
+                    this.promptDelete(target);
+                }
+            });
+        }
+
+        if (!this._contextMenuOutsideBound) {
+            this._contextMenuOutsideBound = true;
+            const handleOutside = (e) => {
+                const menu = document.getElementById("treeContextMenu");
+                if (!menu || menu.style.display === "none") return;
+                if (e.target && e.target.closest && e.target.closest("#treeContextMenu")) return;
+                this.closeContextMenu();
+            };
+
+            window.addEventListener("pointerdown", handleOutside, true);
+            window.addEventListener("mousedown", handleOutside, true);
+            window.addEventListener("click", handleOutside, true);
+            window.addEventListener("contextmenu", (e) => {
+                const menu = document.getElementById("treeContextMenu");
+                if (!menu || menu.style.display === "none") return;
+                if (e.target && e.target.closest && e.target.closest("#treeContextMenu")) return;
+                this.closeContextMenu();
+            }, true);
+            window.addEventListener("blur", () => this.closeContextMenu());
+            window.addEventListener("resize", () => this.closeContextMenu());
+            document.addEventListener("scroll", (e) => {
+                const menu = document.getElementById("treeContextMenu");
+                if (!menu || menu.style.display === "none") return;
+                if (e.target && e.target.closest && e.target.closest("#treeContextMenu")) return;
+                this.closeContextMenu();
+            }, true);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                this.closeContextMenu();
+                this.closeDeleteModal();
+                if (this.treeClipboard && this.treeClipboard.action === 'cut') {
+                    document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
+                    this.treeClipboard = null;
+                }
+            }
+
+            if (e.key === "Enter") {
+                const modal = document.getElementById("deleteItemConfirmModal");
+                if (modal && modal.style.display !== "none") {
+                    e.preventDefault();
+                    this.confirmDelete();
+                    return;
+                }
+            }
+
+            const isCtrl = e.ctrlKey || e.metaKey;
+            const isAlt = e.altKey;
+            const isShift = e.shiftKey;
+            const key = e.key ? e.key.toLowerCase() : "";
+
+            const activeEl = document.activeElement;
+            const isInputFocused = activeEl && (
+                activeEl.tagName === "INPUT" ||
+                activeEl.tagName === "TEXTAREA" ||
+                activeEl.classList.contains("ace_text-input")
+            );
+
+            const hasTreeSelection = (this.selectedTreeItem || (this.selectedTreeItems && this.selectedTreeItems.length > 0));
+            if (!isInputFocused) {
+                if (hasTreeSelection) {
+                    if (isCtrl && !isAlt && !isShift && key === "c") {
+                        e.preventDefault();
+                        this.copyItem(this.selectedTreeItem);
+                    } else if (isCtrl && !isAlt && !isShift && key === "x") {
+                        e.preventDefault();
+                        this.cutItem(this.selectedTreeItem);
+                    } else if (isCtrl && !isAlt && !isShift && key === "v") {
+                        e.preventDefault();
+                        this.pasteItem(this.selectedTreeItem);
+                    } else if (e.key === "F2" && this.selectedTreeItem && (!this.selectedTreeItems || this.selectedTreeItems.length <= 1)) {
+                        e.preventDefault();
+                        this.startInlineRename(this.selectedTreeItem);
+                    } else if (e.key === "Delete") {
+                        e.preventDefault();
+                        this.promptDelete();
+                    } else if (e.key === "Enter" && this.selectedTreeItem && !this.selectedTreeItem.isDirectory) {
+                        e.preventDefault();
+                        this.clearFileModifiedInTree(this.selectedTreeItem);
+                        this.openFileFromTree(this.selectedTreeItem.handle, this.selectedTreeItem.path);
+                    } else if (e.key === "Enter" && this.selectedTreeItem && this.selectedTreeItem.isDirectory) {
+                        e.preventDefault();
+                        this.toggleFolderNode(this.selectedTreeItem);
+                    }
+                } else if (isCtrl && !isAlt && !isShift && key === "v" && this.hasTreeClipboard()) {
+                    e.preventDefault();
+                    this.pasteItem(this.selectedTreeItem || { isDirectory: true, handle: this.rootHandle, path: "", isRoot: true });
+                }
+            }
+        });
+    }
+
+    showContextMenu(e, regItem) {
+        const menu = document.getElementById("treeContextMenu");
+        if (!menu) return;
+        this.contextMenuItem = regItem;
+
+        const inMulti = this.selectedTreeItems && this.selectedTreeItems.length > 1 &&
+            this.selectedTreeItems.some(it => it === regItem || (it.path === regItem.path && it.isDirectory === regItem.isDirectory));
+        if (!inMulti) {
+            this.setSelectedTreeItem(regItem);
+        }
+
+        const isDir = regItem && regItem.isDirectory;
+        const isRoot = !!(regItem && regItem.isRoot);
+        const isMulti = this.selectedTreeItems && this.selectedTreeItems.length > 1;
+
+        const newFileItem = document.getElementById("treeMenuNewFile");
+        const newFolderItem = document.getElementById("treeMenuNewFolder");
+        const div1 = document.getElementById("treeMenuDivider1");
+        const cutItem = document.getElementById("treeMenuCut");
+        const copyItem = document.getElementById("treeMenuCopy");
+        const pasteItem = document.getElementById("treeMenuPaste");
+        const div2 = document.getElementById("treeMenuDivider2");
+        const renameItem = document.getElementById("treeMenuRename");
+        const deleteItem = document.getElementById("treeMenuDelete");
+
+        const updateItemLabel = (el, text) => {
+            if (!el) return;
+            const labelSpan = el.querySelector(".tree-menu-label");
+            if (labelSpan) {
+                labelSpan.textContent = text;
+            }
+        };
+
+        const hasClipboard = this.hasTreeClipboard();
+        const clipCount = this.getClipboardCount();
+
+        if (isMulti) {
+            if (newFileItem) newFileItem.style.display = "none";
+            if (newFolderItem) newFolderItem.style.display = "none";
+            if (div1) div1.style.display = "none";
+
+            const count = this.selectedTreeItems.length;
+
+            if (cutItem) {
+                cutItem.style.display = "flex";
+                updateItemLabel(cutItem, `Cut (${count})`);
+            }
+            if (copyItem) {
+                copyItem.style.display = "flex";
+                updateItemLabel(copyItem, `Copy (${count})`);
+            }
+            if (pasteItem) {
+                pasteItem.style.display = "flex";
+                if (hasClipboard) {
+                    pasteItem.classList.remove("disabled");
+                } else {
+                    pasteItem.classList.add("disabled");
+                }
+                updateItemLabel(pasteItem, clipCount > 1 ? `Paste (${clipCount})` : "Paste");
+            }
+            if (div2) div2.style.display = "block";
+            if (renameItem) renameItem.style.display = "none";
+            if (deleteItem) {
+                deleteItem.style.display = "flex";
+                updateItemLabel(deleteItem, `Delete (${count})`);
+            }
+        } else {
+            if (cutItem) updateItemLabel(cutItem, "Cut");
+            if (copyItem) updateItemLabel(copyItem, "Copy");
+            if (deleteItem) updateItemLabel(deleteItem, "Delete");
+
+            if (isDir) {
+                if (newFileItem) newFileItem.style.display = "flex";
+                if (newFolderItem) newFolderItem.style.display = "flex";
+                if (div1) div1.style.display = "block";
+            } else {
+                if (newFileItem) newFileItem.style.display = "none";
+                if (newFolderItem) newFolderItem.style.display = "none";
+                if (div1) div1.style.display = "none";
+            }
+
+            if (isRoot) {
+                if (cutItem) cutItem.style.display = "none";
+                if (copyItem) copyItem.style.display = "none";
+                if (renameItem) renameItem.style.display = "none";
+                if (deleteItem) deleteItem.style.display = "none";
+                if (div2) div2.style.display = "none";
+            } else {
+                if (cutItem) cutItem.style.display = "flex";
+                if (copyItem) copyItem.style.display = "flex";
+                if (renameItem) renameItem.style.display = "flex";
+                if (deleteItem) deleteItem.style.display = "flex";
+                if (div2) div2.style.display = "block";
+            }
+
+            if (pasteItem) {
+                pasteItem.style.display = "flex";
+                if (hasClipboard) {
+                    pasteItem.classList.remove("disabled");
+                } else {
+                    pasteItem.classList.add("disabled");
+                }
+                updateItemLabel(pasteItem, clipCount > 1 ? `Paste (${clipCount})` : "Paste");
+            }
+        }
+
+        menu.style.display = "block";
+        const menuW = menu.offsetWidth || 180;
+        const menuH = menu.offsetHeight || 220;
+        const x = Math.min(e.pageX, window.innerWidth - menuW - 10);
+        const y = Math.min(e.pageY, window.innerHeight - menuH - 10);
+        menu.style.left = `${Math.max(5, x)}px`;
+        menu.style.top = `${Math.max(5, y)}px`;
+    }
+
+    closeContextMenu() {
+        const menu = document.getElementById("treeContextMenu");
+        if (menu) menu.style.display = "none";
+        this.contextMenuItem = null;
+    }
+
+    async startInlineCreate(parentReg, type = 'file') {
+        this.closeContextMenu();
+        if (!this.rootHandle) return;
+
+        if (parentReg && parentReg.isDirectory && !parentReg.isExpanded && !parentReg.isRoot) {
+            await this.toggleFolderNode(parentReg);
+        }
+
+        const container = (parentReg && parentReg.childrenElem) || document.getElementById("folderTreeContainer");
+        if (!container) return;
+
+        document.querySelectorAll(".tree-inline-row").forEach(el => el.remove());
+
+        const depth = (parentReg && parentReg.depth !== undefined) ? parentReg.depth : 0;
+        const row = document.createElement("div");
+        row.className = "tree-inline-row";
+        row.style.paddingLeft = `${depth * 14 + 6}px`;
+
+        const icon = document.createElement("span");
+        icon.className = "tree-icon";
+        icon.textContent = type === 'folder' ? '📁' : '📄';
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "tree-inline-input";
+        input.placeholder = type === 'folder' ? 'folder-name' : 'new-file.txt';
+
+        row.appendChild(icon);
+        row.appendChild(input);
+
+        if (container.firstChild) {
+            container.insertBefore(row, container.firstChild);
+        } else {
+            container.appendChild(row);
+        }
+        input.focus();
+
+        let committed = false;
+        const commit = async () => {
+            if (committed) return;
+            committed = true;
+            const name = input.value.trim();
+            row.remove();
+            if (!name) return;
+            if (/[\\/:*?"<>|]/.test(name)) {
+                showSnackbar("Invalid name. Characters / \\ : * ? \" < > | are not allowed.");
+                return;
+            }
+
+            const targetDirHandle = (parentReg && parentReg.handle) || this.rootHandle;
+            try {
+                if (type === 'file') {
+                    const handle = await targetDirHandle.getFileHandle(name, { create: true });
+                    const relPath = parentReg && parentReg.path ? `${parentReg.path}/${name}` : name;
+                    await this.refresh(true, true);
+                    await this.openFileFromTree(handle, relPath);
+                    showSnackbar(`Created file "${name}".`);
+                } else {
+                    await targetDirHandle.getDirectoryHandle(name, { create: true });
+                    await this.refresh(true, true);
+                    showSnackbar(`Created folder "${name}".`);
+                }
+            } catch (err) {
+                console.error("Create failed:", err);
+                showSnackbar(`Failed to create ${type} "${name}".`);
+            }
+        };
+
+        input.onkeydown = (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                committed = true;
+                row.remove();
+            }
+        };
+
+        input.onblur = () => {
+            setTimeout(() => {
+                if (!committed) commit();
+            }, 120);
+        };
+    }
+
+    startInlineRename(regItem) {
+        this.closeContextMenu();
+        if (!regItem || regItem.isRoot || !regItem.nodeElem) return;
+
+        const label = regItem.nodeElem.querySelector(".tree-label");
+        if (!label) return;
+
+        const oldName = regItem.path.split("/").pop();
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "tree-inline-input";
+        input.value = oldName;
+
+        label.style.display = "none";
+        regItem.nodeElem.insertBefore(input, label.nextSibling);
+        input.focus();
+
+        const dotIndex = oldName.lastIndexOf(".");
+        if (!regItem.isDirectory && dotIndex > 0) {
+            input.setSelectionRange(0, dotIndex);
+        } else {
+            input.select();
+        }
+
+        let committed = false;
+        const commit = async () => {
+            if (committed) return;
+            committed = true;
+            const newName = input.value.trim();
+            input.remove();
+            label.style.display = "";
+
+            if (!newName || newName === oldName) return;
+            if (/[\\/:*?"<>|]/.test(newName)) {
+                showSnackbar("Invalid name. Characters / \\ : * ? \" < > | are not allowed.");
+                return;
+            }
+
+            const parentHandle = regItem.parentHandle || this.rootHandle;
+            try {
+                let moved = false;
+                if (typeof regItem.handle.move === "function") {
+                    try {
+                        await regItem.handle.move(newName);
+                        moved = true;
+                    } catch (me) {}
+                }
+                if (!moved) {
+                    if (regItem.isDirectory) {
+                        await this.copyDirRecursive(regItem.handle, parentHandle, newName);
+                        await parentHandle.removeEntry(oldName, { recursive: true });
+                    } else {
+                        const srcFile = await regItem.handle.getFile();
+                        const buf = await srcFile.arrayBuffer();
+                        const newFileHandle = await parentHandle.getFileHandle(newName, { create: true });
+                        const w = await newFileHandle.createWritable();
+                        await w.write(buf);
+                        await w.close();
+                        await parentHandle.removeEntry(oldName);
+                    }
+                }
+
+                let newFileHandle = null;
+                if (!regItem.isDirectory) {
+                    try {
+                        newFileHandle = await parentHandle.getFileHandle(newName);
+                    } catch (e) {}
+                }
+
+                if (typeof tabManager !== 'undefined') {
+                    tabManager.tabs.forEach(tab => {
+                        if (tab.relativePath === regItem.path) {
+                            tab.name = newName;
+                            const segs = tab.relativePath.split('/');
+                            segs[segs.length - 1] = newName;
+                            tab.relativePath = segs.join('/');
+                            if (newFileHandle) tab.fileHandle = newFileHandle;
+                            tab.updateTitle();
+                            tab.saveToDB();
+                        } else if (tab.relativePath.startsWith(regItem.path + "/")) {
+                            tab.relativePath = tab.relativePath.replace(regItem.path + "/", newName + "/");
+                            tab.updateTitle();
+                            tab.saveToDB();
+                        }
+                    });
+                    tabManager.renderTabs();
+                }
+
+                await this.refresh(true, true);
+                showSnackbar(`Renamed to "${newName}".`);
+            } catch (err) {
+                console.error("Rename failed:", err);
+                showSnackbar(`Failed to rename "${oldName}".`);
+            }
+        };
+
+        input.onkeydown = (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                committed = true;
+                input.remove();
+                label.style.display = "";
+            }
+        };
+
+        input.onblur = () => {
+            setTimeout(() => {
+                if (!committed) commit();
+            }, 120);
+        };
+    }
+
+    promptDelete(regItem) {
+        this.closeContextMenu();
+
+        let itemsToDelete = [];
+        const selected = (this.selectedTreeItems || []).filter(item => item && !item.isRoot);
+
+        if (selected.length > 1 && (!regItem || selected.includes(regItem) || selected.some(it => it.path === regItem.path))) {
+            itemsToDelete = selected;
+        } else if (regItem && !regItem.isRoot) {
+            itemsToDelete = [regItem];
+        } else if (this.selectedTreeItem && !this.selectedTreeItem.isRoot) {
+            itemsToDelete = [this.selectedTreeItem];
+        }
+
+        if (itemsToDelete.length === 0) return;
+
+        this.pendingDeleteItems = itemsToDelete;
+        this.pendingDeleteItem = itemsToDelete[0];
+
+        const modal = document.getElementById("deleteItemConfirmModal");
+        const header = document.getElementById("deleteItemHeader");
+        const message = document.getElementById("deleteItemMessage");
+
+        if (itemsToDelete.length === 1) {
+            const item = itemsToDelete[0];
+            const name = item.path.split("/").pop();
+            if (header) header.textContent = `Delete ${item.isDirectory ? "Folder" : "File"}`;
+            if (message) message.textContent = `Are you sure you want to delete "${name}"${item.isDirectory ? " along with all its contents?" : "?"}`;
+        } else {
+            if (header) header.textContent = `Delete ${itemsToDelete.length} Items`;
+            if (message) {
+                message.textContent = `Are you sure you want to delete these ${itemsToDelete.length} selected items?`;
+            }
+        }
+
+        const confirmBtn = document.getElementById("deleteItemConfirmBtn");
+        if (confirmBtn) {
+            confirmBtn.onclick = () => this.confirmDelete();
+        }
+        if (modal) modal.style.display = "flex";
+    }
+
+    closeDeleteModal() {
+        const modal = document.getElementById("deleteItemConfirmModal");
+        if (modal) modal.style.display = "none";
+        this.pendingDeleteItem = null;
+        this.pendingDeleteItems = [];
+    }
+
+    async confirmDelete() {
+        const itemsToDelete = (this.pendingDeleteItems && this.pendingDeleteItems.length > 0)
+            ? [...this.pendingDeleteItems]
+            : (this.pendingDeleteItem ? [this.pendingDeleteItem] : []);
+
+        if (itemsToDelete.length === 0) return;
+        this.closeDeleteModal();
+
+        // Avoid attempting to delete children if parent folder is already being deleted
+        const pathsToDelete = new Set(itemsToDelete.map(it => it.path));
+        const normalizedItems = itemsToDelete.filter(item => {
+            const parts = item.path.split("/");
+            let current = "";
+            for (let i = 0; i < parts.length - 1; i++) {
+                current = current ? `${current}/${parts[i]}` : parts[i];
+                if (pathsToDelete.has(current)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const regItem of normalizedItems) {
+            const parentHandle = regItem.parentHandle || this.rootHandle;
+            const name = regItem.path.split("/").pop();
+            try {
+                await parentHandle.removeEntry(name, { recursive: regItem.isDirectory });
+                successCount++;
+
+                if (typeof tabManager !== 'undefined') {
+                    tabManager.tabs.forEach(tab => {
+                        if (tab.relativePath === regItem.path || tab.relativePath.startsWith(regItem.path + "/")) {
+                            tab.fileHandle = null;
+                            tab.updateTitle();
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error(`Delete failed for "${name}":`, err);
+                failCount++;
+            }
+        }
+
+        this.clearTreeSelection();
+        if (this.treeClipboard) {
+            const deletedPaths = new Set(normalizedItems.map(it => it.path));
+            if (this.treeClipboard.items) {
+                this.treeClipboard.items = this.treeClipboard.items.filter(it => !deletedPaths.has(it.path));
+                this.treeClipboard.item = this.treeClipboard.items[0] || null;
+                if (this.treeClipboard.items.length === 0) {
+                    this.treeClipboard = null;
+                }
+            } else if (this.treeClipboard.item && deletedPaths.has(this.treeClipboard.item.path)) {
+                this.treeClipboard = null;
+            }
+        }
+        await this.refresh(true, true);
+        this.indexWorkspaceFiles();
+
+        if (normalizedItems.length === 1) {
+            const singleName = normalizedItems[0].path.split("/").pop();
+            if (successCount > 0) {
+                showSnackbar(`Deleted "${singleName}".`);
+            } else {
+                showSnackbar(`Failed to delete "${singleName}".`);
+            }
+        } else {
+            if (failCount === 0) {
+                showSnackbar(`Deleted ${successCount} items.`);
+            } else {
+                showSnackbar(`Deleted ${successCount} items (${failCount} failed).`);
+            }
+        }
+    }
+
+    cutItem(regItem) {
+        this.closeContextMenu();
+        let items = [];
+        const selected = (this.selectedTreeItems || []).filter(item => item && !item.isRoot);
+        if (selected.length > 1 && (!regItem || selected.includes(regItem) || selected.some(it => it.path === regItem.path))) {
+            items = [...selected];
+        } else if (regItem && !regItem.isRoot) {
+            items = [regItem];
+        } else if (selected.length > 0) {
+            items = [...selected];
+        } else if (this.selectedTreeItem && !this.selectedTreeItem.isRoot) {
+            items = [this.selectedTreeItem];
+        }
+
+        if (items.length === 0) return;
+
+        document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
+        this.treeClipboard = { action: 'cut', items: items, item: items[0] };
+
+        items.forEach(it => {
+            if (it && it.nodeElem) {
+                it.nodeElem.classList.add('tree-item-cut');
+            }
+        });
+
+        if (items.length === 1) {
+            const name = items[0].path.split("/").pop();
+            showSnackbar(`Cut "${name}".`);
+        } else {
+            showSnackbar(`Cut ${items.length} items.`);
+        }
+    }
+
+    copyItem(regItem) {
+        this.closeContextMenu();
+        let items = [];
+        const selected = (this.selectedTreeItems || []).filter(item => item && !item.isRoot);
+        if (selected.length > 1 && (!regItem || selected.includes(regItem) || selected.some(it => it.path === regItem.path))) {
+            items = [...selected];
+        } else if (regItem && !regItem.isRoot) {
+            items = [regItem];
+        } else if (selected.length > 0) {
+            items = [...selected];
+        } else if (this.selectedTreeItem && !this.selectedTreeItem.isRoot) {
+            items = [this.selectedTreeItem];
+        }
+
+        if (items.length === 0) return;
+
+        document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
+        this.treeClipboard = { action: 'copy', items: items, item: items[0] };
+
+        if (items.length === 1) {
+            const name = items[0].path.split("/").pop();
+            showSnackbar(`Copied "${name}".`);
+        } else {
+            showSnackbar(`Copied ${items.length} items.`);
+        }
+    }
+
+    async moveItemToFolder(source, targetReg) {
+        if (!source || source.isRoot) return false;
+
+        let destDirHandle = this.rootHandle;
+        let destPath = "";
+
+        if (targetReg) {
+            if (targetReg.isRoot) {
+                destDirHandle = this.rootHandle;
+                destPath = "";
+            } else if (targetReg.isDirectory) {
+                destDirHandle = targetReg.handle || this.rootHandle;
+                destPath = targetReg.path || "";
+            } else {
+                destDirHandle = targetReg.parentHandle || this.rootHandle;
+                destPath = targetReg.parentPath || "";
+            }
+        }
+
+        const sourceName = source.path.split("/").pop();
+
+        if (source.isDirectory && destPath && (destPath === source.path || destPath.startsWith(source.path + "/"))) {
+            showSnackbar("Cannot move a folder into itself.");
+            return false;
+        }
+
+        const isSameFolder = (source.parentHandle && (source.parentHandle === destDirHandle || (await this.isSameHandle(source.parentHandle, destDirHandle))));
+        if (isSameFolder) {
+            showSnackbar("Source and destination folder are the same.");
+            return false;
+        }
+
+        const finalName = await this.generateUniqueName(destDirHandle, sourceName, source.isDirectory);
+
+        try {
+            let moved = false;
+            if (typeof source.handle.move === "function") {
+                try {
+                    await source.handle.move(destDirHandle, finalName);
+                    moved = true;
+                } catch (me) {}
+            }
+            if (!moved) {
+                if (source.isDirectory) {
+                    await this.copyDirRecursive(source.handle, destDirHandle, finalName);
+                    await source.parentHandle.removeEntry(sourceName, { recursive: true });
+                } else {
+                    const srcFile = await source.handle.getFile();
+                    const buf = await srcFile.arrayBuffer();
+                    const newHandle = await destDirHandle.getFileHandle(finalName, { create: true });
+                    const w = await newHandle.createWritable();
+                    await w.write(buf);
+                    await w.close();
+                    await source.parentHandle.removeEntry(sourceName);
+                }
+            }
+
+            const oldPath = source.path;
+            const newRelativePath = destPath ? `${destPath}/${finalName}` : finalName;
+
+            let newFileHandle = null;
+            if (!source.isDirectory) {
+                try {
+                    newFileHandle = await destDirHandle.getFileHandle(finalName);
+                } catch (e) {}
+            } else {
+                try {
+                    newFileHandle = await destDirHandle.getDirectoryHandle(finalName);
+                } catch (e) {}
+            }
+
+            // CRITICAL: Update open tabs location and title attribute!
+            if (typeof tabManager !== 'undefined') {
+                let affected = false;
+                tabManager.tabs.forEach(tab => {
+                    if (!source.isDirectory) {
+                        if (tab.relativePath === oldPath || (!tab.relativePath && tab.name === sourceName)) {
+                            tab.name = finalName;
+                            tab.relativePath = newRelativePath;
+                            if (newFileHandle) {
+                                tab.fileHandle = newFileHandle;
+                            }
+                            tab.updateTitle();
+                            tab.saveToDB();
+                            affected = true;
+                        }
+                    } else {
+                        if (tab.relativePath === oldPath) {
+                            tab.relativePath = newRelativePath;
+                            tab.updateTitle();
+                            tab.saveToDB();
+                            affected = true;
+                        } else if (tab.relativePath && tab.relativePath.startsWith(oldPath + "/")) {
+                            const sub = tab.relativePath.substring(oldPath.length + 1);
+                            tab.relativePath = `${newRelativePath}/${sub}`;
+                            tab.updateTitle();
+                            tab.saveToDB();
+                            affected = true;
+                        }
+                    }
+                });
+
+                if (affected) {
+                    tabManager.renderTabs();
+                }
+            }
+
+            document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
+            if (this.treeClipboard && this.treeClipboard.action === 'cut') {
+                this.treeClipboard = null;
+            }
+
+            await this.refresh(true, true);
+            this.indexWorkspaceFiles();
+
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+                await this.highlightActiveInTree(tabManager.activeTab.relativePath, tabManager.activeTab, false);
+            }
+
+            const destLabel = destPath || this.rootName || "root folder";
+            showSnackbar(`Moved "${sourceName}" to "${destLabel}".`);
+            return true;
+        } catch (err) {
+            console.error("Move item failed:", err);
+            showSnackbar(`Failed to move "${sourceName}".`);
+            return false;
+        }
+    }
+
+    async pasteItem(targetReg) {
+        this.closeContextMenu();
+        const items = this.getClipboardItems();
+        if (items.length === 0) {
+            showSnackbar("Clipboard is empty.");
+            return;
+        }
+
+        const action = this.treeClipboard.action;
+
+        let destDirHandle = this.rootHandle;
+        let destPath = "";
+
+        if (targetReg) {
+            if (targetReg.isRoot) {
+                destDirHandle = this.rootHandle;
+                destPath = "";
+            } else if (targetReg.isDirectory) {
+                destDirHandle = targetReg.handle || this.rootHandle;
+                destPath = targetReg.path || "";
+            } else {
+                destDirHandle = targetReg.parentHandle || this.rootHandle;
+                destPath = targetReg.parentPath || "";
+            }
+        }
+
+        if (!destDirHandle) {
+            showSnackbar("Destination folder not found.");
+            return;
+        }
+
+        const destLabel = destPath || this.rootName || "root folder";
+
+        const validItems = items.filter(item => item && !item.isRoot);
+        // Avoid nested redundancies (e.g., if a directory and its child are both in clipboard)
+        const itemsToProcess = validItems.filter(item => {
+            return !validItems.some(other => other !== item && other.isDirectory && item.path.startsWith(other.path + "/"));
+        });
+
+        if (itemsToProcess.length === 0) {
+            showSnackbar("No valid items to paste.");
+            return;
+        }
+
+        if (action === 'cut') {
+            let successCount = 0;
+            let failCount = 0;
+            let affectedTabs = false;
+            let lastMovedName = "";
+
+            for (const source of itemsToProcess) {
+                const sourceName = source.path.split("/").pop();
+
+                if (source.isDirectory && destPath && (destPath === source.path || destPath.startsWith(source.path + "/"))) {
+                    showSnackbar("Cannot move a folder into itself.");
+                    failCount++;
+                    continue;
+                }
+
+                const isSameFolder = (source.parentHandle && (source.parentHandle === destDirHandle || (await this.isSameHandle(source.parentHandle, destDirHandle))));
+                if (isSameFolder) {
+                    continue;
+                }
+
+                try {
+                    const finalName = await this.generateUniqueName(destDirHandle, sourceName, source.isDirectory);
+                    let moved = false;
+                    if (typeof source.handle.move === "function") {
+                        try {
+                            await source.handle.move(destDirHandle, finalName);
+                            moved = true;
+                        } catch (me) {}
+                    }
+                    if (!moved) {
+                        if (source.isDirectory) {
+                            await this.copyDirRecursive(source.handle, destDirHandle, finalName);
+                            if (source.parentHandle) {
+                                await source.parentHandle.removeEntry(sourceName, { recursive: true });
+                            }
+                        } else {
+                            const srcFile = await source.handle.getFile();
+                            const buf = await srcFile.arrayBuffer();
+                            const newHandle = await destDirHandle.getFileHandle(finalName, { create: true });
+                            const w = await newHandle.createWritable();
+                            await w.write(buf);
+                            await w.close();
+                            if (source.parentHandle) {
+                                await source.parentHandle.removeEntry(sourceName);
+                            }
+                        }
+                    }
+
+                    const oldPath = source.path;
+                    const newRelativePath = destPath ? `${destPath}/${finalName}` : finalName;
+
+                    let newFileHandle = null;
+                    if (!source.isDirectory) {
+                        try {
+                            newFileHandle = await destDirHandle.getFileHandle(finalName);
+                        } catch (e) {}
+                    } else {
+                        try {
+                            newFileHandle = await destDirHandle.getDirectoryHandle(finalName);
+                        } catch (e) {}
+                    }
+
+                    // CRITICAL: Update open tabs location and title attribute!
+                    if (typeof tabManager !== 'undefined') {
+                        tabManager.tabs.forEach(tab => {
+                            if (!source.isDirectory) {
+                                if (tab.relativePath === oldPath || (!tab.relativePath && tab.name === sourceName)) {
+                                    tab.name = finalName;
+                                    tab.relativePath = newRelativePath;
+                                    if (newFileHandle) {
+                                        tab.fileHandle = newFileHandle;
+                                    }
+                                    tab.updateTitle();
+                                    tab.saveToDB();
+                                    affectedTabs = true;
+                                }
+                            } else {
+                                if (tab.relativePath === oldPath) {
+                                    tab.relativePath = newRelativePath;
+                                    tab.updateTitle();
+                                    tab.saveToDB();
+                                    affectedTabs = true;
+                                } else if (tab.relativePath && tab.relativePath.startsWith(oldPath + "/")) {
+                                    const sub = tab.relativePath.substring(oldPath.length + 1);
+                                    tab.relativePath = `${newRelativePath}/${sub}`;
+                                    tab.updateTitle();
+                                    tab.saveToDB();
+                                    affectedTabs = true;
+                                }
+                            }
+                        });
+                    }
+
+                    lastMovedName = sourceName;
+                    successCount++;
+                } catch (err) {
+                    console.error(`Move failed for "${sourceName}":`, err);
+                    failCount++;
+                }
+            }
+
+            if (affectedTabs && typeof tabManager !== 'undefined') {
+                tabManager.renderTabs();
+            }
+
+            document.querySelectorAll('.tree-item-cut').forEach(el => el.classList.remove('tree-item-cut'));
+            this.treeClipboard = null;
+
+            await this.refresh(true, true);
+            this.indexWorkspaceFiles();
+
+            if (typeof tabManager !== 'undefined' && tabManager.activeTab) {
+                await this.highlightActiveInTree(tabManager.activeTab.relativePath, tabManager.activeTab, false);
+            }
+
+            if (itemsToProcess.length === 1) {
+                if (successCount > 0) {
+                    showSnackbar(`Moved "${lastMovedName}" to "${destLabel}".`);
+                } else if (failCount > 0) {
+                    showSnackbar(`Failed to move "${lastMovedName}".`);
+                }
+            } else {
+                if (failCount === 0) {
+                    showSnackbar(`Moved ${successCount} items to "${destLabel}".`);
+                } else {
+                    showSnackbar(`Moved ${successCount} items to "${destLabel}" (${failCount} failed).`);
+                }
+            }
+        } else if (action === 'copy') {
+            let successCount = 0;
+            let failCount = 0;
+            let lastPastedName = "";
+
+            for (const item of itemsToProcess) {
+                const sourceName = item.path.split("/").pop();
+
+                if (item.isDirectory && destPath && (destPath === item.path || destPath.startsWith(item.path + "/"))) {
+                    showSnackbar("Cannot copy a folder into itself.");
+                    failCount++;
+                    continue;
+                }
+
+                try {
+                    const finalName = await this.generateUniqueName(destDirHandle, sourceName, item.isDirectory);
+                    if (item.isDirectory) {
+                        await this.copyDirRecursive(item.handle, destDirHandle, finalName);
+                    } else {
+                        const srcFile = await item.handle.getFile();
+                        const buf = await srcFile.arrayBuffer();
+                        const newHandle = await destDirHandle.getFileHandle(finalName, { create: true });
+                        const w = await newHandle.createWritable();
+                        await w.write(buf);
+                        await w.close();
+                    }
+                    lastPastedName = finalName;
+                    successCount++;
+                } catch (err) {
+                    console.error(`Copy failed for "${sourceName}":`, err);
+                    failCount++;
+                }
+            }
+
+            await this.refresh(true, true);
+            this.indexWorkspaceFiles();
+
+            if (itemsToProcess.length === 1) {
+                if (successCount > 0) {
+                    showSnackbar(`Pasted "${lastPastedName}".`);
+                } else {
+                    showSnackbar(`Failed to paste.`);
+                }
+            } else {
+                if (failCount === 0) {
+                    showSnackbar(`Pasted ${successCount} items.`);
+                } else {
+                    showSnackbar(`Pasted ${successCount} items (${failCount} failed).`);
+                }
+            }
+        }
+    }
+
+    async generateUniqueName(destDirHandle, sourceName, isDirectory) {
+        if (!destDirHandle || !sourceName) return sourceName;
+
+        const entryExists = async (dirHandle, name) => {
+            try {
+                await dirHandle.getFileHandle(name);
+                return true;
+            } catch (e) {}
+            try {
+                await dirHandle.getDirectoryHandle(name);
+                return true;
+            } catch (e) {}
+            return false;
+        };
+
+        if (!(await entryExists(destDirHandle, sourceName))) {
+            return sourceName;
+        }
+
+        let base = sourceName;
+        let ext = "";
+
+        if (!isDirectory) {
+            const dotIdx = sourceName.lastIndexOf(".");
+            if (dotIdx > 0) {
+                base = sourceName.substring(0, dotIdx);
+                ext = sourceName.substring(dotIdx);
+            }
+        }
+
+        let counter = 1;
+        let candidate = `${base} (${counter})${ext}`;
+        while (await entryExists(destDirHandle, candidate)) {
+            counter++;
+            candidate = `${base} (${counter})${ext}`;
+        }
+        return candidate;
+    }
+
+    async isSameHandle(h1, h2) {
+        if (!h1 || !h2) return false;
+        if (h1 === h2) return true;
+        try {
+            if (typeof h1.isSameEntry === "function") {
+                return await h1.isSameEntry(h2);
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    async copyDirRecursive(srcDirHandle, targetDirHandle, newDirName) {
+        const destDir = await targetDirHandle.getDirectoryHandle(newDirName, { create: true });
+        for await (const [name, entry] of srcDirHandle.entries()) {
+            if (entry.kind === "file") {
+                const f = await entry.getFile();
+                const buf = await f.arrayBuffer();
+                const destF = await destDir.getFileHandle(name, { create: true });
+                const w = await destF.createWritable();
+                await w.write(buf);
+                await w.close();
+            } else if (entry.kind === "directory") {
+                await this.copyDirRecursive(entry, destDir, name);
+            }
+        }
+    }
+
     async openFileFromTree(fileHandle, relativePath) {
         if (typeof tabManager === 'undefined') return;
         this.suppressTreeScroll = true;
         const currentReg = this.nodeRegistry.get(relativePath);
         if (currentReg) {
             this.clearFileModifiedInTree(currentReg);
+            this.setSelectedTreeItem(currentReg);
         }
         try {
             // Check if this file is already open in an existing tab
@@ -6012,8 +7363,15 @@ class FolderTreeManager {
             try {
                 const parts = await this.rootHandle.resolve(tab.fileHandle);
                 if (parts && parts.length > 0) {
-                    tab.relativePath = parts.join('/');
-                    tab.updateTitle();
+                    const resolvedPath = parts.join('/');
+                    if (tab.relativePath !== resolvedPath) {
+                        tab.relativePath = resolvedPath;
+                        tab.updateTitle();
+                        tab.saveToDB();
+                        if (typeof tabManager !== 'undefined') {
+                            tabManager.renderTabs();
+                        }
+                    }
                 }
             } catch (e) {}
         }
@@ -6300,6 +7658,29 @@ class FolderTreeManager {
 
         // Re-highlight active file in tree with spy scroll
         await this.syncActiveTabWithTree();
+
+        // Restore tree selection for remaining items
+        if (this.selectedTreeItems && this.selectedTreeItems.length > 0) {
+            this.selectedTreeItems = this.selectedTreeItems
+                .map(it => this.nodeRegistry.get(it.path))
+                .filter(Boolean);
+            if (this.selectedTreeItem) {
+                this.selectedTreeItem = this.nodeRegistry.get(this.selectedTreeItem.path) || (this.selectedTreeItems[0] || null);
+            }
+            this.updateTreeSelectionUI();
+        }
+
+        // Restore cut styling for items remaining in clipboard
+        if (this.treeClipboard && this.treeClipboard.action === 'cut') {
+            const cutItems = this.getClipboardItems();
+            this.treeClipboard.items = cutItems
+                .map(it => this.nodeRegistry.get(it.path))
+                .filter(Boolean);
+            this.treeClipboard.item = this.treeClipboard.items[0] || null;
+            this.treeClipboard.items.forEach(it => {
+                if (it && it.nodeElem) it.nodeElem.classList.add('tree-item-cut');
+            });
+        }
     }
 
     startWatcher() {
@@ -6437,6 +7818,53 @@ class FolderTreeManager {
             if (changeDetected) {
                 await this.refresh(true, true);
                 this.indexWorkspaceFiles();
+
+                // Check open tabs if their location moved in the workspace!
+                if (typeof tabManager !== 'undefined') {
+                    let anyTabMoved = false;
+                    for (const tab of tabManager.tabs) {
+                        if (tab.fileHandle && this.rootHandle) {
+                            try {
+                                const parts = await this.rootHandle.resolve(tab.fileHandle);
+                                if (parts && parts.length > 0) {
+                                    const resolvedPath = parts.join('/');
+                                    if (tab.relativePath !== resolvedPath) {
+                                        tab.relativePath = resolvedPath;
+                                        tab.updateTitle();
+                                        tab.saveToDB();
+                                        anyTabMoved = true;
+                                    }
+                                    continue;
+                                }
+                            } catch (e) {}
+
+                            // If resolve didn't find old handle (e.g. file moved outside on disk), check nodeRegistry
+                            if (tab.relativePath && !this.nodeRegistry.has(tab.relativePath)) {
+                                const possibleMatches = [];
+                                for (const [p, reg] of this.nodeRegistry.entries()) {
+                                    if (!reg.isDirectory && (p.endsWith('/' + tab.name) || p === tab.name)) {
+                                        possibleMatches.push(reg);
+                                    }
+                                }
+                                if (possibleMatches.length === 1) {
+                                    const match = possibleMatches[0];
+                                    tab.relativePath = match.path;
+                                    tab.fileHandle = match.handle;
+                                    tab.updateTitle();
+                                    tab.saveToDB();
+                                    anyTabMoved = true;
+                                }
+                            }
+                        }
+                    }
+                    if (anyTabMoved) {
+                        tabManager.renderTabs();
+                        if (tabManager.activeTab) {
+                            await this.highlightActiveInTree(tabManager.activeTab.relativePath, tabManager.activeTab, false);
+                        }
+                    }
+                }
+
                 if (detectedName) {
                     showSnackbar(`File change detected ("${detectedName}") — Folder tree updated.`);
                 } else {
