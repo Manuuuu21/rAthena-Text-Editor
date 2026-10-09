@@ -7,6 +7,272 @@ function normalizeCode(str) {
   return str.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n').trimEnd();
 }
 
+/* ==========================================================================
+   Ragnarok Online Mojibake & Character Encoding Engine (Windows-1252 / EUC-KR / UTF-8)
+   Enables lossless display, decoding, editing, and saving of .lua files with Mojibake
+   ========================================================================== */
+const CP1252_SPECIAL_BYTES = {
+  0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87,
+  0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E, 0x2018: 0x91,
+  0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98,
+  0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F
+};
+
+function encodeWindows1252(str) {
+  if (typeof str !== 'string') return new Uint8Array(0);
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code <= 0x7F) {
+      bytes[i] = code;
+    } else if (code >= 0xA0 && code <= 0xFF) {
+      bytes[i] = code;
+    } else if (CP1252_SPECIAL_BYTES[code] !== undefined) {
+      bytes[i] = CP1252_SPECIAL_BYTES[code];
+    } else {
+      bytes[i] = 0x3F; // fallback '?'
+    }
+  }
+  return bytes;
+}
+
+let cp949HangulMap = null;
+function getCP949HangulMap() {
+  if (cp949HangulMap) return cp949HangulMap;
+  cp949HangulMap = new Map();
+  try {
+    const decoder = new TextDecoder("euc-kr");
+    for (let b1 = 0x81; b1 <= 0xFE; b1++) {
+      const row = new Uint8Array(2);
+      row[0] = b1;
+      for (let b2 = 0x41; b2 <= 0xFE; b2++) {
+        row[1] = b2;
+        const str = decoder.decode(row);
+        if (str && str !== "\uFFFD" && str.length === 1) {
+          if (!cp949HangulMap.has(str)) {
+            cp949HangulMap.set(str, [b1, b2]);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("CP949 map init error:", e);
+  }
+  return cp949HangulMap;
+}
+
+function encodeEucKr(str) {
+  if (typeof str !== 'string') return new Uint8Array(0);
+  const map = getCP949HangulMap();
+  const result = [];
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const code = str.charCodeAt(i);
+    if (code <= 0x7F) {
+      result.push(code);
+    } else if (map && map.has(char)) {
+      const b = map.get(char);
+      result.push(b[0], b[1]);
+    } else if (code >= 0xA0 && code <= 0xFF) {
+      result.push(code);
+    } else if (CP1252_SPECIAL_BYTES[code] !== undefined) {
+      result.push(CP1252_SPECIAL_BYTES[code]);
+    } else {
+      result.push(0x3F);
+    }
+  }
+  return new Uint8Array(result);
+}
+
+function mojibakeToKorean(str) {
+  if (typeof str !== 'string' || !str) return str;
+  try {
+    const bytes = encodeWindows1252(str);
+    const decoder = new TextDecoder("euc-kr");
+    return decoder.decode(bytes);
+  } catch (e) {
+    return str;
+  }
+}
+
+function koreanToMojibake(str) {
+  if (typeof str !== 'string' || !str) return str;
+  try {
+    const bytes = encodeEucKr(str);
+    const decoder = new TextDecoder("windows-1252");
+    return decoder.decode(bytes);
+  } catch (e) {
+    return str;
+  }
+}
+
+function isMojibakeString(str) {
+  if (typeof str !== 'string' || str.length < 2) return false;
+  let nonAscii = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c >= 0x80 && c <= 0xFF) {
+      nonAscii++;
+    }
+  }
+  return nonAscii >= 2;
+}
+
+function getEncodingLabel(enc) {
+  if (!enc) return "Windows-1252 (Mojibake)";
+  const lower = enc.toLowerCase();
+  if (lower.includes("1252") || lower.includes("mojibake") || lower.includes("ansi")) {
+    return "Windows-1252 (Mojibake)";
+  }
+  if (lower.includes("euc") || lower.includes("kr") || lower.includes("korean") || lower.includes("949")) {
+    return "EUC-KR (Korean)";
+  }
+  if (lower.includes("utf")) {
+    return "UTF-8";
+  }
+  return "Windows-1252 (Mojibake)";
+}
+
+async function readFileWithEncoding(file, forcedEncoding = null) {
+  const arrayBuffer = await file.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+
+  if (forcedEncoding) {
+    try {
+      const decoder = new TextDecoder(forcedEncoding);
+      return {
+        text: decoder.decode(uint8),
+        encoding: forcedEncoding,
+        rawBytes: uint8
+      };
+    } catch (e) {
+      console.warn("Failed with forced encoding " + forcedEncoding, e);
+    }
+  }
+
+  // 1. Check for explicit UTF-8 BOM
+  if (uint8.length >= 3 && uint8[0] === 0xEF && uint8[1] === 0xBB && uint8[2] === 0xBF) {
+    const decoder = new TextDecoder('utf-8');
+    return {
+      text: decoder.decode(uint8.subarray(3)),
+      encoding: 'utf-8',
+      rawBytes: uint8,
+      hasBom: true
+    };
+  }
+
+  const fileName = (file && file.name) ? file.name.toLowerCase() : "";
+  const isLua = fileName.endsWith(".lua");
+
+  // For .lua files, default to Windows-1252 (Mojibake)
+  if (isLua) {
+    try {
+      const win1252 = new TextDecoder('windows-1252');
+      const text = win1252.decode(uint8);
+      return {
+        text: text,
+        encoding: 'windows-1252',
+        rawBytes: uint8,
+        hasBom: false
+      };
+    } catch (e) {
+      const latin = new TextDecoder('iso-8859-1');
+      return {
+        text: latin.decode(uint8),
+        encoding: 'windows-1252',
+        rawBytes: uint8,
+        hasBom: false
+      };
+    }
+  }
+
+  // For other non-lua files, check if clean UTF-8
+  try {
+    const strictUtf8 = new TextDecoder('utf-8', { fatal: true });
+    const text = strictUtf8.decode(uint8);
+    return {
+      text: text,
+      encoding: 'utf-8',
+      rawBytes: uint8,
+      hasBom: false
+    };
+  } catch (utf8Err) {
+    // Non-UTF-8 bytes: decode with windows-1252 (Mojibake)
+    try {
+      const win1252 = new TextDecoder('windows-1252');
+      const text = win1252.decode(uint8);
+      return {
+        text: text,
+        encoding: 'windows-1252',
+        rawBytes: uint8,
+        hasBom: false
+      };
+    } catch (e) {
+      const latin = new TextDecoder('iso-8859-1');
+      return {
+        text: latin.decode(uint8),
+        encoding: 'windows-1252',
+        rawBytes: uint8,
+        hasBom: false
+      };
+    }
+  }
+}
+
+function updateStatusBarEncoding(tab) {
+  const statusBarElem = document.getElementById("statusBar");
+  if (!statusBarElem) return;
+  let encBadge = statusBarElem.querySelector(".status-bar-encoding");
+  if (!encBadge) {
+    encBadge = document.createElement("div");
+    encBadge.className = "status-bar-encoding";
+    encBadge.title = "File Character Encoding - Click to manage / convert";
+    encBadge.onclick = () => openMojibakeModal();
+    statusBarElem.appendChild(encBadge);
+  }
+  const enc = (tab && tab.encoding) ? tab.encoding : "windows-1252";
+  encBadge.innerHTML = `<span>${getEncodingLabel(enc)}</span> ▾`;
+}
+
+function openMojibakeModal() {
+  const modal = document.getElementById("mojibakeModal");
+  if (!modal) return;
+  updateMojibakeModalUI();
+  modal.style.display = "flex";
+}
+
+function closeMojibakeModal() {
+  const modal = document.getElementById("mojibakeModal");
+  if (modal) modal.style.display = "none";
+}
+
+function updateMojibakeModalUI() {
+  const activeTab = (typeof tabManager !== 'undefined') ? tabManager.activeTab : null;
+  const nameEl = document.getElementById("mojibakeActiveFileName");
+  const badgeEl = document.getElementById("mojibakeCurrentEncodingBadge");
+  if (nameEl && activeTab) {
+    nameEl.textContent = activeTab.name || "Untitled";
+  }
+  if (badgeEl && activeTab) {
+    badgeEl.textContent = getEncodingLabel(activeTab.encoding);
+  }
+}
+
+function handleMojibakeLiveInput(val) {
+  const koreanOutput = document.getElementById("koreanLiveInput");
+  if (koreanOutput) {
+    koreanOutput.value = mojibakeToKorean(val);
+  }
+}
+
+function handleKoreanLiveInput(val) {
+  const mojibakeOutput = document.getElementById("mojibakeLiveInput");
+  if (mojibakeOutput) {
+    mojibakeOutput.value = koreanToMojibake(val);
+  }
+}
+
+
 function toggleTheme() {
   const root = document.documentElement;
   const isLight = currentTheme === "ace/theme/github_light_default";
@@ -1567,6 +1833,7 @@ class Tab {
         this.snackbarTimeout = null;
         this.visibleCount = 10;
         this.dbSaveTimeout = null;
+        this.encoding = "windows-1252";
 
         this.initDOM();
         this.initEditor();
@@ -1794,7 +2061,8 @@ class Tab {
                     } catch(err) {}
                 }
 
-                const contents = await file.text();
+                const fileData = await readFileWithEncoding(file);
+                const contents = fileData.text;
 
                 // Check if another tab already has this file open to avoid duplicates
                 let existingTab = null;
@@ -1819,6 +2087,7 @@ class Tab {
                 }
 
                 if (existingTab) {
+                    existingTab.encoding = fileData.encoding;
                     tabManager.switchTab(existingTab.id);
                     const oldCode = existingTab.editor.getValue();
                     const normDisk = normalizeCode(contents);
@@ -1890,6 +2159,7 @@ class Tab {
                     tabManager.lastDirectoryHandle = handle;
                 }
 
+                targetTab.encoding = fileData.encoding;
                 targetTab.lastSavedCode = contents;
                 targetTab.lastModified = file.lastModified || 0;
                 targetTab.editor.setValue(contents, -1);
@@ -2143,7 +2413,16 @@ class Tab {
             const prevSavedCode = this.lastSavedCode;
             const saveDate = new Date();
             const writable = await this.fileHandle.createWritable();
-            await writable.write(currentCode);
+
+            let dataToWrite;
+            if (this.encoding === "windows-1252") {
+                dataToWrite = encodeWindows1252(currentCode);
+            } else if (this.encoding === "euc-kr") {
+                dataToWrite = encodeEucKr(currentCode);
+            } else {
+                dataToWrite = currentCode;
+            }
+            await writable.write(dataToWrite);
             await writable.close();
 
             this.lastSavedCode = currentCode;
@@ -2227,7 +2506,8 @@ class Tab {
                 return;
             }
 
-            const diskContent = await file.text();
+            const fileData = await readFileWithEncoding(file, this.encoding);
+            const diskContent = fileData.text;
             const normDisk = normalizeCode(diskContent);
             const normSaved = normalizeCode(this.lastSavedCode || '');
             const normEditor = normalizeCode(this.editor.getValue());
@@ -2427,7 +2707,8 @@ class Tab {
 
                 if (existingTab) {
                     tabManager.switchTab(existingTab.id);
-                    const diskContent = await file.text();
+                    const fileData = await readFileWithEncoding(file, existingTab.encoding);
+                    const diskContent = fileData.text;
                     const diskModified = file.lastModified || Date.now();
                     const oldCode = existingTab.editor.getValue();
                     const normDisk = normalizeCode(diskContent);
@@ -2455,6 +2736,7 @@ class Tab {
                         existingTab.updateTitle();
                         existingTab.saveCurrentCodeToHistory();
                         existingTab.saveToDB();
+                        updateStatusBarEncoding(existingTab);
 
                         const diffIndex = existingTab.recordChange(oldCode, diskContent, new Date(diskModified));
                         if (diffIndex !== null) {
@@ -2498,7 +2780,9 @@ class Tab {
 
                 targetTab.fileHandle = handle;
                 tabManager.lastDirectoryHandle = handle;
-                const contents = await file.text();
+                const fileData = await readFileWithEncoding(file);
+                const contents = fileData.text;
+                targetTab.encoding = fileData.encoding;
                 targetTab.lastSavedCode = contents;
                 targetTab.lastModified = file.lastModified || 0;
                 targetTab.editor.setValue(contents, -1);
@@ -2587,9 +2871,78 @@ class Tab {
         }
     }
 
+    async reloadWithEncoding(newEncoding) {
+        if (!newEncoding) return;
+        this.encoding = newEncoding;
+        if (this.fileHandle) {
+            try {
+                const file = await this.fileHandle.getFile();
+                const fileData = await readFileWithEncoding(file, newEncoding);
+                this.editor.setValue(fileData.text, -1);
+                this.editor.session.setUndoManager(new ace.UndoManager());
+                this.lastSavedCode = fileData.text;
+                this.updateTabIcon();
+                this.saveCurrentCodeToHistory();
+                this.saveToDB();
+                updateStatusBarEncoding(this);
+                updateMojibakeModalUI();
+                showSnackbar(`"${this.name}" reloaded as ${getEncodingLabel(newEncoding)}.`);
+                return;
+            } catch (err) {
+                console.error("reloadWithEncoding error:", err);
+            }
+        }
+        updateStatusBarEncoding(this);
+        updateMojibakeModalUI();
+        showSnackbar(`Encoding set to ${getEncodingLabel(newEncoding)}.`);
+    }
+
+    convertContentMojibakeToKorean() {
+        const selected = this.editor.getSelectedText();
+        if (selected) {
+            const converted = mojibakeToKorean(selected);
+            this.editor.insert(converted);
+            this.saveCurrentCodeToHistory();
+            this.updateTabIcon();
+            showSnackbar("Selected Mojibake converted to Korean.");
+        } else {
+            const fullText = this.editor.getValue();
+            const converted = mojibakeToKorean(fullText);
+            this.editor.setValue(converted, -1);
+            this.saveCurrentCodeToHistory();
+            this.updateTabIcon();
+            showSnackbar("Full document Mojibake converted to Korean.");
+        }
+    }
+
+    convertContentKoreanToMojibake() {
+        const selected = this.editor.getSelectedText();
+        if (selected) {
+            const converted = koreanToMojibake(selected);
+            this.editor.insert(converted);
+            this.saveCurrentCodeToHistory();
+            this.updateTabIcon();
+            showSnackbar("Selected Korean converted to Mojibake.");
+        } else {
+            const fullText = this.editor.getValue();
+            const converted = koreanToMojibake(fullText);
+            this.editor.setValue(converted, -1);
+            this.saveCurrentCodeToHistory();
+            this.updateTabIcon();
+            showSnackbar("Full document Korean converted to Mojibake.");
+        }
+    }
+
     downloadEditorContent() {
         const content = this.editor.getValue();
-        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        let blob;
+        if (this.encoding === "windows-1252") {
+            blob = new Blob([encodeWindows1252(content)], { type: "text/plain" });
+        } else if (this.encoding === "euc-kr") {
+            blob = new Blob([encodeEucKr(content)], { type: "text/plain" });
+        } else {
+            blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -3782,6 +4135,22 @@ class TokenTooltip {
             }
         }
 
+        let mojibakeData = null;
+        if (!isValidToken && token && token.value) {
+            const rawVal = token.value.replace(/^["']|["']$/g, '').trim();
+            if (isMojibakeString(rawVal)) {
+                const korean = mojibakeToKorean(rawVal);
+                if (korean && /[\uAC00-\uD7A3]/.test(korean)) {
+                    mojibakeData = {
+                        mojibake: rawVal,
+                        korean: korean
+                    };
+                    tokenVal = "mojibake:" + rawVal;
+                    isValidToken = true;
+                }
+            }
+        }
+
         if (isValidToken) {
             if (this.currentToken === tokenVal) {
                 return;
@@ -3794,6 +4163,7 @@ class TokenTooltip {
                     pos: pos,
                     docData: docData,
                     spriteData: spriteData,
+                    mojibakeData: mojibakeData,
                     tokenVal: tokenVal
                 };
                 return;
@@ -3814,6 +4184,7 @@ class TokenTooltip {
                 pos: pos,
                 docData: docData,
                 spriteData: spriteData,
+                mojibakeData: mojibakeData,
                 tokenVal: tokenVal
             };
 
@@ -4195,6 +4566,35 @@ class TokenTooltip {
 
                     element.style.left = x + "px";
                     element.style.top = y + "px";
+                } else if (cached.mojibakeData) {
+                    if (element) {
+                        element.classList.remove("sprite_tooltip");
+                    }
+                    const html = `
+                        <div class="mojibake-tooltip-card">
+                            <div class="mojibake-tooltip-header">
+                                <span>🌐 RO Mojibake / Korean Translation</span>
+                            </div>
+                            <div class="mojibake-tooltip-body">
+                                <div style="margin-bottom: 4px;">
+                                    <span style="opacity: 0.7; font-size: 11px;">Mojibake:</span> 
+                                    <code style="font-family: monospace; font-size: 12px; color: var(--syntaxString);">${cached.mojibakeData.mojibake}</code>
+                                </div>
+                                <div>
+                                    <span style="opacity: 0.7; font-size: 11px;">Korean (EUC-KR):</span> 
+                                    <b style="font-size: 13.5px; color: #2ea043;">${cached.mojibakeData.korean}</b>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    this.tooltip.show("", cached.clientX, cached.clientY);
+                    if (element) {
+                        element.innerHTML = html;
+                        element.scrollTop = 0;
+                        element.style.display = "block";
+                        element.style.left = (cached.clientX + 15) + "px";
+                        element.style.top = (cached.clientY + 15) + "px";
+                    }
                 }
             }, 600);
 
@@ -4389,6 +4789,7 @@ const tabDB = {
             diffHistory: Array.isArray(tab.diffHistory) ? tab.diffHistory.slice(-25) : [],
             chatHistory: Array.isArray(tab.chatHistory) ? tab.chatHistory.slice(-50) : [],
             chatMessagesHTML: tab.elements && tab.elements.chatMessages ? tab.elements.chatMessages.innerHTML : "",
+            encoding: tab.encoding || "windows-1252",
             savedAt: Date.now()
         };
 
@@ -4655,6 +5056,8 @@ const tabManager = {
             statusBarElem.innerHTML = ""; // Clear old one
             new StatusBar(tab.editor, statusBarElem);
         }
+        updateStatusBarEncoding(tab);
+        updateMojibakeModalUI();
 
         this.renderTabs();
         tabDB.saveActiveTabId(tab.id);
@@ -4826,6 +5229,7 @@ const tabManager = {
                         ? tabData.id
                         : this.nextId++;
                     const tab = new Tab(tabId, tabData.name || "Untitled");
+                    tab.encoding = tabData.encoding || "windows-1252";
                     tab.fileHandle = tabData.fileHandle || null;
                     tab.relativePath = tabData.relativePath || "";
                     tab.lastSavedCode = (tabData.lastSavedCode !== undefined) ? tabData.lastSavedCode : (tabData.code || "");
@@ -4912,6 +5316,7 @@ const tabManager = {
         }
 
         const tab = new Tab(this.nextId++, tabData.name);
+        tab.encoding = tabData.encoding || "windows-1252";
         
         tab.fileHandle = tabData.fileHandle;
         tab.lastSavedCode = tabData.lastSavedCode;
@@ -7548,7 +7953,8 @@ class FolderTreeManager {
                 await this.highlightActiveInTree(relativePath, existingTab, false);
                 try {
                     const file = await fileHandle.getFile();
-                    const contents = await file.text();
+                    const fileData = await readFileWithEncoding(file, existingTab.encoding);
+                    const contents = fileData.text;
                     const diskModified = file.lastModified || Date.now();
                     const oldCode = existingTab.editor.getValue();
                     const normDisk = normalizeCode(contents);
@@ -7574,6 +7980,7 @@ class FolderTreeManager {
                         existingTab.updateTitle();
                         existingTab.saveCurrentCodeToHistory();
                         existingTab.saveToDB();
+                        updateStatusBarEncoding(existingTab);
 
                         const diffIndex = existingTab.recordChange(oldCode, contents, new Date(diskModified));
                         if (diffIndex !== null) {
@@ -7598,7 +8005,8 @@ class FolderTreeManager {
             }
 
             const file = await fileHandle.getFile();
-            const contents = await file.text();
+            const fileData = await readFileWithEncoding(file);
+            const contents = fileData.text;
 
             // Decide where to open: reuse current tab if empty/untitled/clean, otherwise open in a new tab!
             let targetTab;
@@ -7612,6 +8020,7 @@ class FolderTreeManager {
             targetTab.fileHandle = fileHandle;
             targetTab.relativePath = relativePath;
             targetTab.name = file.name;
+            targetTab.encoding = fileData.encoding;
             targetTab.lastSavedCode = contents;
             targetTab.lastModified = file.lastModified || Date.now();
             targetTab.codeHistory = [];
@@ -7628,6 +8037,7 @@ class FolderTreeManager {
 
             tabManager.renderTabs();
             tabManager.switchTab(targetTab.id);
+            updateStatusBarEncoding(targetTab);
             targetTab.saveToDB();
 
             await this.highlightActiveInTree(relativePath, targetTab, false);
@@ -8503,7 +8913,8 @@ class FolderTreeManager {
             }
 
             const file = await fileItem.handle.getFile();
-            const contents = await file.text();
+            const fileData = await readFileWithEncoding(file);
+            const contents = fileData.text;
 
             // Double check existing tab in case of race condition during async read
             for (const tab of tabManager.tabs) {
@@ -8525,6 +8936,7 @@ class FolderTreeManager {
             targetTab.fileHandle = fileItem.handle;
             targetTab.relativePath = fileItem.relativePath;
             targetTab.name = file.name;
+            targetTab.encoding = fileData.encoding;
             targetTab.lastModified = file.lastModified || Date.now();
             targetTab.codeHistory = [];
             targetTab.currentHistoryIndex = -1;
@@ -8539,6 +8951,7 @@ class FolderTreeManager {
 
             tabManager.renderTabs();
             tabManager.switchTab(targetTab.id);
+            updateStatusBarEncoding(targetTab);
             targetTab.saveToDB();
 
             // Expand all ancestors in folder tree, highlight with .active, and spy-scroll to center it in view
