@@ -128,6 +128,75 @@
     </div>
   </div>
 
+  <!-- RO Mojibake & Character Encoding Modal -->
+  <div class="modal-overlay" id="mojibakeModal" style="display: none;">
+    <div class="modal" style="max-width: 680px; width: 92%;">
+      <div class="modal-header">
+        <h2>🌐 RO Mojibake & Character Encoding</h2>
+        <button class="close-btn" onclick="closeMojibakeModal()">✖</button>
+      </div>
+      <hr/>
+      <div style="padding: 12px 0;">
+        <p style="font-size: 13px; opacity: 0.85; line-height: 1.5; margin-bottom: 14px;">
+          Ragnarok Online client Lua files (e.g. <code>jobname.lua</code>, <code>accname.lua</code>, <code>itemInfo.lua</code>) contain Korean (EUC-KR / CP949) strings which appear as <b>Mojibake</b> (e.g. <code>³ëºñ½º</code>, <code>Àå½Ä</code>) under ANSI / Windows-1252. This editor fully supports displaying, editing, and lossless saving of Mojibake.
+        </p>
+
+        <!-- Current File Encoding Section -->
+        <div class="mojibake-card">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            <div>
+              <span style="font-size: 13px; font-weight: 600;">Active File:</span> <code id="mojibakeActiveFileName" style="font-size: 12px; color: var(--syntaxFunction);">Untitled</code>
+            </div>
+            <div>
+              <span style="font-size: 13px; font-weight: 600;">Current Encoding:</span>
+              <span id="mojibakeCurrentEncodingBadge" class="mojibake-badge">Windows-1252 (Mojibake)</span>
+            </div>
+          </div>
+          <div style="font-size: 12px; opacity: 0.8; margin-bottom: 8px;">Reopen active file from disk using a different encoding:</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="mojibake-btn" onclick="if (tabManager.activeTab) tabManager.activeTab.reloadWithEncoding('windows-1252')">📄 Windows-1252 (Mojibake)</button>
+            <button class="mojibake-btn" onclick="if (tabManager.activeTab) tabManager.activeTab.reloadWithEncoding('euc-kr')">🇰🇷 EUC-KR (Korean Hangul)</button>
+            <button class="mojibake-btn" onclick="if (tabManager.activeTab) tabManager.activeTab.reloadWithEncoding('utf-8')">🌐 UTF-8</button>
+          </div>
+        </div>
+
+        <!-- In-Editor Content Conversion -->
+        <div class="mojibake-card" style="margin-top: 12px;">
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">Convert Active Editor Content</div>
+          <p style="font-size: 12px; opacity: 0.8; margin-bottom: 10px;">
+            Convert Mojibake into readable Korean Hangul, or convert Korean Hangul back into RO client Mojibake. (Supports Undo with Ctrl+Z)
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="mojibake-action-btn primary" onclick="if (tabManager.activeTab) tabManager.activeTab.convertContentMojibakeToKorean()">
+              ⇄ Convert Mojibake ➔ Korean (Hangul)
+            </button>
+            <button class="mojibake-action-btn secondary" onclick="if (tabManager.activeTab) tabManager.activeTab.convertContentKoreanToMojibake()">
+              ⇄ Convert Korean ➔ Mojibake (Win-1252)
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Interactive Quick Translator -->
+        <div class="mojibake-card" style="margin-top: 12px;">
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">Interactive Live Translator</div>
+          <p style="font-size: 12px; opacity: 0.8; margin-bottom: 10px;">
+            Paste or type any Mojibake or Korean word below for immediate live conversion:
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; opacity: 0.85;">MOJIBAKE (Win-1252 / ANSI)</label>
+              <textarea id="mojibakeLiveInput" class="mojibake-textarea" placeholder="e.g. ³ëºñ½º or Àå½Ä or ¾ÆÀÌÅÛ" spellcheck="false" oninput="handleMojibakeLiveInput(this.value)"></textarea>
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; opacity: 0.85;">KOREAN HANGUL (EUC-KR / CP949)</label>
+              <textarea id="koreanLiveInput" class="mojibake-textarea" placeholder="e.g. 노비스 or 장식 or 아이템" spellcheck="false" oninput="handleKoreanLiveInput(this.value)"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div id="container">
   <div id="sidebarArea" class="sidebar-area sidebar-hidden">
     <div class="sidebar-inner" id="sidebarInner">
@@ -285,7 +354,7 @@
   <script src="library/rathena-highlight-rules.js"></script>
   <script src="library/rathena-linter.js"></script>
 
-  <script src="library/rathena_documentation.js"></script>
+  <script src="library/rathena_documentation_original.js"></script>
   <script src="library/rathena_tooltip_doc.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
