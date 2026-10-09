@@ -1130,8 +1130,15 @@ code {
     position: relative;
 }
 
+.sprite-preview-stage.npc-stage {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px dashed var(--tooltipDivider, rgba(52, 211, 153, 0.25)) !important;
+}
+
 .sprite-preview-img {
     background: transparent !important;
+    background-color: transparent !important;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     image-rendering: pixelated;

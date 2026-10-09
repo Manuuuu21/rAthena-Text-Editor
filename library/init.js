@@ -4,7 +4,7 @@ document.documentElement.classList.add('dark');
 
 function normalizeCode(str) {
   if (typeof str !== 'string') return '';
-  return str.replace(/\r\n|\r/g, '\n');
+  return str.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n').trimEnd();
 }
 
 function toggleTheme() {
@@ -2134,8 +2134,9 @@ class Tab {
         }
     }
 
-    async writeToDisk(showSnack = true) {
-        if (!this.fileHandle || this.isSaving) return false;
+    async writeToDisk(showSnack = true, fromSaveToFile = false) {
+        if (!this.fileHandle) return false;
+        if (this.isSaving && !fromSaveToFile) return false;
         this.isSaving = true;
         try {
             const currentCode = this.editor.getValue();
@@ -2149,20 +2150,27 @@ class Tab {
             this.lastSavedAt = Date.now();
 
             try {
+                // Microtask pause to ensure disk write is completely committed by OS
+                await new Promise(r => setTimeout(r, 60));
                 const updatedFile = await this.fileHandle.getFile();
                 this.lastModified = updatedFile.lastModified || Date.now();
                 if (typeof folderTreeManager !== 'undefined' && folderTreeManager.nodeRegistry) {
-                    const reg = folderTreeManager.nodeRegistry.get(this.relativePath) ||
-                        Array.from(folderTreeManager.nodeRegistry.values()).find(r => !r.isDirectory && (r.path === this.relativePath || r.path.endsWith('/' + this.name) || r.path === this.name));
-                    if (reg) {
-                        reg.lastModified = this.lastModified;
-                        reg.lastSize = updatedFile.size || 0;
-                        reg.isModifiedExternally = false;
-                        reg.lastSavedAt = Date.now();
-                        if (folderTreeManager.markFileModifiedInTree) {
-                            folderTreeManager.markFileModifiedInTree(reg, false);
+                    folderTreeManager.nodeRegistry.forEach((reg) => {
+                        if (!reg.isDirectory && (
+                            (this.relativePath && reg.path === this.relativePath) ||
+                            reg.handle === this.fileHandle ||
+                            reg.path.endsWith('/' + this.name) ||
+                            reg.path === this.name
+                        )) {
+                            reg.lastModified = this.lastModified;
+                            reg.lastSize = updatedFile.size || 0;
+                            reg.isModifiedExternally = false;
+                            reg.lastSavedAt = Date.now();
+                            if (folderTreeManager.markFileModifiedInTree) {
+                                folderTreeManager.markFileModifiedInTree(reg, false);
+                            }
                         }
-                    }
+                    });
                 }
             } catch (e) {
                 this.lastModified = Date.now();
@@ -2208,7 +2216,7 @@ class Tab {
     async checkExternalChange(force = false) {
         if (!this.fileHandle || this.isCheckingExternal || this.isSaving) return;
         // Ignore self-induced filesystem events if we saved this tab recently
-        if (Date.now() - (this.lastSavedAt || 0) < 2500) {
+        if (Date.now() - (this.lastSavedAt || 0) < 6000) {
             return;
         }
         this.isCheckingExternal = true;
@@ -2246,6 +2254,11 @@ class Tab {
             }
 
             // 3. User's editor is clean (no unsaved edits in this app).
+            // Do NOT reload if file was saved within 10 seconds unless forced by outside window focus
+            if (Date.now() - (this.lastSavedAt || 0) < 10000 && !force) {
+                return;
+            }
+
             // It is safe to reload the genuine external changes into the editor.
             const oldCode = this.editor.getValue();
             const cursor = this.editor.getCursorPosition();
@@ -2516,57 +2529,62 @@ class Tab {
 
     async saveToFile() {
         if (this.isSaving) return false;
-        if (!this.fileHandle) {
-            let suggested = this.name;
-            const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
-            if (!hasExt) {
-                suggested += ".txt";
-            }
-            try {
-                this.fileHandle = await window.showSaveFilePicker({
-                    suggestedName: suggested,
-                    types: [
-                        {
-                            description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua, *.inc)",
-                            accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"] }
-                        },
-                        { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
-                        { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
-                        { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
-                        { description: "C / C++ Header & Include Files (*.hpp, *.h, *.inl, *.inc)", accept: { "text/plain": [".hpp", ".h", ".inl", ".inc"] } },
-                        { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
-                        { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
-                    ]
-                });
-                this.name = this.fileHandle.name;
-                this.updateEditorMode();
-                tabManager.renderTabs();
-                this.activate();
-            } catch (pickerErr) {
-                console.warn("Save file picker canceled or error:", pickerErr);
-                return false;
-            }
-        }
-
-        if (this.fileHandle && typeof this.fileHandle.queryPermission === 'function') {
-            try {
-                let perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
-                if (perm !== 'granted') {
-                    if (typeof this.fileHandle.requestPermission === 'function') {
-                        perm = await this.fileHandle.requestPermission({ mode: 'readwrite' });
-                    }
+        this.isSaving = true;
+        try {
+            if (!this.fileHandle) {
+                let suggested = this.name;
+                const hasExt = [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"].some(ext => suggested.toLowerCase().endsWith(ext));
+                if (!hasExt) {
+                    suggested += ".txt";
                 }
-                if (perm !== 'granted') {
-                    showSnackbar(`Permission denied to save "${this.name}".`);
+                try {
+                    this.fileHandle = await window.showSaveFilePicker({
+                        suggestedName: suggested,
+                        types: [
+                            {
+                                description: "All Supported Files (*.txt, *.conf, *.yml, *.yaml, *.cpp, *.hpp, *.c, *.h, *.lua, *.inc)",
+                                accept: { "text/plain": [".txt", ".conf", ".yml", ".yaml", ".cpp", ".hpp", ".c", ".h", ".cc", ".cxx", ".inl", ".inc", ".lua"] }
+                            },
+                            { description: "rAthena Script Files (*.txt)", accept: { "text/plain": [".txt"] } },
+                            { description: "Lua Script Files (*.lua)", accept: { "text/plain": [".lua"] } },
+                            { description: "C / C++ Source Files (*.cpp, *.c, *.cc, *.cxx)", accept: { "text/plain": [".cpp", ".c", ".cc", ".cxx"] } },
+                            { description: "C / C++ Header & Include Files (*.hpp, *.h, *.inl, *.inc)", accept: { "text/plain": [".hpp", ".h", ".inl", ".inc"] } },
+                            { description: "Configuration Files (*.conf)", accept: { "text/plain": [".conf"] } },
+                            { description: "YAML Files (*.yml, *.yaml)", accept: { "text/plain": [".yml", ".yaml"] } }
+                        ]
+                    });
+                    this.name = this.fileHandle.name;
+                    this.updateEditorMode();
+                    tabManager.renderTabs();
+                    this.updateTitle();
+                } catch (pickerErr) {
+                    console.warn("Save file picker canceled or error:", pickerErr);
                     return false;
                 }
-            } catch (pe) {
-                console.warn("Direct re-authorization error:", pe);
-                return false;
             }
-        }
 
-        return await this.writeToDisk(true);
+            if (this.fileHandle && typeof this.fileHandle.queryPermission === 'function') {
+                try {
+                    let perm = await this.fileHandle.queryPermission({ mode: 'readwrite' });
+                    if (perm !== 'granted') {
+                        if (typeof this.fileHandle.requestPermission === 'function') {
+                            perm = await this.fileHandle.requestPermission({ mode: 'readwrite' });
+                        }
+                    }
+                    if (perm !== 'granted') {
+                        showSnackbar(`Permission denied to save "${this.name}".`);
+                        return false;
+                    }
+                } catch (pe) {
+                    console.warn("Direct re-authorization error:", pe);
+                    return false;
+                }
+            }
+
+            return await this.writeToDisk(true, true);
+        } finally {
+            this.isSaving = false;
+        }
     }
 
     downloadEditorContent() {
@@ -3237,7 +3255,20 @@ const COMMON_RATHENA_CONSTANTS = {
     "phreeoni": { id: 1159, name: "Phreeoni", type: "monster" },
     "doppelganger": { id: 1046, name: "Doppelganger", type: "monster" },
     "orc_hero": { id: 1087, name: "Orc Hero", type: "monster" },
-    "orc_lord": { id: 1190, name: "Orc Lord", type: "monster" }
+    "orc_lord": { id: 1190, name: "Orc Lord", type: "monster" },
+
+    // Common NPCs
+    "4_m_jobguide": { id: 100, name: "Job Guide (Male)", type: "npc" },
+    "4_f_kafra1": { id: 115, name: "Kafra 1", type: "npc" },
+    "4_f_kafra2": { id: 116, name: "Kafra 2", type: "npc" },
+    "4_f_kafra3": { id: 117, name: "Kafra 3", type: "npc" },
+    "4_f_kafra4": { id: 118, name: "Kafra 4", type: "npc" },
+    "4_f_kafra5": { id: 119, name: "Kafra 5", type: "npc" },
+    "4_f_kafra6": { id: 120, name: "Kafra 6", type: "npc" },
+    "4_f_kafra7": { id: 844, name: "Kafra 7", type: "npc" },
+    "4_f_nurse": { id: 45, name: "Nurse", type: "npc" },
+    "4_m_soldier": { id: 46, name: "Soldier", type: "npc" },
+    "4_m_pront_soldier": { id: 47, name: "Prontera Soldier", type: "npc" }
 };
 
 class TokenTooltip {
@@ -3316,9 +3347,11 @@ class TokenTooltip {
             if (fallbackList.length > 0) {
                 const nextUrl = fallbackList[0];
                 const restUrls = fallbackList.slice(1);
-                const isNextGif = nextUrl.toLowerCase().endsWith(".gif");
+                const isNextGif = nextUrl.toLowerCase().endsWith(".gif") && !options.isNpc && !options.isItem;
                 this.loadTransparentSprite(nextUrl, {
                     isGif: isNextGif,
+                    isNpc: options.isNpc,
+                    isItem: options.isItem,
                     fallbackUrls: restUrls,
                     bypassCache: options.bypassCache
                 }, callback);
@@ -3328,7 +3361,7 @@ class TokenTooltip {
         };
 
         // If it is an animated monster GIF, load directly to preserve animation frames & native transparency
-        if (options.isGif) {
+        if (options.isGif && !options.isNpc) {
             const img = new Image();
             img.onload = () => {
                 const result = {
@@ -3348,21 +3381,19 @@ class TokenTooltip {
             return;
         }
 
-        // Static PNG with canvas transparent background extraction
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
+        // Apply canvas transparent background extraction (same method for itemID and NPC ID)
+        const applyCanvasTransparency = (imageElement, sourceRefUrl) => {
             try {
                 const canvas = document.createElement("canvas");
-                canvas.width = img.naturalWidth || img.width;
-                canvas.height = img.naturalHeight || img.height;
+                const w = imageElement.naturalWidth || imageElement.width || 40;
+                const h = imageElement.naturalHeight || imageElement.height || 40;
+                canvas.width = w;
+                canvas.height = h;
                 const ctx = canvas.getContext("2d", { willReadFrequently: true });
-                ctx.drawImage(img, 0, 0);
+                ctx.drawImage(imageElement, 0, 0);
 
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const imgData = ctx.getImageData(0, 0, w, h);
                 const data = imgData.data;
-                const w = canvas.width;
-                const h = canvas.height;
 
                 const getPixel = (x, y) => {
                     const idx = (y * w + x) * 4;
@@ -3441,33 +3472,42 @@ class TokenTooltip {
                     width: w,
                     height: h,
                     isGif: false,
-                    sourceUrl: url
+                    sourceUrl: sourceRefUrl || url
                 };
                 spriteCache.set(url, result);
                 callback(null, result);
             } catch (err) {
-                const fallback = { dataUrl: url, width: img.naturalWidth || 40, height: img.naturalHeight || 40, isGif: false, sourceUrl: url };
-                spriteCache.set(url, fallback);
-                callback(null, fallback);
+                tryNextFallback(err);
             }
         };
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const proxyUrl = (url.includes("file5s.ratemyserver.net") || url.includes("ratemyserver.net"))
+            ? `/api/proxy-sprite?url=${encodeURIComponent(url)}`
+            : url;
+
+        img.onload = () => {
+            applyCanvasTransparency(img, url);
+        };
+
         img.onerror = () => {
-            if (img.crossOrigin) {
-                const fallbackImg = new Image();
-                fallbackImg.onload = () => {
-                    const fallback = { dataUrl: url, width: fallbackImg.naturalWidth || 40, height: fallbackImg.naturalHeight || 40, isGif: false, sourceUrl: url };
-                    spriteCache.set(url, fallback);
-                    callback(null, fallback);
+            if (img.src && img.src.includes("/api/proxy-sprite")) {
+                const directImg = new Image();
+                directImg.crossOrigin = "anonymous";
+                directImg.onload = () => {
+                    applyCanvasTransparency(directImg, url);
                 };
-                fallbackImg.onerror = (err) => {
+                directImg.onerror = (err) => {
                     tryNextFallback(err || new Error("Failed to load sprite"));
                 };
-                fallbackImg.src = url;
+                directImg.src = url;
                 return;
             }
             tryNextFallback(new Error("Failed to load sprite"));
         };
-        img.src = url;
+
+        img.src = proxyUrl;
     }
 
     detectSpriteTarget(line, col, token) {
@@ -3500,7 +3540,35 @@ class TokenTooltip {
 
         if (numId <= 0) return null;
 
-        const after = line.substring(end);
+        const after = line.substring(end).trim();
+        const before = line.substring(0, start).trim();
+
+        // 1. NPC Structure detection:
+        // Format: <map>,<x>,<y>,<facing> <type> <name> <NPCID>[,<xs>,<ys>],{
+        // Sample: prontera,155,180,5 script SkillPointMaster 100,{
+        // or:     - script SkillPointMaster 100,{
+        // or:     prontera,155,180,5 duplicate(SkillPointMaster) DuplicateName 100
+        // or:     prontera,155,180,5 shop ToolDealer 100,501:100
+        const npcHeaderRegex = /^(?:([a-zA-Z0-9_@#-]+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?|-)\s+(script|duplicate(?:\s*\([^)]*\))?|shop|itemshop|pointshop|market|cashshop|trader)\s+([^\s,]+|"[^"]*"|'[^']*')\s*$/i;
+        const npcMatch = before.match(npcHeaderRegex);
+        if (npcMatch) {
+            const map = npcMatch[1] || "";
+            const x = npcMatch[2] || "";
+            const y = npcMatch[3] || "";
+            const dir = npcMatch[4] || "";
+            const structureType = npcMatch[5] || "script";
+            const npcName = (npcMatch[6] || "").replace(/^["']|["']$/g, "");
+            const locationStr = map ? `${map} (${x}, ${y})` : "Floating NPC";
+            return {
+                type: "npc",
+                id: numId,
+                name: npcName,
+                map: map,
+                coords: map ? `${x}, ${y}` : "",
+                structure: structureType,
+                context: `${locationStr} • ${structureType}`
+            };
+        }
 
         // Shop item pattern: e.g. 501:100 or -1,501:100
         if (/^:\d+/.test(after)) {
@@ -3644,6 +3712,22 @@ class TokenTooltip {
             return { type: "monster", id: numId, command: cmd, argIndex: 5, name: known ? known.name : "" };
         }
 
+        if (cmd === "setnpcdisplay" && (argIndex === 1 || argIndex === 3) && numId > 0) {
+            let npcName = "";
+            const parts = argsStr.split(",");
+            if (parts.length > 0) {
+                npcName = parts[0].trim().replace(/^["']|["']$/g, "");
+            }
+            return {
+                type: "npc",
+                id: numId,
+                name: npcName || `NPC #${numId}`,
+                command: "setnpcdisplay",
+                argIndex: argIndex,
+                context: "setnpcdisplay() command"
+            };
+        }
+
         if (/(item|equip|card)/i.test(cmd) && (/=|\bset\b/i.test(stmt))) {
             const known = Object.values(COMMON_RATHENA_CONSTANTS).find(c => c.type === "item" && c.id === numId);
             return { type: "item", id: numId, name: known ? known.name : "", context: "Variable Assignment" };
@@ -3747,42 +3831,51 @@ class TokenTooltip {
                     const spriteTarget = cached.spriteData;
                     const isItem = spriteTarget.type === "item";
                     const isMonster = spriteTarget.type === "monster";
-                    const typeLabel = isItem ? "Item" : "Monster";
+                    const isNpc = spriteTarget.type === "npc";
+                    const typeLabel = isItem ? "Item" : (isMonster ? "Monster" : "NPC");
                     
-                    // Monsters use animated GIF from RateMyServer with fallback to iRO Wiki PNG
-                    // Monsters use animated GIF from RateMyServer with fallback to Divine Pride and iRO Wiki
+                    // NPCs and Monsters use animated GIF from RateMyServer
                     // Items use iRO Wiki PNG with fallback to Divine Pride
-                    const primaryUrl = isItem 
-                        ? `https://db.irowiki.org/image/item/${spriteTarget.id}.png`
-                        : `https://file5s.ratemyserver.net/mobs/${spriteTarget.id}.gif`;
-                    const fallbackUrls = isItem 
+                    const primaryUrl = isNpc
+                        ? `https://file5s.ratemyserver.net/quests/npcs/${spriteTarget.id}.gif`
+                        : (isItem 
+                            ? `https://db.irowiki.org/image/item/${spriteTarget.id}.png`
+                            : `https://file5s.ratemyserver.net/mobs/${spriteTarget.id}.gif`);
+                    const fallbackUrls = isNpc
                         ? [
-                            `https://static.divine-pride.net/images/items/item/${spriteTarget.id}.png`,
-                            `https://static.divine-pride.net/images/items/collection/${spriteTarget.id}.png`
+                            `https://static.divine-pride.net/images/npcs/png/${spriteTarget.id}.png`,
+                            `https://static.divine-pride.net/images/npcs/collection/${spriteTarget.id}.png`
                           ]
-                        : [
-                            `https://static.divine-pride.net/images/mobs/png/${spriteTarget.id}.png`,
-                            `https://db.irowiki.org/image/monster/${spriteTarget.id}.png`
-                          ];
+                        : (isItem 
+                            ? [
+                                `https://static.divine-pride.net/images/items/item/${spriteTarget.id}.png`,
+                                `https://static.divine-pride.net/images/items/collection/${spriteTarget.id}.png`
+                              ]
+                            : [
+                                `https://static.divine-pride.net/images/mobs/png/${spriteTarget.id}.png`,
+                                `https://db.irowiki.org/image/monster/${spriteTarget.id}.png`
+                              ]);
 
-                    const badgeColor = isItem ? "#38bdf8" : "#c084fc";
-                    const badgeBg = isItem ? "rgba(56, 189, 248, 0.15)" : "rgba(192, 132, 252, 0.15)";
-                    const badgeBorder = isItem ? "rgba(56, 189, 248, 0.35)" : "rgba(192, 132, 252, 0.35)";
+                    const badgeColor = isNpc ? "#34d399" : (isItem ? "#38bdf8" : "#c084fc");
+                    const badgeBg = isNpc ? "rgba(52, 211, 153, 0.15)" : (isItem ? "rgba(56, 189, 248, 0.15)" : "rgba(192, 132, 252, 0.15)");
+                    const badgeBorder = isNpc ? "rgba(52, 211, 153, 0.35)" : (isItem ? "rgba(56, 189, 248, 0.35)" : "rgba(192, 132, 252, 0.35)");
 
-                    const displayName = spriteTarget.name 
-                        ? `${typeLabel} #${spriteTarget.id} (${spriteTarget.name})`
-                        : `${typeLabel} #${spriteTarget.id}`;
+                    const displayName = isNpc
+                        ? (spriteTarget.name ? `NPC #${spriteTarget.id} (${spriteTarget.name})` : `NPC #${spriteTarget.id}`)
+                        : (spriteTarget.name ? `${typeLabel} #${spriteTarget.id} (${spriteTarget.name})` : `${typeLabel} #${spriteTarget.id}`);
 
-                    const subDetail = spriteTarget.isCard 
-                        ? "Socketed Card Reference" 
-                        : (spriteTarget.command ? `Command: ${spriteTarget.command}()` : (spriteTarget.context || "Script Reference"));
+                    const subDetail = isNpc
+                        ? (spriteTarget.context || "NPC Structure")
+                        : (spriteTarget.isCard 
+                            ? "Socketed Card Reference" 
+                            : (spriteTarget.command ? `Command: ${spriteTarget.command}()` : (spriteTarget.context || "Script Reference")));
 
                     const html = `
-                        <div class="sprite-tooltip-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: ${isMonster ? '180px' : '250px'}; max-width: 320px;">
+                        <div class="sprite-tooltip-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; min-width: ${isMonster || isNpc ? '180px' : '250px'}; max-width: 320px;">
                             ${isMonster ? `
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                                 <span style="font-size: 11.5px; font-weight: 700; color: var(--tooltipHeaderColor, #c084fc); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.3px;">
-                                    Animated GIF
+                                    Animated Monster GIF
                                 </span>
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <button id="sprite-reload-btn" type="button" title="Refresh sprite (bypass cache)" style="background: transparent; border: 1px solid var(--tooltipDivider, rgba(255,255,255,0.15)); color: var(--searchCounterColor, #9aa0a6); cursor: pointer; padding: 1px 5px; font-size: 11px; border-radius: 4px; line-height: 1.2; transition: all 0.15s ease;">
@@ -3790,6 +3883,27 @@ class TokenTooltip {
                                     </button>
                                     <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder};">
                                         Monster
+                                    </span>
+                                </div>
+                            </div>
+                            ` : (isNpc ? `
+                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--tooltipDivider, rgba(255,255,255,0.1)); padding-bottom: 7px; margin-bottom: 8px;">
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--tooltipHeaderColor, #34d399); font-family: 'JetBrains Mono', monospace;">
+                                        ${displayName}
+                                    </div>
+                                    ${subDetail ? `
+                                    <div style="font-size: 11px; color: var(--searchCounterColor, #9aa0a6); margin-top: 1px;">
+                                        ${subDetail}
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <button id="sprite-reload-btn" type="button" title="Refresh sprite (bypass cache)" style="background: transparent; border: 1px solid var(--tooltipDivider, rgba(255,255,255,0.15)); color: var(--searchCounterColor, #9aa0a6); cursor: pointer; padding: 1px 5px; font-size: 11px; border-radius: 4px; line-height: 1.2; transition: all 0.15s ease;">
+                                        ↻
+                                    </button>
+                                    <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; display: inline-flex; align-items: center; gap: 4px;">
+                                        NPC ID
                                     </span>
                                 </div>
                             </div>
@@ -3814,12 +3928,12 @@ class TokenTooltip {
                                     </span>
                                 </div>
                             </div>
-                            `}
+                            `)}
 
-                            <div class="sprite-preview-stage" style="min-height: ${isItem ? '80px' : '120px'};">
+                            <div class="sprite-preview-stage" style="min-height: ${isItem ? '80px' : '110px'};">
                                 <div id="sprite-preview-loader" style="font-size: 11.5px; color: var(--searchCounterColor, #888); display: flex; align-items: center; gap: 7px;">
                                     <span style="display: inline-block; width: 12px; height: 12px; border: 2px solid ${badgeColor}; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
-                                    ${isMonster ? 'Loading animated monster GIF...' : 'Loading transparent item sprite...'}
+                                    ${isNpc ? 'Loading transparent NPC sprite...' : (isMonster ? 'Loading animated monster GIF...' : 'Loading transparent item sprite...')}
                                 </div>
                                 <img id="sprite-preview-img" class="sprite-preview-img" style="display: none;" alt="${displayName}" title="${displayName}" />
                                 <div id="sprite-preview-error" style="display: none; color: #ef4444; font-size: 11px; text-align: center; padding: 12px 6px;">
@@ -3836,7 +3950,7 @@ class TokenTooltip {
                             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: 10.5px; color: var(--searchCounterColor, #888);">
                                 <span id="sprite-preview-dim" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; white-space: nowrap;"></span>
                                 <a id="sprite-preview-link" href="${primaryUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--tooltipHeaderColor, #38bdf8); text-decoration: none; font-size: 10.5px; white-space: nowrap; flex-shrink: 0;">
-                                    ${isMonster ? "RateMyServer GIF ↗" : "iRO Wiki Image ↗"}
+                                    ${isNpc ? "RateMyServer NPC GIF ↗" : (isMonster ? "RateMyServer GIF ↗" : "iRO Wiki Image ↗")}
                                 </a>
                             </div>
                         </div>
@@ -3885,6 +3999,7 @@ class TokenTooltip {
 
                             this.loadTransparentSprite(primaryUrl, {
                                 isGif: isMonster,
+                                isNpc: isNpc,
                                 fallbackUrls: fallbackUrls,
                                 isItem: isItem,
                                 bypassCache: bypassCache
@@ -3904,6 +4019,20 @@ class TokenTooltip {
                                             imgEl.style.width = (res.width * scale) + "px";
                                             imgEl.style.height = (res.height * scale) + "px";
                                             if (dimEl) dimEl.textContent = `${res.width}×${res.height}px` + (scale > 1 ? ` (${scale}×)` : "");
+                                        } else if (isNpc) {
+                                            // NPC GIF
+                                            if (res.width <= 44 && res.height <= 55) {
+                                                const scale = 2;
+                                                imgEl.style.width = (res.width * scale) + "px";
+                                                imgEl.style.height = (res.height * scale) + "px";
+                                                if (dimEl) dimEl.textContent = `${res.width}×${res.height}px (2×)`;
+                                            } else {
+                                                imgEl.style.width = "auto";
+                                                imgEl.style.height = "auto";
+                                                imgEl.style.maxWidth = "200px";
+                                                imgEl.style.maxHeight = "180px";
+                                                if (dimEl) dimEl.textContent = `${res.width}×${res.height}px`;
+                                            }
                                         } else {
                                             // Monster GIF / Sprite
                                             if (res.width <= 44 && res.height <= 44) {
@@ -3920,11 +4049,16 @@ class TokenTooltip {
                                             }
                                         }
                                         imgEl.style.display = "block";
-                                        if (linkEl && res.sourceUrl) {
-                                            linkEl.href = res.sourceUrl;
-                                            const isRMS = res.sourceUrl.includes("ratemyserver");
-                                            const isDP = res.sourceUrl.includes("divine-pride");
-                                            linkEl.textContent = isRMS ? "RateMyServer GIF ↗" : (isDP ? "Divine Pride ↗" : "iRO Wiki Image ↗");
+                                        if (linkEl) {
+                                            if (isNpc) {
+                                                linkEl.href = `https://file5s.ratemyserver.net/quests/npcs/${spriteTarget.id}.gif`;
+                                                linkEl.textContent = "RateMyServer NPC GIF ↗";
+                                            } else if (res.sourceUrl) {
+                                                linkEl.href = res.sourceUrl;
+                                                const isRMS = res.sourceUrl.includes("ratemyserver");
+                                                const isDP = res.sourceUrl.includes("divine-pride");
+                                                linkEl.textContent = isRMS ? "RateMyServer GIF ↗" : (isDP ? "Divine Pride ↗" : "iRO Wiki Image ↗");
+                                            }
                                         }
                                     }
                                 }
@@ -7912,8 +8046,10 @@ class FolderTreeManager {
                 if (!n || typeof n !== "string") return true;
                 return n.startsWith(".") ||
                     n.endsWith(".crswap") ||
+                    n.includes(".crswap") ||
                     n.endsWith(".tmp") ||
                     n.endsWith("~") ||
+                    n.startsWith("~") ||
                     n === "node_modules" ||
                     n === ".git";
             };
@@ -8068,12 +8204,12 @@ class FolderTreeManager {
 
                                 if (openTab) {
                                     // If open in tab, let tab sync cleanly (skip if saving or saved by this app recently)
-                                    if (!openTab.isSaving && (Date.now() - (openTab.lastSavedAt || 0) > 2500)) {
+                                    if (!openTab.isSaving && (Date.now() - (openTab.lastSavedAt || 0) > 6000)) {
                                         openTab.checkExternalChange(true);
                                     }
                                 } else {
                                     // File is NOT open in any tab! Highlight in tree and notify via snackbar!
-                                    if (Date.now() - (regItem.lastSavedAt || 0) > 2500) {
+                                    if (Date.now() - (regItem.lastSavedAt || 0) > 6000) {
                                         this.markFileModifiedInTree(regItem, true);
                                         showSnackbar(`"${fileName}" in folder was modified externally.`);
                                     }
