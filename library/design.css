@@ -1297,6 +1297,55 @@ opacity: 0;
 }
 
 
+/* Consolidated file history */
+.modal.history-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-width: 560px;
+  max-height: calc(100dvh - 153px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--toolbarBg);
+  color: var(--textColor);
+}
+.history-file-name {
+  margin: 10px 0 16px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.history-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.history-entry {
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--tooltipBorder);
+  border-radius: 6px;
+  background: var(--minimapBg);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.history-entry:last-child { margin-bottom: 0; }
+.history-section-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--textColor);
+}
+.history-entry + .history-section-title { margin-top: 32px; }
+.history-entry p { margin: 0; }
+.history-entry .diff-actions { margin-bottom: 0; }
+.history-entry .diff-btn.restore { border: 1px solid #ccc; }
+.history-additions { color: #42c878; font-weight: bold; }
+.history-removals { color: #ff7979; font-weight: bold; }
+html[data-theme="light"] .history-additions { color: #087d32; }
+html[data-theme="light"] .history-removals { color: #c62828; }
+.history-empty { padding: 20px 0; font-size: 14px; line-height: 1.6; }
+.history-modal button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 3px; }
+
 /* ============= DIFF MODAL STYLES ========== */
 .diff-modal {
   position: fixed;
@@ -1355,23 +1404,23 @@ opacity: 0;
 .ace_removed_word { background-color: var(--diffRemovedHighlightBg) !important; position: absolute; z-index: 5 !important; }
 
 /* Generic scrollbar for all containers */
-.chat-messages, .diff-split-container, .diff-modal-box, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container, .sidebar-search-dropdown, .sidebar-search-results-list {
+.history-list, .chat-messages, .diff-split-container, .diff-modal-box, .ace_tooltip, .ace_scrollbar, .ace_scrollbar-v, .ace_scrollbar-h, .rathena_highlight, .folder-tree-container, .sidebar-search-dropdown, .sidebar-search-results-list {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
-.chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar, .sidebar-search-dropdown::-webkit-scrollbar, .sidebar-search-results-list::-webkit-scrollbar {
+.history-list::-webkit-scrollbar, .chat-messages::-webkit-scrollbar, .diff-split-container::-webkit-scrollbar, .diff-modal-box::-webkit-scrollbar, .ace_tooltip::-webkit-scrollbar, .ace_scrollbar::-webkit-scrollbar, .ace_scrollbar-v::-webkit-scrollbar, .ace_scrollbar-h::-webkit-scrollbar, .rathena_highlight::-webkit-scrollbar, .folder-tree-container::-webkit-scrollbar, .sidebar-search-dropdown::-webkit-scrollbar, .sidebar-search-results-list::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track, .sidebar-search-dropdown::-webkit-scrollbar-track, .sidebar-search-results-list::-webkit-scrollbar-track {
+.history-list::-webkit-scrollbar-track, .chat-messages::-webkit-scrollbar-track, .diff-split-container::-webkit-scrollbar-track, .diff-modal-box::-webkit-scrollbar-track, .ace_tooltip::-webkit-scrollbar-track, .ace_scrollbar::-webkit-scrollbar-track, .ace_scrollbar-v::-webkit-scrollbar-track, .ace_scrollbar-h::-webkit-scrollbar-track, .rathena_highlight::-webkit-scrollbar-track, .folder-tree-container::-webkit-scrollbar-track, .sidebar-search-dropdown::-webkit-scrollbar-track, .sidebar-search-results-list::-webkit-scrollbar-track {
     background: var(--scrollbarTrack);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb, .sidebar-search-dropdown::-webkit-scrollbar-thumb, .sidebar-search-results-list::-webkit-scrollbar-thumb {
+.history-list::-webkit-scrollbar-thumb, .chat-messages::-webkit-scrollbar-thumb, .diff-split-container::-webkit-scrollbar-thumb, .diff-modal-box::-webkit-scrollbar-thumb, .ace_tooltip::-webkit-scrollbar-thumb, .ace_scrollbar::-webkit-scrollbar-thumb, .ace_scrollbar-v::-webkit-scrollbar-thumb, .ace_scrollbar-h::-webkit-scrollbar-thumb, .rathena_highlight::-webkit-scrollbar-thumb, .folder-tree-container::-webkit-scrollbar-thumb, .sidebar-search-dropdown::-webkit-scrollbar-thumb, .sidebar-search-results-list::-webkit-scrollbar-thumb {
     background: var(--scrollbarThumb);
     border-radius: 4px;
 }
-.chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover, .sidebar-search-dropdown::-webkit-scrollbar-thumb:hover, .sidebar-search-results-list::-webkit-scrollbar-thumb:hover {
+.history-list::-webkit-scrollbar-thumb:hover, .chat-messages::-webkit-scrollbar-thumb:hover, .diff-split-container::-webkit-scrollbar-thumb:hover, .diff-modal-box::-webkit-scrollbar-thumb:hover, .ace_tooltip::-webkit-scrollbar-thumb:hover, .ace_scrollbar::-webkit-scrollbar-thumb:hover, .ace_scrollbar-v::-webkit-scrollbar-thumb:hover, .ace_scrollbar-h::-webkit-scrollbar-thumb:hover, .rathena_highlight::-webkit-scrollbar-thumb:hover, .folder-tree-container::-webkit-scrollbar-thumb:hover, .sidebar-search-dropdown::-webkit-scrollbar-thumb:hover, .sidebar-search-results-list::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbarThumbHover);
 }
 

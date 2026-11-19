@@ -417,6 +417,7 @@ function toggleTheme() {
 /* Diff Modal handling */
 function closeDiffModal() {
     document.getElementById('diffModal').style.display = 'none';
+    window.historyModal?.resume();
 }
 
 function toggleThinking(element) {
@@ -458,7 +459,7 @@ function openDiff(index, tabId) {
     if (tabId !== undefined) {
         tab = tabManager.tabs.find(t => t.id === tabId) || tab;
     }
-    if (!tab) return;
+    if (!tab || !tab.diffHistory[index]) return;
     
     currentDiffIndex = index;
     currentDiffTab = tab;
@@ -466,7 +467,7 @@ function openDiff(index, tabId) {
     const {old: oldCode, new: newCode, timestamp} = tab.diffHistory[index];
     
     // Set timestamp
-    document.getElementById('diffTimestamp').innerText = timestamp ? timestamp.toLocaleString() : "";
+    document.getElementById('diffTimestamp').innerText = timestamp ? new Date(timestamp).toLocaleString() : "";
     
     if (!diffOldEditor) {
         diffOldEditor = setupDiffEditor('diffOld');
@@ -613,7 +614,7 @@ function restoreFromDiff(index, restoreTo = 'new', tabId) {
     
     if (!tab) return;
     
-    if (index === -1 || index === undefined || index === null) {
+    if (!tab.diffHistory[index]) {
         showSnackbar("No savepoint selected.");
         return;
     }
@@ -627,9 +628,10 @@ function restoreFromDiff(index, restoreTo = 'new', tabId) {
     tab.editor.focus();
     showSnackbar(`Restored to savepoint (${restoreTo}).`);
     
-    const timeString = timestamp ? timestamp.toLocaleString() : "Unknown time";
+    const timeString = timestamp ? new Date(timestamp).toLocaleString() : "Unknown time";
     tab.addMessage(`🏴 Restored code from the Time: ${timeString}`, 'restored');
     
+    window.historyModal?.close(false);
     closeDiffModal();
 }
 
@@ -2619,6 +2621,9 @@ class Tab {
             additions: additions,
             removals: removals
         });
+        // Persist after adding the diff: saving only the editor text beforehand
+        // loses external-change entries when the page is reopened.
+        this.saveToDB();
         return diffIndex;
     }
 
