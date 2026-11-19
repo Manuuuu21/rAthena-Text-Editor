@@ -33,6 +33,18 @@
     </div>
   </div>
 
+  <!-- Consolidated history for the active file -->
+  <div class="modal-overlay" id="historyModal" style="display: none;">
+    <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle" aria-describedby="historyFileName">
+      <div class="modal-header">
+        <h2 id="historyTitle">View History</h2>
+        <button type="button" class="close-btn" id="historyCloseBtn" aria-label="Close history">✖</button>
+      </div>
+      <p id="historyFileName" class="history-file-name"></p>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </div>
+
   <!-- Diff Modal -->
   <div class="diff-modal" id="diffModal">
     <div class="diff-modal-box">
@@ -260,6 +272,7 @@
       <button title="Previous Code" id="previousCodeBtn" onclick="tabManager.activeTab.previousCode()">⏪</button>
       <button title="Next Code" id="nextCodeBtn" onclick="tabManager.activeTab.nextCode()">⏩</button>
       <button title="Toggle Darkmode and Lightmode" onclick="toggleTheme()">🌓</button>
+      <button type="button" id="viewHistoryBtn" title="View History" aria-label="View History" aria-haspopup="dialog" aria-controls="historyModal" onclick="historyModal.open()">🕘</button>
       <button title="Settings" onclick="openModal()">⚙️</button>
       <div style="margin-left: auto; display: flex; gap: 5px;">
         <button style="background:silver;" title="Put your API key here" onclick="openApiModal()">API Key</button>
@@ -358,6 +371,7 @@
   <script src="library/rathena_tooltip_doc.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/init.js"></script>
+  <script src="library/history-modal.js"></script>
   <script>
     function bootApp() {
       tabManager.initSession();
