@@ -6079,6 +6079,12 @@ class FolderTreeManager {
         this.isIndexing = false;
         this.currentSearchResults = [];
         this.selectedSearchIndex = -1;
+        this.searchPage = 0;
+        this.searchPageSize = 10;
+        this.searchRequestId = 0;
+        this.contentSearch = new FolderContentSearch(readFileWithEncoding);
+        this.searchCacheRoot = null;
+        this.searchDebounceTimer = null;
         this.initialized = false;
         this.isOpeningFile = false;
         this.treeClipboard = null;
@@ -6176,17 +6182,16 @@ class FolderTreeManager {
         const searchContainer = document.getElementById("sidebarSearchContainer");
 
         if (searchInput) {
-            let debounceTimer = null;
             searchInput.addEventListener("input", (e) => {
+                this.closeSearchDropdown();
                 const val = e.target.value.trim();
                 this.filterText = val;
                 if (searchClear) {
                     searchClear.style.display = val ? "inline-block" : "none";
                 }
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
+                this.searchDebounceTimer = setTimeout(() => {
                     this.searchFiles(val);
-                }, 80);
+                }, 180);
             });
 
             searchInput.addEventListener("focus", () => {
@@ -6206,13 +6211,16 @@ class FolderTreeManager {
                     e.preventDefault();
                     e.stopPropagation();
                     if (this.currentSearchResults && this.currentSearchResults.length > 0) {
-                        const targetIdx = this.selectedSearchIndex >= 0 ? this.selectedSearchIndex : 0;
+                        const targetIdx = this.searchPage * this.searchPageSize + Math.max(0, this.selectedSearchIndex);
                         const targetItem = this.currentSearchResults[targetIdx];
                         if (targetItem) {
                             searchInput.blur();
                             this.openFileFromSearch(targetItem);
                         }
                     }
+                } else if (e.key === "PageDown" || e.key === "PageUp") {
+                    e.preventDefault();
+                    this.changeSearchPage(e.key === "PageDown" ? 1 : -1);
                 } else if (e.key === "Escape") {
                     this.closeSearchDropdown();
                     searchInput.blur();
@@ -6233,6 +6241,11 @@ class FolderTreeManager {
         }
 
         // Click outside closes search dropdown
+        if (searchContainer) {
+            searchContainer.addEventListener('keydown', e => {
+                if (e.key === 'Escape') this.closeSearchDropdown();
+            });
+        }
         document.addEventListener("click", (e) => {
             if (searchContainer && !searchContainer.contains(e.target)) {
                 this.closeSearchDropdown();
@@ -6299,6 +6312,9 @@ class FolderTreeManager {
             });
             if (!dirHandle) return;
 
+            this.closeSearchDropdown();
+            this.contentSearch.clear();
+            this.workspaceFiles = [];
             this.rootHandle = dirHandle;
             this.rootName = dirHandle.name;
             if (typeof tabManager !== 'undefined') {
@@ -8647,6 +8663,7 @@ class FolderTreeManager {
     closeFolderWorkspace() {
         this.stopWatcher();
         this.closeSearchDropdown();
+        this.contentSearch.clear();
         this.workspaceFiles = [];
         this.filterText = "";
         const searchInput = document.getElementById("sidebarSearchInput");
@@ -8678,13 +8695,16 @@ class FolderTreeManager {
             this.workspaceFiles = [];
             return;
         }
-        if (this.isIndexing) return;
+        const rootHandle = this.rootHandle;
+        if (this.isIndexing && this.indexingRoot === rootHandle) return;
         this.isIndexing = true;
+        this.indexingRoot = rootHandle;
         const allFiles = [];
 
         const traverse = async (dirHandle, currentPath) => {
             try {
                 for await (const [name, entry] of dirHandle.entries()) {
+                    if (this.rootHandle !== rootHandle) return;
                     if (name.startsWith(".") || name === "node_modules" || name === ".git" || name === "dist") continue;
                     const relPath = currentPath ? `${currentPath}/${name}` : name;
                     if (entry.kind === "directory") {
@@ -8703,15 +8723,16 @@ class FolderTreeManager {
         };
 
         try {
-            await traverse(this.rootHandle, "");
+            await traverse(rootHandle, "");
+            if (this.rootHandle !== rootHandle) return;
             this.workspaceFiles = allFiles;
-            if (this.filterText) {
+            if (this.filterText && document.getElementById('sidebarSearchDropdown')?.style.display !== 'none') {
                 this.searchFiles(this.filterText);
             }
         } catch (e) {
             console.warn("Error indexing workspace files:", e);
         } finally {
-            this.isIndexing = false;
+            if (this.indexingRoot === rootHandle) this.isIndexing = false;
         }
     }
 
@@ -8732,110 +8753,241 @@ class FolderTreeManager {
         return fallback;
     }
 
-    searchFiles(query) {
-        const dropdown = document.getElementById("sidebarSearchDropdown");
-        if (!dropdown) return;
-
+    async searchFiles(query) {
+        clearTimeout(this.searchDebounceTimer);
+        this.contentSearch.cancel();
+        const requestId = ++this.searchRequestId;
+        const rootHandle = this.rootHandle;
+        if (this.searchCacheRoot !== rootHandle) {
+            this.contentSearch.clear();
+            this.searchCacheRoot = rootHandle;
+        }
+        const isCurrent = () => requestId === this.searchRequestId && rootHandle === this.rootHandle;
         const q = (query || "").trim();
         if (!q) {
             this.closeSearchDropdown();
             return;
         }
 
+        this.searchQuery = q;
+        this.searchPage = 0;
+        this.selectedSearchIndex = -1;
         const lowerQ = q.toLowerCase();
         const files = this.getAllFiles();
+        const matchesPath = file => file.relativePath.toLowerCase().includes(lowerQ) || file.name.toLowerCase().includes(lowerQ);
+        const rank = file => {
+            const name = file.name.toLowerCase();
+            return name === lowerQ ? 0 : name.startsWith(lowerQ) ? 1 : name.includes(lowerQ) ? 2 : 3;
+        };
+        this.currentSearchResults = files.filter(matchesPath).sort((a, b) =>
+            rank(a) - rank(b) || a.relativePath.localeCompare(b.relativePath));
 
-        if (!files || files.length === 0) {
-            dropdown.innerHTML = `<div class="search-result-empty">No files in open folder</div>`;
-            dropdown.style.display = "block";
-            this.currentSearchResults = [];
-            this.selectedSearchIndex = -1;
-            return;
+        // Search saved text files only; binary assets remain searchable by filename.
+        // Read a small batch at a time so typing or dismissing search cancels promptly.
+        const contentFiles = files.filter(file => !matchesPath(file) &&
+            /\.(txt|conf|ya?ml|lua|lub|json|xml|csv|tsv|sql|md|ini|log|js|ts|html|css|inc|c|cpp|cc|cxx|c\+\+|h|hpp|hh|hxx|h\+\+|inl|ipp|tpp|ixx|cppm)$/i.test(file.name))
+            .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        this.searchStatus = contentFiles.length ? 'Searching file contents…' : '';
+        this.searchPending = contentFiles.length > 0;
+        this.searchEmptyMessage = files.length ? 'No files found' : 'No files in open folder';
+        this.renderSearchResults();
+        let unreadable = 0;
+        let lastRender = performance.now();
+        for (let offset = 0; offset < contentFiles.length; offset += 8) {
+            if (!isCurrent()) return;
+            const items = contentFiles.slice(offset, offset + 8);
+            const snapshots = await Promise.all(items.map(async item => {
+                try {
+                    const file = await item.handle.getFile();
+                    if (!isCurrent()) return null;
+                    return { file, key: this.contentSearch.keyFor(item.handle) };
+                } catch (error) {
+                    if (isCurrent()) unreadable++;
+                    return null;
+                }
+            }));
+            if (!isCurrent()) return;
+            const readableItems = items.filter((item, index) => snapshots[index]);
+            const batch = await this.contentSearch.searchBatch(snapshots.filter(Boolean), q, isCurrent);
+            if (!isCurrent() || !batch) return;
+            for (let index = 0; index < batch.length; index++) {
+                const result = batch[index];
+                if (result && result.error) unreadable++;
+                else if (result) this.currentSearchResults.push({ ...readableItems[index], ...result });
+            }
+            this.searchStatus = 'Searching contents (' + Math.min(offset + 8, contentFiles.length) + '/' + contentFiles.length + ')…';
+            if (performance.now() - lastRender > 150) {
+                this.renderSearchResults();
+                lastRender = performance.now();
+            }
+            // Yield even when file handles resolve immediately.
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
+        if (!isCurrent()) return;
+        this.searchPending = false;
+        this.searchStatus = unreadable ? unreadable + ' file(s) could not be read' : '';
+        this.renderSearchResults();
+    }
 
-        // Filter files matching query in name or relativePath
-        const matches = files.filter(f => {
-            return f.relativePath.toLowerCase().includes(lowerQ) || f.name.toLowerCase().includes(lowerQ);
-        });
-
-        // Sort: exact filename match, filename starts with, filename contains, path contains
-        matches.sort((a, b) => {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            const aPath = a.relativePath.toLowerCase();
-            const bPath = b.relativePath.toLowerCase();
-
-            if (aName === lowerQ && bName !== lowerQ) return -1;
-            if (bName === lowerQ && aName !== lowerQ) return 1;
-
-            const aStarts = aName.startsWith(lowerQ);
-            const bStarts = bName.startsWith(lowerQ);
-            if (aStarts && !bStarts) return -1;
-            if (bStarts && !aStarts) return 1;
-
-            const aContains = aName.includes(lowerQ);
-            const bContains = bName.includes(lowerQ);
-            if (aContains && !bContains) return -1;
-            if (bContains && !aContains) return 1;
-
-            return aPath.localeCompare(bPath);
-        });
-
-        if (matches.length === 0) {
-            dropdown.innerHTML = `<div class="search-result-empty">No files found matching "<b>${this.escapeHtml(q)}</b>"</div>`;
-            dropdown.style.display = "block";
-            this.currentSearchResults = [];
-            this.selectedSearchIndex = -1;
-            return;
-        }
-
-        this.currentSearchResults = matches;
+    changeSearchPage(delta) {
+        if (document.getElementById('sidebarSearchDropdown')?.style.display === 'none') return;
+        const totalPages = Math.max(1, Math.ceil(this.currentSearchResults.length / this.searchPageSize));
+        this.searchPage = Math.max(0, Math.min(totalPages - 1, this.searchPage + delta));
         this.selectedSearchIndex = -1;
+        this.renderSearchResults();
+    }
 
-        dropdown.innerHTML = "";
+    renderSearchResults() {
+        const dropdown = document.getElementById("sidebarSearchDropdown");
+        if (!dropdown) return;
+        const matches = this.currentSearchResults;
+        const totalPages = Math.max(1, Math.ceil(matches.length / this.searchPageSize));
+        this.searchPage = Math.min(this.searchPage, totalPages - 1);
+        // Progress updates must preserve mouse-down targets until mouse-up.
+        // A new request resets the view; batches only append results and update labels.
+        if (dropdown.dataset.requestId !== String(this.searchRequestId)) {
+            dropdown.replaceChildren();
+            dropdown.dataset.requestId = this.searchRequestId;
+        }
+        let header = dropdown.querySelector('.sidebar-search-dropdown-header');
+        if (!header) {
+            header = document.createElement('div');
+            header.className = 'sidebar-search-dropdown-header';
+            header.innerHTML = '<span></span><span>ESC to close</span>';
+            dropdown.appendChild(header);
+        }
+        header.firstElementChild.textContent = 'Matches (' + matches.length + ')';
 
-        const header = document.createElement("div");
-        header.className = "sidebar-search-dropdown-header";
-        header.innerHTML = `<span>Matches (${matches.length})</span><span>ESC to close</span>`;
-        dropdown.appendChild(header);
-
-        const listContainer = document.createElement("div");
-        listContainer.className = "sidebar-search-results-list";
-
-        // Limit results to top 60 items for performance
-        const displayMatches = matches.slice(0, 60);
-
+        let listContainer = dropdown.querySelector('.sidebar-search-results-list');
+        if (!listContainer) {
+            listContainer = document.createElement('div');
+            listContainer.className = 'sidebar-search-results-list';
+            dropdown.appendChild(listContainer);
+        }
+        if (listContainer.dataset.page !== String(this.searchPage)) {
+            listContainer.replaceChildren();
+            listContainer.dataset.page = this.searchPage;
+            listContainer.scrollTop = 0;
+        }
+        const start = this.searchPage * this.searchPageSize;
+        const displayMatches = matches.slice(start, start + this.searchPageSize);
+        let empty = listContainer.querySelector('.search-result-empty');
+        if (!displayMatches.length) {
+            if (!empty) {
+                empty = document.createElement('div');
+                empty.className = 'search-result-empty';
+                listContainer.appendChild(empty);
+            }
+            empty.textContent = this.searchPending ? 'Looking for matching files…' : this.searchEmptyMessage;
+        } else if (empty) {
+            empty.remove();
+        }
         displayMatches.forEach((item, idx) => {
+            const existing = listContainer.children[idx];
+            if (existing) {
+                existing.classList.toggle('selected', idx === this.selectedSearchIndex);
+                return;
+            }
             const itemElem = document.createElement("div");
             itemElem.className = "search-result-item";
+            itemElem.classList.toggle('selected', idx === this.selectedSearchIndex);
             itemElem.dataset.index = idx;
-
             const iconElem = document.createElement("span");
             iconElem.className = "search-result-icon";
             iconElem.innerHTML = this.getFileIcon(item.name);
-
             const contentElem = document.createElement("div");
             contentElem.className = "search-result-content";
-
             const pathElem = document.createElement("div");
             pathElem.className = "search-result-path";
             pathElem.title = item.relativePath;
-            pathElem.innerHTML = this.highlightMatch(item.relativePath, q);
-
+            pathElem.innerHTML = this.highlightMatch(item.relativePath, this.searchQuery);
             contentElem.appendChild(pathElem);
-            itemElem.appendChild(iconElem);
-            itemElem.appendChild(contentElem);
-
-            itemElem.onclick = async (e) => {
+            if (item.matchLine) {
+                const snippet = document.createElement('div');
+                snippet.className = 'search-result-snippet';
+                snippet.title = 'Line ' + item.matchLine + ': ' + item.matchSnippet;
+                snippet.innerHTML = 'Line ' + item.matchLine + ': ' + this.highlightMatch(item.matchSnippet, this.searchQuery);
+                contentElem.appendChild(snippet);
+            }
+            itemElem.append(iconElem, contentElem);
+            itemElem.onclick = async e => {
                 e.stopPropagation();
                 await this.openFileFromSearch(item);
             };
-
             listContainer.appendChild(itemElem);
         });
-
-        dropdown.appendChild(listContainer);
-        dropdown.style.display = "flex";
+        let footer = dropdown.querySelector('.sidebar-search-footer');
+        if (!footer) {
+            footer = document.createElement('div');
+            footer.className = 'sidebar-search-footer';
+            const status = document.createElement('div');
+            status.className = 'sidebar-search-status';
+            status.setAttribute('role', 'status');
+            const pagination = document.createElement('div');
+            pagination.className = 'sidebar-search-pagination';
+            const previous = document.createElement('button');
+            previous.type = 'button';
+            previous.id = 'sidebarSearchPrevious';
+            previous.textContent = 'Previous';
+            previous.setAttribute('aria-label', 'Previous file search results page');
+            previous.onclick = e => { e.stopPropagation(); this.changeSearchPage(-1); };
+            const page = document.createElement('span');
+            page.className = 'sidebar-search-page';
+            const pageInput = document.createElement('input');
+            pageInput.id = 'sidebarSearchPage';
+            pageInput.type = 'text';
+            pageInput.inputMode = 'numeric';
+            pageInput.maxLength = 6;
+            pageInput.setAttribute('aria-label', 'File search results page number');
+            pageInput.title = 'Enter a page number and press Enter';
+            pageInput.addEventListener('focus', () => pageInput.select());
+            pageInput.addEventListener('input', () => {
+                pageInput.value = pageInput.value.replace(/[^0-9]/g, '').slice(0, 6);
+            });
+            const jumpToPage = () => {
+                const requestedPage = pageInput.value ? Number(pageInput.value) : NaN;
+                if (Number.isInteger(requestedPage)) {
+                    this.changeSearchPage(requestedPage - 1 - this.searchPage);
+                }
+                pageInput.value = String(this.searchPage + 1);
+            };
+            pageInput.addEventListener('change', jumpToPage);
+            pageInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    jumpToPage();
+                    pageInput.select();
+                }
+            });
+            const total = document.createElement('span');
+            total.className = 'sidebar-search-total-pages';
+            page.append(pageInput, total);
+            const next = document.createElement('button');
+            next.type = 'button';
+            next.id = 'sidebarSearchNext';
+            next.textContent = 'Next';
+            next.setAttribute('aria-label', 'Next file search results page');
+            next.onclick = e => { e.stopPropagation(); this.changeSearchPage(1); };
+            pagination.append(previous, page, next);
+            footer.append(status, pagination);
+            dropdown.appendChild(footer);
+        }
+        const status = footer.querySelector('.sidebar-search-status');
+        status.textContent = this.searchStatus;
+        status.hidden = !this.searchStatus;
+        footer.querySelector('#sidebarSearchPrevious').disabled = this.searchPage === 0;
+        const page = footer.querySelector('.sidebar-search-page');
+        const pageInput = page.querySelector('input');
+        const currentPage = String(this.searchPage + 1);
+        // Background search batches must not replace a page number being typed.
+        if (document.activeElement !== pageInput || pageInput.dataset.page !== currentPage) {
+            pageInput.value = currentPage;
+        }
+        pageInput.dataset.page = currentPage;
+        page.querySelector('.sidebar-search-total-pages').textContent = ' / ' + totalPages;
+        footer.querySelector('#sidebarSearchNext').disabled = this.searchPage >= totalPages - 1;
+        dropdown.style.display = 'flex';
     }
 
     moveSearchSelection(delta) {
@@ -8861,9 +9013,13 @@ class FolderTreeManager {
     }
 
     closeSearchDropdown() {
+        clearTimeout(this.searchDebounceTimer);
+        this.searchRequestId++;
+        this.contentSearch.cancel();
         const dropdown = document.getElementById("sidebarSearchDropdown");
         if (dropdown) dropdown.style.display = "none";
         this.selectedSearchIndex = -1;
+        this.currentSearchResults = [];
     }
 
     async openFileFromSearch(fileItem) {

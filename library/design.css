@@ -37,6 +37,7 @@
   --searchBorder: #3c4043;
   --searchFieldBg: #2d3035;
   --searchFieldBorder: #5f6368;
+  --searchPageBorder: #929292;
   --searchFieldColor: #f1f3f4;
   --searchBtnBg: #3c4043;
   --searchBtnHoverBg: #4f5358;
@@ -44,6 +45,10 @@
   --searchBtnBorder: #5f6368;
   --searchCounterColor: #9aa0a6;
   --searchShadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="light"] {
+  --searchPageBorder: #dce1e6;
 }
 
 html, body {
@@ -656,6 +661,91 @@ code {
   scrollbar-color: var(--scrollbarThumb) var(--scrollbarTrack);
 }
 
+.sidebar-search-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--tooltipBorder);
+  margin-top: 4px;
+  padding: 6px 4px 2px;
+}
+
+.sidebar-search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.sidebar-search-pagination button {
+  border: 1px solid var(--tooltipBorder);
+  border-radius: 4px;
+  background: var(--toolbarBg);
+  color: var(--textColor);
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sidebar-search-pagination button:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.sidebar-search-pagination button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.sidebar-search-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sidebar-search-page,
+.sidebar-search-status {
+  font-size: 10px;
+  color: var(--textColor);
+}
+
+.sidebar-search-page {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+#sidebarSearchPage {
+  box-sizing: border-box;
+  width: 48px;
+  padding: 4px 2px;
+  border: 1px solid var(--searchPageBorder);
+  border-radius: 4px;
+  background: var(--toolbarBg);
+  color: var(--textColor);
+  font: inherit;
+  text-align: center;
+}
+
+#sidebarSearchPage:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.sidebar-search-status {
+  padding: 0 2px 5px;
+  opacity: 0.7;
+}
+
+.search-result-snippet {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--textColor);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 3px;
+}
+
 .sidebar-search-results-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -728,7 +818,8 @@ code {
   text-overflow: ellipsis;
 }
 
-.search-result-path .match-highlight {
+.search-result-path .match-highlight,
+.search-result-snippet .match-highlight {
   background: rgba(59, 130, 246, 0.35);
   color: #3b82f6;
   font-weight: 700;
