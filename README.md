@@ -17,7 +17,8 @@ https://manuuuu21.github.io/rAthena-Text-Editor/
 - **Responsive UI** - Side-by-side editor and chat interface with collapsible panels
 - **Keyboard Shortcut** - CTRL+Alt+T or CTRL+Shift+T to reopen the previously tab along with chats.
 - **Minimap** - A compact overview of the full script for quick navigation and easy scrolling
-  
+- **Global Search** - You can search the files and its content of the file
+- 
 ## 🚀 Quick Start
 
 1. **Open the Editor** - Visit the repository and open `index.html` in your browser
