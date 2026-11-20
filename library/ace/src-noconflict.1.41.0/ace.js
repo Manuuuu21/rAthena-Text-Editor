@@ -8202,7 +8202,6 @@ var SearchHighlight = /** @class */ (function () {
         this.setRegexp(regExp);
         this.clazz = clazz;
         this.type = type;
-        this.docLen = 0;
     }
     SearchHighlight.prototype.setRegexp = function (regExp) {
         if (this.regExp + "" == regExp + "")
@@ -8213,6 +8212,15 @@ var SearchHighlight = /** @class */ (function () {
     SearchHighlight.prototype.update = function (html, markerLayer, session, config) {
         if (!this.regExp)
             return;
+        // Local performance fix: getValue() joins the entire document. Checking
+        // its length for every visible row makes search scrolling expensive and
+        // also misses same-length edits. Invalidate on document changes instead.
+        var revision = session.$searchHighlightRevision || 0;
+        if (this.$document !== session.doc || this.$documentRevision !== revision) {
+            this.cache = [];
+            this.$document = session.doc;
+            this.$documentRevision = revision;
+        }
         var start = config.firstRow;
         var end = config.lastRow;
         var renderedMarkerRanges = {};
@@ -8220,7 +8228,7 @@ var SearchHighlight = /** @class */ (function () {
         var mtSearch = _search && _search.$isMultilineSearch(session.$editor.getLastSearchOptions());
         for (var i = start; i <= end; i++) {
             var ranges = this.cache[i];
-            if (ranges == null || session.getValue().length != this.docLen) {
+            if (ranges == null) {
                 if (mtSearch) {
                     ranges = [];
                     var match = _search.$multiLineForward(session, this.regExp, i, end);
@@ -8254,7 +8262,6 @@ var SearchHighlight = /** @class */ (function () {
                 markerLayer.drawSingleLineMarker(html, rangeToAddMarkerTo, this.clazz, config);
             }
         }
-        this.docLen = session.getValue().length;
     };
     return SearchHighlight;
 }());
@@ -10529,6 +10536,7 @@ var EditSession = /** @class */ (function () {
     };
     EditSession.prototype.onChange = function (delta) {
         this.$modified = true;
+        this.$searchHighlightRevision = (this.$searchHighlightRevision || 0) + 1;
         this.$bidiHandler.onChange(delta);
         this.$resetRowCache(delta.start.row);
         var removedFolds = this.$updateInternalDataOnChange(delta);

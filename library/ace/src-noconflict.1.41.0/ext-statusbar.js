@@ -28,7 +28,8 @@ var StatusBar = /** @class */ (function () {
             var r = editor.getSelectionRange();
             add("(" + (r.end.row - r.start.row) + ":" + (r.end.column - r.start.column) + ")", " ");
         }
-        add(c.row + ":" + c.column, " ");
+        // Ace rows are zero-based; display the same line number as the gutter.
+        add((c.row + 1) + ":" + c.column, " ");
         if (sel.rangeCount)
             add("[" + sel.rangeCount + "]", " ");
         status.pop();
