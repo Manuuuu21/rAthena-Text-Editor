@@ -140,6 +140,27 @@
     </div>
   </div>
 
+  <dialog id="fileInfoDialog" class="modal file-info-modal" aria-labelledby="fileInfoTitle" aria-describedby="fileInfoName">
+    <div class="modal-header">
+      <h2 id="fileInfoTitle">Info</h2>
+      <button id="fileInfoClose" class="close-btn" type="button" aria-label="Close info">✖</button>
+    </div>
+    <p id="fileInfoName" class="file-info-name"></p>
+    <dl class="file-info-details">
+      <div><dt>Full path</dt><dd><code id="fileInfoPath"></code><small>Starts at the opened workspace folder.</small></dd></div>
+      <div><dt>Type</dt><dd id="fileInfoType"></dd></div>
+      <div><dt id="fileInfoSizeLabel">Size</dt><dd id="fileInfoSize"></dd></div>
+      <div id="fileInfoModifiedRow"><dt>Last modified</dt><dd id="fileInfoModified"></dd></div>
+      <div id="fileInfoDirectRow" hidden><dt>Direct contents</dt><dd id="fileInfoDirect"></dd></div>
+      <div id="fileInfoTotalRow" hidden><dt>Including subfolders</dt><dd id="fileInfoTotal"></dd></div>
+    </dl>
+    <p id="fileInfoStatus" class="file-info-status" role="status" aria-live="polite"></p>
+    <div class="file-info-actions">
+      <button id="fileInfoCopyPath" type="button">Copy path</button>
+      <button id="fileInfoDone" type="button">Close</button>
+    </div>
+  </dialog>
+
   <!-- RO Mojibake & Character Encoding Modal -->
   <div class="modal-overlay" id="mojibakeModal" style="display: none;">
     <div class="modal" style="max-width: 680px; width: 92%;">
@@ -352,6 +373,11 @@
     <span class="tree-menu-label">Delete</span>
     <span class="tree-menu-shortcut">Del</span>
   </div>
+  <div class="tree-menu-divider" id="treeMenuInfoDivider"></div>
+  <div class="tree-menu-item" id="treeMenuInfo" data-action="info">
+    <span class="tree-menu-icon">ⓘ</span>
+    <span class="tree-menu-label">Info</span>
+  </div>
 </div>
 
   <!-- ACE Editor v1.41.0 (Latest as of May 2025) -->
@@ -372,8 +398,10 @@
   <script src="library/rathena_tooltip_doc.js"></script>
   <script src="library/myGeminiAPIKey.js"></script>
   <script src="library/folder-content-search.js"></script>
+  <script src="library/file-info.js"></script>
   <script src="library/init.js"></script>
   <script src="library/history-modal.js"></script>
+  <script src="library/file-info-modal.js"></script>
   <script>
     function bootApp() {
       tabManager.initSession();
