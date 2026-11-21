@@ -5708,6 +5708,7 @@ function clearChat() {
 
 // Global hotkey logic (e.g. Ctrl+S, reopen closed tab)
 document.addEventListener("keydown", (e) => {
+    if (document.getElementById("fileInfoDialog")?.open) return;
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isAlt = e.altKey;
@@ -6258,6 +6259,16 @@ class FolderTreeManager {
 
         // Drag to root workspace folder via sidebar header
         const sidebarTitle = document.getElementById("sidebarTitle");
+        if (sidebarTitle) {
+            sidebarTitle.oncontextmenu = e => {
+                if (!this.rootHandle) return;
+                e.preventDefault();
+                this.showContextMenu(e, {
+                    isDirectory: true, isRoot: true, handle: this.rootHandle,
+                    path: "", nodeElem: null
+                });
+            };
+        }
         if (sidebarTitle && !sidebarTitle._hasDropListener) {
             sidebarTitle._hasDropListener = true;
             sidebarTitle.ondragover = (e) => {
@@ -6891,6 +6902,8 @@ class FolderTreeManager {
                     this.startInlineRename(target);
                 } else if (action === "delete") {
                     this.promptDelete(target);
+                } else if (action === "info") {
+                    this.showItemInfo(target);
                 }
             });
         }
@@ -6950,6 +6963,7 @@ class FolderTreeManager {
         }
 
         document.addEventListener("keydown", (e) => {
+            if (document.getElementById("fileInfoDialog")?.open) return;
             if (e.key === "Escape") {
                 this.closeContextMenu();
                 this.closeDeleteModal();
@@ -7039,6 +7053,10 @@ class FolderTreeManager {
         const div2 = document.getElementById("treeMenuDivider2");
         const renameItem = document.getElementById("treeMenuRename");
         const deleteItem = document.getElementById("treeMenuDelete");
+        const infoItem = document.getElementById("treeMenuInfo");
+        const infoDivider = document.getElementById("treeMenuInfoDivider");
+        if (infoItem) infoItem.style.display = isMulti ? "none" : "flex";
+        if (infoDivider) infoDivider.style.display = isMulti ? "none" : "block";
 
         const updateItemLabel = (el, text) => {
             if (!el) return;
@@ -7134,6 +7152,16 @@ class FolderTreeManager {
         const menu = document.getElementById("treeContextMenu");
         if (menu) menu.style.display = "none";
         this.contextMenuItem = null;
+    }
+
+    showItemInfo(item) {
+        this.closeContextMenu();
+        if (!item?.handle) return;
+        FileInfoDialog.open({
+            handle: item.handle,
+            path: [this.rootHandle?.name, item.path].filter(Boolean).join('/'),
+            focusTarget: item.nodeElem || document.getElementById("sidebarTitle")
+        });
     }
 
     async startInlineCreate(parentReg, type = 'file') {
