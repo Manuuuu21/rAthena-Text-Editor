@@ -1944,6 +1944,7 @@ class Tab {
 
     initEditor() {
         this.editor = ace.edit(this.elements.editor.id);
+        installIndentGuides(this.editor);
         this.editor.tab = this;
         if (this.editor.session) {
             this.editor.session.tab = this;
