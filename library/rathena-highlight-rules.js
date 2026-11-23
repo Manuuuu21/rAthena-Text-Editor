@@ -757,7 +757,9 @@ function addMenuHighlightRules(rules) {
     { token: "comment.line", regex: "//.*$" },
     { token: "comment.block.start", regex: "/\\*", push: "menuComment" },
     { token: "string", regex: '"(?:[^"\\\\]|\\\\.)*"' },
-    { token: "keyword.operator", regex: ";", next: "start" }
+    // A semicolon ends a menu statement, but it is a delimiter rather than an
+    // operator. Keep it uncolored while returning to normal script rules.
+    { token: "text", regex: ";", next: "start" }
   ];
   rules.menuCaption = [
     ...common(),
