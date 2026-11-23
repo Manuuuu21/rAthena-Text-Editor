@@ -831,12 +831,13 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { defaultToken: "comment.block" }
       ],
       npcName: [
-        { token: "text", regex: "[^,\\r\\n{}]+?(?=[ \\t]+\\d+[ \\t]*,[ \\t]*\\{)", next: "npcId" },
+        { token: "text", regex: "[^,\\r\\n{}]+?(?=[ \\t]+-?\\d+[ \\t]*,[ \\t]*\\{)", next: "npcId" },
         { token: "text", regex: "[^,\\r\\n{}]+", next: "start" },
         { token: "text", regex: "(?=,|\\{|$)", next: "start" }
       ],
       npcId: [
         { token: "text", regex: "[ \\t]+" },
+        { token: ["keyword.operator", "constant.numeric"], regex: "(-)(\\d+)", next: "start" },
         { token: "constant.numeric", regex: "\\d+", next: "start" },
         { token: "text", regex: "(?=,|\\{|$)", next: "start" }
       ]
