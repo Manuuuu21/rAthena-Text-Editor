@@ -811,7 +811,7 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         mapHighlightRule(),
         // An NPC display name follows `script` in a declaration. Consume it as
         // plain text so command names used in the name are not mistaken for
-        // script syntax; the final numeric NPC ID keeps its normal color.
+        // script syntax; the trailing sprite ID (including `-` or `-1`) keeps its normal color.
         { token: ["keyword.control", "text"], regex: "(?<![@\\w\\.])\\b(script(?:\\((?:CLOAKED|HIDDEN|DISABLED)\\))?)([ \\t]+)", next: "npcName" },
         { token: "keyword.control", regex: "(?<![@\\w\\.])\\b(?:" + controlFlowKeywords.join("|") + ")\\b" },
         { token: "support.function", regex: "(?<![@\\w\\.])\\b(?:" + supportFunctionKeywords.join("|") + ")\\b" },
@@ -833,13 +833,14 @@ ace.define("ace/mode/rathena_highlight_rules", ["require", "exports", "ace/lib/o
         { defaultToken: "comment.block" }
       ],
       npcName: [
-        { token: "text", regex: "[^,\\r\\n{}]+?(?=[ \\t]+-?\\d+[ \\t]*,[ \\t]*\\{)", next: "npcId" },
+        { token: "text", regex: "[^,\\r\\n{}]+?(?=[ \\t]+(?:-(?:\\d+)?|\\d+)[ \\t]*(?:,[ \\t]*\\d+[ \\t]*,[ \\t]*\\d+[ \\t]*)?,)", next: "npcId" },
         { token: "text", regex: "[^,\\r\\n{}]+", next: "start" },
         { token: "text", regex: "(?=,|\\{|$)", next: "start" }
       ],
       npcId: [
         { token: "text", regex: "[ \\t]+" },
         { token: ["keyword.operator", "constant.numeric"], regex: "(-)(\\d+)", next: "start" },
+        { token: "keyword.operator", regex: "-", next: "start" },
         { token: "constant.numeric", regex: "\\d+", next: "start" },
         { token: "text", regex: "(?=,|\\{|$)", next: "start" }
       ]
